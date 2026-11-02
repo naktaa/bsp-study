@@ -1,0 +1,38 @@
+# Local build outputs
+/build/
+/out/
+/tmp/
+*.o
+*.a
+*.so
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.cmd
+Module.symvers
+modules.order
+
+# Large local source/image trees
+/external/
+/downloads/
+/sstate-cache/
+*.img
+*.wic
+*.wic.*
+
+# Local configuration and raw logs
+.env
+.env.*
+!.env.example
+*.local
+/logs/raw/
+
+# Python/editor/OS
+__pycache__/
+*.py[cod]
+.venv/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
