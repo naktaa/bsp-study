@@ -1,5 +1,5 @@
 ifneq ($(KERNELRELEASE),)
-obj-m := bsp_hello.o
+obj-m := hello.o
 else
 KDIR ?= $(abspath $(CURDIR)/../../out/kernel-rpi4)
 ARCH ?= arm64

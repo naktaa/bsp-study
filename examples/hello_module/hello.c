@@ -6,12 +6,12 @@
 #define DRIVER_DESC "hello test driver"
 
 static int __init hello_init(void) {
-    pr_info("bsp_hello: loaded\n");
+    pr_info("hello: loaded\n");
     return 0;
 }
 
 static void __exit hello_exit(void) {
-    pr_info("bsp_hello: unloaded\n");
+    pr_info("hello: unloaded\n");
 }
 
 module_init(hello_init);

@@ -17,7 +17,7 @@
 
 ### C 코드의 핵심
 
-원본은 [bsp_hello.c](bsp_hello.c)다. 하드웨어나 `/dev` 장치를 등록하지 않고 로그만 출력한다.
+원본은 [hello.c](hello.c)다. 하드웨어나 `/dev` 장치를 등록하지 않고 로그만 출력한다.
 
 | 요소 | 의미 |
 | --- | --- |
@@ -41,7 +41,7 @@
 | 요소 | 의미 |
 | --- | --- |
 | `ifneq ($(KERNELRELEASE),)` | Kbuild가 읽을 때의 obj-m 부분과 사용자가 make할 때의 편의 규칙 분리. 수업의 조건문 없는 구성도 가능 |
-| `obj-m := bsp_hello.o` | Kbuild에 모듈 대상 지정. 최종 산출물은 bsp_hello.ko |
+| `obj-m := hello.o` | Kbuild에 모듈 대상 지정. 최종 산출물은 hello.ko |
 | `KDIR ?= $(abspath $(CURDIR)/../../out/kernel-rpi4)` | 현재 모듈 폴더에서 저장소 루트로 두 단계 올라가 커널 출력 선택 |
 | `ARCH ?= arm64`, `CROSS_COMPILE ?= aarch64-linux-gnu-` | ARM64 크로스 빌드 기본값 |
 | `all`, `clean`, `.PHONY` | 빌드·정리 작업. 일반 파일 타깃과 구분. 첫 일반 타깃 all이 기본이며 default라는 이름도 특별한 예약어는 아님 |
@@ -61,8 +61,8 @@
 cd ~/bspworkspace/bsp-study/examples/hello_module
 make
 echo $?
-file bsp_hello.ko
-modinfo ./bsp_hello.ko
+file hello.ko
+modinfo ./hello.ko
 ```
 
 성공 기준은 종료 상태 0, file의 ARM aarch64 형식, Pi 실행 버전과 일치하는 vermagic이다.
@@ -73,10 +73,10 @@ modinfo ./bsp_hello.ko
 
 | 파일 | 역할 |
 | --- | --- |
-| `bsp_hello.o` | 작성한 C 소스의 오브젝트 |
-| `bsp_hello.mod`, `.mod.c`, `.mod.o` | 구성 오브젝트 목록, 자동 생성 모듈 정보와 그 오브젝트 |
+| `hello.o` | 작성한 C 소스의 오브젝트 |
+| `hello.mod`, `.mod.c`, `.mod.o` | 구성 오브젝트 목록, 자동 생성 모듈 정보와 그 오브젝트 |
 | `.module-common.o` | vermagic 등 공통 모듈 정보 |
-| **`bsp_hello.ko`** | Pi에 전송할 최종 모듈 |
+| **`hello.ko`** | Pi에 전송할 최종 모듈 |
 | `modules.order`, `Module.symvers` | 모듈 순서와 이번 모듈이 내보내는 심볼 정보. 이 예제의 Module.symvers는 0바이트 |
 | `.*.cmd` | 명령·의존성 추적. 소스·헤더·옵션 변경 시 재빌드 판단에 사용 |
 
@@ -89,7 +89,7 @@ make clean
 make
 ```
 
-첫 명령은 기존 빌드 후 수정이 없으면 CC/LD 대부분을 생략하는 증분 빌드다. clean 후 make는 모듈을 다시 빌드한다. 현재 clean은 이 외부 모듈의 산출물만 지우며 커널 전체 빌드 디렉터리를 지우지 않는다. 모두 사용자 실행으로 확인했다.
+첫 명령은 기존 빌드 후 수정이 없으면 CC/LD 대부분을 생략하는 증분 빌드다. clean 후 make는 모듈을 다시 빌드한다. 현재 clean은 이 외부 모듈의 산출물만 지우며 커널 전체 빌드 디렉터리를 지우지 않는다. 빌드·정리 동작은 이름 변경 전 사용자 실행으로 확인했다.
 
 ### 3. 전송·커널 버전 비교
 
@@ -97,7 +97,7 @@ make
 
 ```bash
 cd ~/bspworkspace/bsp-study/examples/hello_module
-scp bsp_hello.ko nakta@192.168.45.224:/tmp/bsp_hello.ko
+scp hello.ko nakta@192.168.45.224:/tmp/hello.ko
 ssh nakta@192.168.45.224
 ```
 
@@ -106,7 +106,7 @@ ssh nakta@192.168.45.224
 ```bash
 cd ~
 uname -r
-modinfo -F vermagic /tmp/bsp_hello.ko
+modinfo -F vermagic /tmp/hello.ko
 ```
 
 두 출력의 버전 부분이 `6.18.59-v8-bsp-study01`인지 확인 후 로드한다. 다르면 멈추고 WSL의 KDIR와 Pi에서 선택한 커널을 확인한다.
@@ -117,9 +117,9 @@ modinfo -F vermagic /tmp/bsp_hello.ko
 
 ```bash
 cd ~
-sudo insmod /tmp/bsp_hello.ko
-lsmod | grep '^bsp_hello'
-sudo dmesg | grep 'bsp_hello:'
+sudo insmod /tmp/hello.ko
+lsmod | grep '^hello'
+sudo dmesg | grep 'hello:'
 ```
 
 `insmod`는 파일 경로의 모듈을 로드한다. 이미 로드되어 있으면 중복 insmod하지 않는다. 이 예제는 의존 모듈이 없고 /tmp의 파일로 실습하므로 insmod를 사용했다. modprobe는 일반적으로 `/lib/modules/<실행버전>`의 설치·의존성 정보를 이용해 이름으로 의존 모듈까지 처리한다. 커널 내장(=y)은 별도 .ko 로드 없이 동작하고 모듈(=m)은 로드 가능한 .ko가 된다.
@@ -128,9 +128,9 @@ sudo dmesg | grep 'bsp_hello:'
 
 ```bash
 cd ~
-sudo rmmod bsp_hello
-lsmod | grep '^bsp_hello'
-sudo dmesg | grep 'bsp_hello:'
+sudo rmmod hello
+lsmod | grep '^hello'
+sudo dmesg | grep 'hello:'
 ```
 
 rmmod는 파일 경로가 아닌 모듈 이름을 받는다. dmesg는 이력이므로 loaded도 남는다. 사용자 프로그램 종료처럼 자동으로 해제되는 것은 아니다.
@@ -140,6 +140,8 @@ rmmod는 파일 경로가 아닌 모듈 이름을 받는다. dmesg는 이력이�
 - 사용자 빌드 종료 상태 0, ARM aarch64 relocatable 형식 확인. 커널이 로드·연결하는 모듈이므로 사용자 실행 파일과 형식이 다르다.
 - vermagic: `6.18.59-v8-bsp-study01 SMP preempt mod_unload modversions aarch64`.
 - clean·재빌드 및 수정 없는 make의 작업 생략은 사용자 직접 실행으로 확인했다.
+
+당시 모듈 이름은 `bsp_hello`였으며 아래 로그는 이름 변경 전 실제 관측이다. 현재 소스·모듈·로그 이름은 `hello`로 정리했지만 변경 후 빌드·로드·해제는 아직 미검증이다. 위 실행 순서는 현재 이름을 기준으로 한다.
 
 실제 관측:
 

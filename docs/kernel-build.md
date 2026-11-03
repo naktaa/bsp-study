@@ -204,29 +204,46 @@ lsinitramfs /boot/firmware/initramfs8-bsp-study01 \
 
 ### 7. 부팅 선택·검증
 
-**최종 config.txt 전문은 확인 대기다.** 아래는 실습에서 안내한 재현용 설정이며 최종 파일의 확정 사본이 아니다. 사용자가 보낸 재부팅 전 파일에서는 맨 위 [pi4]와 맨 아래 [all]을 확인했으나, 안내한 중간 [all] 추가 후 전문은 받지 못했다. 부팅 결과 자체는 아래처럼 확인했다.
+2026-11-04 사용자 제공 `cat /boot/firmware/config.txt` **전문**과 `uname -r`로 화면 복구 후 설정·커널 버전을 확인했다. 아래는 해당 파일에서 주석·빈 줄을 제외한 활성 설정이다. [pi4] 선택 블록 뒤의 [all]과 마지막 [all]도 실제 파일에 존재한다.
 
-**Pi · 작업 디렉터리: 홈, 현재 파일 확인 및 필요 시 편집**
+**Pi · 작업 디렉터리: 홈, 읽기 확인**
 
 ```bash
 cd ~
 cat /boot/firmware/config.txt
-sudo nano /boot/firmware/config.txt
 ```
 
-기존 설정 앞에 다음 블록을 두도록 안내했다. 이미 있으면 중복 추가하지 않는다.
-
 ```ini
-# BSP study custom kernel
 [pi4]
 kernel=kernel8-bsp-study01.img
 device_tree=bcm2711-rpi-4-b-bsp-study01.dtb
 overlay_prefix=overlays-bsp-study01/
 
 [all]
+dtparam=i2c_arm=on
+dtparam=spi=on
+dtparam=audio=on
+camera_auto_detect=1
+display_auto_detect=1
+auto_initramfs=1
+dtoverlay=vc4-kms-v3d
+max_framebuffers=2
+disable_fw_kms_setup=1
+arm_64bit=1
+disable_overscan=1
+arm_boost=1
+
+[cm4]
+otg_mode=1
+[cm5]
+dtoverlay=dwc2,dr_mode=host
+[pi5]
+dtoverlay=nospi10
+[all]
+enable_uart=1
 ```
 
-기존 `arm_64bit=1`, `auto_initramfs=1`과 나머지 설정은 유지한다. [all]은 그 아래부터 공통 설정으로 되돌리며 위로 소급하지 않는다. overlay_prefix는 기존 dtoverlay보다 먼저 둔다. 커널 이름에 대응하는 `initramfs8-bsp-study01`을 자동 선택하게 했으며 os_prefix는 사용하도록 요구하지 않았다. 실제 선택 설정의 최종 확인은 위 미확인 항목으로 남긴다.
+재현 환경에서 편집이 필요할 때만 Pi 홈에서 `sudo nano /boot/firmware/config.txt`로 기존 설정을 유지하며 커스텀 선택 블록을 추가한다. overlay_prefix는 기존 dtoverlay보다 앞에 둔다. [all]은 그 아래부터 공통 설정으로 되돌리며 위로 소급하지 않는다. auto_initramfs=1은 커널 이름에 대응하는 initramfs8-bsp-study01을 자동 선택하도록 한다. os_prefix 지시문은 최종 파일에 없다. 설정의 참조와 커널 버전은 확인했지만 런타임에서 어떤 DT·initramfs가 로드됐는지 별도로 추출해 검증한 것은 아니다.
 
 **Pi · 작업 디렉터리: 홈, 설정·설치 파일 확인 후 실행**
 
@@ -289,7 +306,8 @@ findmnt /
 | 부팅 | 사용자 uname: `6.18.59-v8-bsp-study01`, aarch64. `/dev/mmcblk0p2` ext4 루트·SSH 재접속 확인 |
 | 모듈 동작 | [hello 모듈](../examples/hello_module/README.md)의 실제 로드·해제·로그 확인 |
 | 화면 | 최초 커스텀 부팅 시 미출력. 매핑 파일 복사 후 재부팅하여 **사용자가 실제 정상 화면 확인** |
-| 남은 확인 | 최종 config.txt 전문, 화면 복구 후 uname 재출력, 보완한 정상 배포 절차 전체 재실행, 기존 커널 롤백 시험은 미확인·미수행 |
+| 최종 설정·복구 후 버전 | 2026-11-04 사용자 제공 config.txt 전문과 uname으로 6.18.59-v8-bsp-study01 재확인 |
+| 남은 확인 | 보완한 정상 배포 절차 전체 재실행·기존 커널 롤백 시험은 미수행. 센서 등 미시험 기능과 DT·initramfs 런타임 파일 식별은 별도 검증하지 않음 |
 
 ## 관련 트러블슈팅
 
