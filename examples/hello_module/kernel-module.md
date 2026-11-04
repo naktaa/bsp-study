@@ -1,86 +1,200 @@
-# hello 커널 모듈 복습·재현
+# hello 커널 모듈 — 코드·Kbuild·로드와 해제
 
-2026-11-03 사용자가 WSL 크로스 빌드·증분 빌드·clean 및 Pi 로드·해제를 직접 확인했다. 기존 [사용자 프로그램 hello](../hello/cross-compile.md)와 달리 `.ko`는 커널에 로드하는 코드이며 실행 파일처럼 직접 실행하지 않는다.
+현재 [hello.c](hello.c)와 [Makefile](Makefile)을 기준으로 커널 모듈의 수명과 빌드·실행 경계를 설명한다. 과거 이름 bsp_hello의 실측은 [검증 현황](#검증-현황)에 분리했다.
 
-## 목적·핵심 개념
+목차:
 
-목표는 같은 커널 빌드 환경으로 만든 모듈의 초기화·정리 함수가 Pi에서 실행되는 것을 확인하는 것이다.
+- [1. 구현 기능과 범위](#1-구현-기능과-범위)
+- [2. 전체 실행 흐름](#2-전체-실행-흐름)
+- [3. 코드 블록별 해설](#3-코드-블록별-해설)
+- [4. 헷갈리기 쉬운 개념과 질문](#4-헷갈리기-쉬운-개념과-질문)
+- [5. VEDA 코드와의 차이](#5-veda-코드와의-차이)
+- [6. 빌드·전송·로드·해제와 검증](#6-빌드전송로드해제와-검증)
+
+## 1. 구현 기능과 범위
+
+hello 모듈은 로드 시 loaded, 해제 시 unloaded 로그를 출력한다. 하드웨어·문자 장치 번호·`/dev` 노드를 등록하지 않고 read/write도 제공하지 않는다. 작은 예제로 Kbuild가 만든 .ko가 Pi 커널에 연결되는 과정을 익힌다. [사용자 프로그램 hello](../hello/cross-compile.md)의 main 실행과 구분한다.
+
+## 2. 전체 실행 흐름
+
+```text
+WSL에서 make
+  → 예제 Makefile이 Pi 커널 빌드 출력의 Kbuild 호출
+  → ARM64 hello.ko 생성 → Pi 전송
+Pi에서 insmod ./hello.ko
+  → 커널이 모듈을 로드·연결하고 hello_init() 호출
+  → loaded 로그, 0 반환으로 초기화 성공
+Pi에서 rmmod hello
+  → 커널이 hello_exit() 호출
+  → unloaded 로그, 모듈 해제
+```
+
+앱처럼 .ko를 직접 실행하지 않고 커널에 로드한다. insmod가 끝난 뒤에도 모듈은 남아 있으므로 별도로 rmmod로 해제한다. dmesg는 코드 실행이 아니라 커널 로그를 조회하는 명령이다.
+
+## 3. 코드 블록별 해설
+
+<a id="c-코드의-핵심"></a>
+
+### 헤더·초기화·종료 함수
+
+```c
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/printk.h>
+
+#define DRIVER_AUTHOR "Nakta"
+#define DRIVER_DESC "hello test driver"
+
+static int __init hello_init(void) {
+    pr_info("hello: loaded\n");
+    return 0;
+}
+
+static void __exit hello_exit(void) {
+    pr_info("hello: unloaded\n");
+}
+```
+
+init.h는 초기화·종료 섹션 표시, module.h는 모듈 등록·메타데이터, printk.h는 로그 선언을 제공한다. DRIVER_AUTHOR·DRIVER_DESC는 뒤의 메타데이터 선언에 사용할 문자열 매크로다.
+
+`hello_init(void)`는 인자 없이 호출되며 성공 시 0, 실패 시 음수 오류를 반환하는 초기화 함수다. 현재는 확보할 자원이 없어 로그 후 바로 0을 반환한다. 파일 범위 함수의 static은 이 이름을 다른 C 파일에서 직접 참조하지 못하도록 제한한다. 아래 매크로로 등록하면 커널이 호출할 수 있다.
+
+`__init`는 초기화 코드 섹션을 지정한다. 성공적인 초기화 후 회수할 수 있는 코드이므로 이후 파일 연산 콜백처럼 계속 사용할 함수에 무분별하게 붙이지 않는다. `hello_exit(void)`는 인자·반환값 없이 해제 작업을 수행하고 `__exit`는 종료 코드 섹션을 표시한다. 현재는 자원이 없어 로그만 남긴다. 나중에 자원을 확보한다면 적절한 실패 정리와 정상 해제가 함께 필요하다.
+
+### 커널에 함수와 메타데이터 연결
+
+```c
+module_init(hello_init);
+module_exit(hello_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR(DRIVER_AUTHOR);
+MODULE_DESCRIPTION(DRIVER_DESC);
+```
+
+module_init·module_exit는 해당 함수를 로드·해제 지점으로 연결하는 매크로다. 이 줄에서 hello_init()을 일반 함수처럼 즉시 호출하는 것이 아니다. 사용자 프로그램의 main도 필요하지 않다.
+
+MODULE_LICENSE는 라이선스 정보를, AUTHOR·DESCRIPTION은 modinfo로 확인할 작성자·설명을 남긴다. GPL 표기는 라이선스 메타데이터이며 out-of-tree 여부를 바꾸지는 않는다. 이 선언으로 `/dev` 노드가 생기는 것도 아니다.
+
+### 로그 수준과 printk·pr_info·dev_info
+
+현재 `pr_info("hello: ...")`는 INFO 수준이며 `printk(KERN_INFO ...)`에 대응한다. 수업의 KERN_NOTICE는 NOTICE라 같은 수준의 짧은 표현은 pr_notice다. pr_info가 NOTICE까지 포함한다는 뜻은 아니다.
+
+pr_info/pr_err 등은 수준을 짧고 명확하게 표현하는 편의 매크로이고 printk도 유효하다. 디바이스 드라이버에서 항상 pr_info만 더 나은 것은 아니다. 실제 장치 객체가 있으면 dev_info/dev_err/dev_dbg로 장치 문맥을 함께 남기는 방식이 유용하다. 현재 예제는 장치 객체 없이 모듈 로그만 출력한다. 이 출력은 printf의 터미널 출력과 달리 커널 로그에서 조회한다.
+
+<a id="makefile의-핵심"></a>
+
+### Makefile과 Kbuild의 두 단계
+
+```make
+ifneq ($(KERNELRELEASE),)
+obj-m := hello.o
+else
+KDIR ?= $(abspath $(CURDIR)/../../out/kernel-rpi4)
+ARCH ?= arm64
+CROSS_COMPILE ?= aarch64-linux-gnu-
+
+.PHONY: all clean
+
+all:
+	$(MAKE) -C "$(KDIR)" M="$(CURDIR)" \
+		ARCH="$(ARCH)" CROSS_COMPILE="$(CROSS_COMPILE)" LOCALVERSION= modules
+
+clean:
+	$(MAKE) -C "$(KDIR)" M="$(CURDIR)" \
+		ARCH="$(ARCH)" CROSS_COMPILE="$(CROSS_COMPILE)" LOCALVERSION= clean
+endif
+```
+
+사용자가 예제 폴더에서 make를 실행하면 KERNELRELEASE가 설정되지 않은 바깥 호출에서 else 부분의 all이 동작한다. 레시피가 커널 빌드 디렉터리로 들어가고, Kbuild가 예제 Makefile을 다시 읽을 때는 KERNELRELEASE가 설정돼 obj-m 선언을 읽는다. `ifneq`는 이 두 문맥을 구분하는 Make 조건문이다. 조건문 없이 수업처럼 구성하는 방식도 가능하다.
+
+`obj-m := hello.o`는 로드 가능한 모듈 대상으로 지정한다. Kbuild가 hello.c와 필요한 모듈 정보를 컴파일·연결해 hello.ko를 생성한다. 이름은 소스·대상 선언에서 결정되며 hello_init이라는 함수 이름으로 정해지는 것이 아니다.
+
+| 변수·인자 | 역할 |
+| --- | --- |
+| `CURDIR` | 지금 예제 Makefile을 실행하는 디렉터리 |
+| `abspath .../../../out/kernel-rpi4` | 예제에서 두 단계 올라가 저장소의 커널 빌드 출력 절대 경로 계산 |
+| `KDIR ?=` | 위 경로를 기본값으로 사용하고 필요하면 명령줄에서 재정의 |
+| `ARCH=arm64` | Pi 대상 아키텍처 |
+| `CROSS_COMPILE=aarch64-linux-gnu-` | WSL에서 실행해 ARM64 코드를 만드는 도구 접두사 |
+| `$(MAKE) -C "$(KDIR)"` | 커널 빌드 출력의 Makefile로 Kbuild 재귀 호출 |
+| `M="$(CURDIR)"` | 외부 모듈 소스가 있는 현재 디렉터리 전달 |
+| `LOCALVERSION=` | 커널 구축 때와 동일하게 추가 접미사를 비워 버전 조건 유지 |
+| `modules`, `clean` | 외부 모듈 빌드 또는 산출물 정리 요청 |
+
+커널 소스만 있는 경로가 아니라 .config·생성 헤더·심볼 정보를 가진 빌드 출력을 KDIR로 쓴다. WSL의 uname -r은 Pi 커널이 아니므로 이 경로 계산에 사용하지 않는다. `$(MAKE)`는 재귀 Make 호출에서 옵션·병렬 실행 정보가 이어지게 한다. 레시피 앞은 공백 대신 탭이다.
+
+## 4. 헷갈리기 쉬운 개념과 질문
+
+### Make 변수·기본 타깃
+
+- `:=`는 Makefile을 읽을 때 오른쪽 값을 계산해 저장한다.
+- `?=`는 아직 정의되지 않은 변수에만 기본값을 준다. 빈 값으로 정의된 변수도 덮어쓰지 않는다.
+- 명령줄의 `make KDIR=...`는 일반적인 Makefile 대입보다 우선한다. 복잡한 변수를 지시하는 새 절차가 아니라 현재 기본값의 변경 방법이다.
+- all과 수업의 default는 예약어가 아닌 일반 타깃 이름이다. 바깥 호출에서 처음 등장한 일반 타깃 all이 기본 선택된다.
+- .PHONY는 all·clean이 같은 이름의 파일 유무로 생략되지 않게 한다. 실제 컴파일의 증분 판단까지 모두 무효화하는 것은 아니다.
+
+<a id="2-산출물과-증분-빌드"></a>
+
+### 산출물과 증분 빌드
+
+| 파일 | 역할 |
+| --- | --- |
+| `hello.o` | 작성한 C 소스의 오브젝트 |
+| `hello.mod`, `.mod.c`, `.mod.o` | 구성 목록·자동 생성 모듈 메타데이터와 그 오브젝트 |
+| `.module-common.o` | vermagic 등 공통 모듈 정보 |
+| `hello.ko` | Pi에 전송할 최종 모듈 |
+| `modules.order` | 모듈 순서 정보 |
+| `Module.symvers` | 이번 외부 모듈이 내보내는 심볼 정보 |
+| `.*.cmd` | 컴파일 명령·의존성 추적 정보 |
+
+소스·헤더·명령 조건이 그대로면 다시 make할 때 많은 CC/LD 단계를 생략한다. 필요한 부분만 다시 만드는 것이 증분 빌드다. make clean 뒤에는 예제 산출물이 없어져 다시 생성한다. clean은 외부 모듈 산출물 범위를 정리하며 커널 전체 출력을 지우지 않는다. 실제 명령은 아래 단일 재현 절차에 둔다.
+
+### 버전·로드 도구·커널 내장
+
+vermagic에는 커널 버전과 모듈 관련 설정 정보가 담긴다. 문자열이 같다는 사실만으로 모든 호환성을 보장하지는 않는다. 같은 소스·.config·생성 헤더·커널 Module.symvers와 호환 툴체인을 사용해야 한다. 커널 Module.symvers는 전체 빌드의 산출물이며 modules_prepare만으로 생성되지 않는다. 예제 폴더의 Module.symvers와 커널 출력의 Module.symvers는 대상이 다르다.
+
+insmod는 지정한 .ko 경로를 로드하고 rmmod는 로드된 모듈 이름으로 해제한다. modprobe는 보통 `/lib/modules/<실행버전>`의 설치·의존성 정보를 사용한다. 이 실습은 의존 모듈 없는 별도 파일을 직접 로드하므로 insmod를 사용한다. 커널 설정 =y는 내장, =m은 별도 모듈로 빌드하는 선택이다.
+
+lsmod의 크기는 파일 크기와 같은 의미가 아닌 모듈 메모리 크기이고 마지막 숫자는 사용 참조 수다. out-of-tree taint는 외부에서 빌드한 모듈을 로드했다는 표시라 그 메시지 자체는 로드 실패가 아니다. 모듈을 해제해도 같은 부팅 동안 이 표시는 남는다.
+
+## 5. VEDA 코드와의 차이
+
+참고 저장소 커밋 `c2f2ace95af528c6f806c8fc273f02bdb10120c6`의 [hello_module.c](../../../VEDA/리눅스커널/수업코드/kmodule/hello_module.c)와 [Makefile](../../../VEDA/리눅스커널/수업코드/kmodule/Makefile)을 읽기 비교했다.
+
+| 확인한 수업 코드 | 현재 코드·이유 |
+| --- | --- |
+| init/exit 함수와 module_init/module_exit | 같은 구조 유지. 이름·중괄호 표현 차이는 실행 구조를 바꾸지 않음 |
+| printk(KERN_NOTICE ...) | pr_info로 INFO 로그 사용. 수준 차이는 위 로그 해설 참고 |
+| kernel.h 포함 | 로그 의도를 직접 드러내는 printk.h 포함 |
+| module_exit 아래 단독 문자 i | 유효한 C 문장이 아니므로 현재 구현에 포함하지 않음 |
+| KDIR=/usr/src/linux | 사용자 소스 경로와 분리한 out/kernel-rpi4 빌드 출력 참조 |
+| default 타깃에서 make 직접 호출 | all·KERNELRELEASE 조건 분기·$(MAKE)로 호출 문맥 구분 |
+| 고정된 빌드 인자·정리 명령 | ARCH/CROSS_COMPILE 기본값과 동일한 버전 인자를 빌드·clean에 전달 |
+
+## 6. 빌드·전송·로드·해제와 검증
 
 ### 선행 조건
 
-- [커널 빌드 문서](../../docs/kernel-build.md)의 소스·설정·전체 빌드가 WSL에 남아 있어야 한다.
-- 소스 커밋은 `b3495ea401d709af0701a85babcba5e3d788a602`, 출력은 저장소의 `out/kernel-rpi4`이다.
-- 설정은 `bcm2711_defconfig`, LOCALVERSION=-v8-bsp-study01, LOCALVERSION_AUTO=n. 빌드 시 추가 `LOCALVERSION=` 유지.
-- WSL은 ARM64 GCC 11.4.0·Make·file·modinfo(kmod), Pi는 sudo·insmod·rmmod·lsmod·dmesg 사용 가능.
-- Pi에서 실행 중인 커널은 `6.18.59-v8-bsp-study01`이어야 한다. 주소는 현재 `nakta@192.168.45.224`이며 변경 시 scp·ssh 주소도 바꾼다.
-- 명령 블록마다 실행 환경과 cd를 명시했다. 이전 터미널의 임시 변수는 필요 없다. 실제 수정·빌드·실행은 사용자가 한다.
+WSL에 [커널 구축 문서](../../docs/kernel-build.md)의 전체 빌드 출력이 남아 있어야 한다. 소스 커밋은 `b3495ea401d709af0701a85babcba5e3d788a602`, 설정은 bcm2711_defconfig·LOCALVERSION=-v8-bsp-study01·LOCALVERSION_AUTO=n이며 명령의 LOCALVERSION=을 유지한다. GCC 11.4.0 ARM64 크로스 도구·Make·file·modinfo(kmod)·ssh·scp가 필요하다.
 
-### C 코드의 핵심
+Pi는 `6.18.59-v8-bsp-study01`로 부팅하고 SSH 별칭 pi와 sudo·kmod·dmesg를 사용할 수 있어야 한다. 현재 배포 기준에 따라 모듈은 `~/bsp/modules/`에 둔다.
 
-원본은 [hello.c](hello.c)다. 하드웨어나 `/dev` 장치를 등록하지 않고 로그만 출력한다.
+### 1) 빌드와 증분·정리 확인
 
-| 요소 | 의미 |
-| --- | --- |
-| `hello_init()`와 `module_init()` | 로드 시 호출할 함수 등록. 0 반환은 초기화 성공 |
-| `hello_exit()`와 `module_exit()` | 해제 시 호출할 정리 함수 등록 |
-| `__init`, `__exit` | 초기화·해제 코드에 대한 커널 섹션 표시 |
-| `pr_info()` | INFO 수준의 커널 로그. 터미널 출력과 구분 |
-| `MODULE_LICENSE/AUTHOR/DESCRIPTION` | 모듈 라이선스·작성자·설명 메타데이터 |
-
-[수업 hello_module.c](../../../VEDA/리눅스커널/수업코드/kmodule/hello_module.c)와 init/exit 구조는 같다. 차이와 이유:
-
-- `printk(KERN_NOTICE ...)`는 NOTICE, 현재 pr_info는 INFO다. 같은 수준의 짧은 표현은 pr_notice이며 pr_info는 printk(KERN_INFO ...)에 대응한다. 기존 printk도 유효하다.
-- 로그 기능을 직접 나타내는 `<linux/printk.h>`를 포함하고, 모듈 이름을 로그에 넣어 검색하기 쉽게 했다.
-- 수업 소스의 단독 `i`는 문법 오류이므로 사용하지 않았다. 작성자·함수명·중괄호 등 표현 차이는 로드 구조를 바꾸지 않는다.
-- 실제 장치에 연결된 드라이버에서는 dev_info/dev_err/dev_dbg처럼 장치를 식별하는 로그를 검토한다. 지금 예제에는 장치 객체가 없다.
-
-### Makefile의 핵심
-
-원본은 [Makefile](Makefile)이며 소스 수정 없이 빌드 도구만 설정한다.
-
-| 요소 | 의미 |
-| --- | --- |
-| `ifneq ($(KERNELRELEASE),)` | Kbuild가 읽을 때의 obj-m 부분과 사용자가 make할 때의 편의 규칙 분리. 수업의 조건문 없는 구성도 가능 |
-| `obj-m := hello.o` | Kbuild에 모듈 대상 지정. 최종 산출물은 hello.ko |
-| `KDIR ?= $(abspath $(CURDIR)/../../out/kernel-rpi4)` | 현재 모듈 폴더에서 저장소 루트로 두 단계 올라가 커널 출력 선택 |
-| `ARCH ?= arm64`, `CROSS_COMPILE ?= aarch64-linux-gnu-` | ARM64 크로스 빌드 기본값 |
-| `all`, `clean`, `.PHONY` | 빌드·정리 작업. 일반 파일 타깃과 구분. 첫 일반 타깃 all이 기본이며 default라는 이름도 특별한 예약어는 아님 |
-| `$(MAKE) -C ... M=...` | 커널 빌드 시스템 호출 및 외부 모듈 경로 전달. 단순 gcc 호출이 아님 |
-| `LOCALVERSION=` | 커널을 빌드할 때와 같은 버전 조건 전달 |
-
-`:=`는 읽는 시점에 값을 계산해 저장하고 `?=`는 아직 정의되지 않았을 때 기본값을 준다. ?=는 빈 값으로 정의된 변수도 덮어쓰지 않는다. 보통 명령줄 변수는 :=로 작성한 일반 대입에도 우선한다. 레시피 들여쓰기는 탭이다.
-[수업 Makefile](../../../VEDA/리눅스커널/수업코드/kmodule/Makefile)은 `/usr/src/linux`를 고정 KDIR로 사용했지만 여기서는 소스와 분리한 **커널 빌드 출력**을 사용한다. WSL의 uname -r은 Pi 커널이 아니므로 기본 KDIR 계산에 사용하지 않는다.
-
-## 실행 순서
-
-### 1. WSL 빌드·메타데이터 확인
-
-**WSL · 작업 디렉터리: 모듈 폴더**
+**WSL · 작업 디렉터리: hello 모듈 예제 · 위 커널 빌드 환경 준비 후**
 
 ```bash
 cd ~/bspworkspace/bsp-study/examples/hello_module
 make
 echo $?
 file hello.ko
-modinfo ./hello.ko
+modinfo -F vermagic ./hello.ko
 ```
 
-성공 기준은 종료 상태 0, file의 ARM aarch64 형식, Pi 실행 버전과 일치하는 vermagic이다.
+종료 상태 0·ARM aarch64 relocatable·대상 커널과 같은 vermagic을 확인한다. 빌드가 실패하면 전송으로 넘어가지 않는다. 증분·clean 차이를 복습하려는 경우에만 다음을 수행한다.
 
-버전 문자열만 같다고 모든 호환성을 보장하는 것은 아니다. 같은 커널 소스·.config·생성 헤더·Module.symvers와 호환 도구로 빌드하고 실제 로드까지 확인한다. `out/kernel-rpi4`의 Module.symvers는 전체 커널 빌드의 산출물이며 modules_prepare만으로 생기지 않는다.
-
-### 2. 산출물과 증분 빌드
-
-| 파일 | 역할 |
-| --- | --- |
-| `hello.o` | 작성한 C 소스의 오브젝트 |
-| `hello.mod`, `.mod.c`, `.mod.o` | 구성 오브젝트 목록, 자동 생성 모듈 정보와 그 오브젝트 |
-| `.module-common.o` | vermagic 등 공통 모듈 정보 |
-| **`hello.ko`** | Pi에 전송할 최종 모듈 |
-| `modules.order`, `Module.symvers` | 모듈 순서와 이번 모듈이 내보내는 심볼 정보. 이 예제의 Module.symvers는 0바이트 |
-| `.*.cmd` | 명령·의존성 추적. 소스·헤더·옵션 변경 시 재빌드 판단에 사용 |
-
-**WSL · 작업 디렉터리: 모듈 폴더**
+**WSL · 작업 디렉터리: hello 모듈 예제 · 최초 빌드 성공 후, 증분 동작 복습 시**
 
 ```bash
 cd ~/bspworkspace/bsp-study/examples/hello_module
@@ -89,80 +203,76 @@ make clean
 make
 ```
 
-첫 명령은 기존 빌드 후 수정이 없으면 CC/LD 대부분을 생략하는 증분 빌드다. clean 후 make는 모듈을 다시 빌드한다. 현재 clean은 이 외부 모듈의 산출물만 지우며 커널 전체 빌드 디렉터리를 지우지 않는다. 빌드·정리 동작은 이름 변경 전 사용자 실행으로 확인했다.
+첫 명령은 변경이 없으면 대부분 생략하고, 마지막 명령은 clean 후 모듈을 다시 만든다. 따라서 다음 전송에 사용할 파일은 마지막 make 성공으로 준비된다.
 
-### 3. 전송·커널 버전 비교
+### 2) 전송과 버전 대조
 
-**WSL · 작업 디렉터리: 모듈 폴더**
+**WSL · 작업 디렉터리: hello 모듈 예제 · 빌드 확인과 SSH 별칭 pi 준비 후**
 
 ```bash
 cd ~/bspworkspace/bsp-study/examples/hello_module
-scp hello.ko nakta@192.168.45.224:/tmp/hello.ko
-ssh nakta@192.168.45.224
+ssh pi 'mkdir -p ~/bsp/modules'
+scp hello.ko pi:bsp/modules/hello.ko
+ssh pi
 ```
 
-**Pi · 작업 디렉터리: 홈**
+**Pi · 작업 디렉터리: `~/bsp/modules` · 전송 완료 후**
 
 ```bash
-cd ~
+cd ~/bsp/modules
 uname -r
-modinfo -F vermagic /tmp/hello.ko
+modinfo -F vermagic ./hello.ko
 ```
 
-두 출력의 버전 부분이 `6.18.59-v8-bsp-study01`인지 확인 후 로드한다. 다르면 멈추고 WSL의 KDIR와 Pi에서 선택한 커널을 확인한다.
+버전 부분이 일치하는지 확인한다. 이미 hello가 로드돼 있다면 먼저 해제하고 새 파일을 로드한다. 파일 전송만으로 로드된 코드가 바뀌지는 않는다.
 
-### 4. 로드·로그·해제
+### 3) 로드·로그·해제
 
-**Pi · 작업 디렉터리: 홈**
+**Pi · 작업 디렉터리: `~/bsp/modules` · 대상 버전 일치와 hello 미로드 상태 확인 후**
 
 ```bash
-cd ~
-sudo insmod /tmp/hello.ko
-lsmod | grep '^hello'
-sudo dmesg | grep 'hello:'
+cd ~/bsp/modules
+sudo insmod ./hello.ko
+lsmod | grep '^hello '
+sudo dmesg | grep -F 'hello:'
 ```
 
-`insmod`는 파일 경로의 모듈을 로드한다. 이미 로드되어 있으면 중복 insmod하지 않는다. 이 예제는 의존 모듈이 없고 /tmp의 파일로 실습하므로 insmod를 사용했다. modprobe는 일반적으로 `/lib/modules/<실행버전>`의 설치·의존성 정보를 이용해 이름으로 의존 모듈까지 처리한다. 커널 내장(=y)은 별도 .ko 로드 없이 동작하고 모듈(=m)은 로드 가능한 .ko가 된다.
+현재 코드의 예상 로그는 `hello: loaded`다. 과거 다른 모듈 이름의 이력과 구분해 이번 시점의 로그를 확인한다.
 
-**Pi · 작업 디렉터리: 홈**
+**Pi · 작업 디렉터리: `~/bsp/modules` · hello 정상 로드 상태에서 해제**
 
 ```bash
-cd ~
+cd ~/bsp/modules
 sudo rmmod hello
-lsmod | grep '^hello'
-sudo dmesg | grep 'hello:'
+lsmod | grep '^hello '
+sudo dmesg | grep -F 'hello:'
 ```
 
-rmmod는 파일 경로가 아닌 모듈 이름을 받는다. dmesg는 이력이므로 loaded도 남는다. 사용자 프로그램 종료처럼 자동으로 해제되는 것은 아니다.
+lsmod에 항목이 없어지고 `hello: unloaded`가 추가돼야 한다. grep이 항목을 찾지 못하면 종료 상태 1이므로 모듈 해제 실패와 혼동하지 않는다. 로그는 이력이므로 이전 loaded도 남는다.
 
-## 검증 결과
+### 검증 현황
 
-- 사용자 빌드 종료 상태 0, ARM aarch64 relocatable 형식 확인. 커널이 로드·연결하는 모듈이므로 사용자 실행 파일과 형식이 다르다.
-- vermagic: `6.18.59-v8-bsp-study01 SMP preempt mod_unload modversions aarch64`.
-- clean·재빌드 및 수정 없는 make의 작업 생략은 사용자 직접 실행으로 확인했다.
+2026-11-03 사용자 실측은 이름 변경 전 bsp_hello 버전이다.
 
-당시 모듈 이름은 `bsp_hello`였으며 아래 로그는 이름 변경 전 실제 관측이다. 현재 소스·모듈·로그 이름은 `hello`로 정리했지만 변경 후 빌드·로드·해제는 아직 미검증이다. 위 실행 순서는 현재 이름을 기준으로 한다.
+| 근거 | 당시 결과 |
+| --- | --- |
+| WSL 빌드·file | 종료 상태 0, ARM aarch64 relocatable |
+| vermagic | 6.18.59-v8-bsp-study01 SMP preempt mod_unload modversions aarch64 |
+| 증분·clean | 수정 없는 make의 생략, clean 뒤 재빌드 확인 |
+| 모듈 정보 | 외부 모듈의 Module.symvers 0바이트. 내보내는 심볼이 없는 예제 |
+| Pi 로드·해제 | lsmod 등록·제거, loaded/unloaded 로그 확인 |
 
-실제 관측:
+대표 과거 로그:
 
 ```text
 bsp_hello              12288  0
 [12843.102465] bsp_hello: loading out-of-tree module taints kernel.
 [12843.104640] bsp_hello: loaded
+[12932.342295] bsp_hello: unloaded
 ```
 
-12288은 lsmod가 보고하는 모듈 메모리 크기로 파일 크기와 다르며 0은 사용 참조 수다. out-of-tree taint는 외부에서 빌드한 모듈 로드 이력이며 이 메시지 자체는 로드 실패가 아니다. 해제 후에도 같은 부팅 동안 taint는 남는다.
+현재 hello라는 소스·모듈·로그 이름으로 변경한 뒤의 빌드·로드·해제 결과는 별도 미확인이다. 과거 전송은 직접 IP 주소·Pi의 /tmp 경로였고 위 절차는 현재 별칭 pi·~/bsp/modules 기준으로 정리한 안내다. 이 경로 변경의 재실행 결과도 별도로 받지 않았다. 이번 문서 정리는 명령·링크·코드 발췌만 정적으로 대조했으며 실제 빌드·로드를 수행하지 않았다.
 
-해제 후 lsmod 검색 결과는 없었고 `[12932.342295] bsp_hello: unloaded`가 추가됐다. 코드·버전·로드·초기화 로그·해제까지 확인했으며 센서·문자 디바이스 기능은 아직 없다.
+버전 불일치·전송 파일 부재는 실패 시 확인할 항목이지만 이 예제에서 실제 발생한 장애 사례로 기록하지 않는다. 실패하면 insmod 오류와 커널 로그를 함께 확인하고 대상 커널·KDIR·설정을 대조한다.
 
-## 관련 트러블슈팅
-
-- 버전 불일치: 다른 버전 커널로 부팅했다면 현재 .ko를 그대로 사용하지 않는다. .config나 커널을 바꾸면 대상 환경과 산출물을 다시 맞춘다.
-- 전송 파일 없음: `/tmp` 파일은 재부팅 후 없어질 수 있다. 새 세션에서 필요하면 빌드 결과를 다시 전송한다.
-- 실패 시 insmod 오류와 커널 로그를 함께 확인한다. 외부 모듈 taint는 위 관측처럼 정상 로드에도 나타난다. 성공 로그를 예상값만으로 기록하지 않는다.
-
-## 참고
-
-- [외부 모듈 빌드](https://docs.kernel.org/kbuild/modules.html)
-- [커널 로그](https://docs.kernel.org/core-api/printk-basics.html)
-- [외부 모듈 taint](https://docs.kernel.org/admin-guide/tainted-kernels.html)
+공식 참고: [외부 모듈 빌드](https://docs.kernel.org/kbuild/modules.html), [커널 로그](https://docs.kernel.org/core-api/printk-basics.html), [커널 taint](https://docs.kernel.org/admin-guide/tainted-kernels.html).
