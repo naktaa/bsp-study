@@ -21,9 +21,9 @@ EIS 입력 연동, Yocto 이미지 재현, U-Boot 및 카메라 경로 분석은
 
 ## 복습·재현
 
-- [첫 사용자 프로그램](examples/hello/README.md)
+- [첫 사용자 프로그램](examples/hello/cross-compile.md)
 - [커널 소스·설정·빌드·백업·설치·부팅·복구](docs/kernel-build.md)
-- [모듈 코드·Makefile·빌드·로드·해제](examples/hello_module/README.md)
+- [모듈 코드·Makefile·빌드·로드·해제](examples/hello_module/kernel-module.md)
 
 실습 코드 수정·빌드·설치·실행은 사용자가 직접 하고, 에이전트는 설명·읽기 검토·문서 정리를 기본으로 한다.
 

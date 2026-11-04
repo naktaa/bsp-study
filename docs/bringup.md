@@ -1,6 +1,6 @@
 # 현재 개발 환경
 
-2026-11-04까지의 사용자 명령 출력과 WSL 파일 읽기 확인 기준. 재현 명령은 [커널 문서](kernel-build.md)와 [모듈 문서](../examples/hello_module/README.md)에 둔다.
+2026-11-04까지의 사용자 명령 출력과 WSL 파일 읽기 확인 기준. 재현 명령은 [커널 문서](kernel-build.md)와 [모듈 문서](../examples/hello_module/kernel-module.md)에 둔다.
 
 ## WSL 호스트
 
@@ -23,7 +23,7 @@
 | 보드 / OS | Raspberry Pi 4 Model B Rev 1.5 / Debian GNU/Linux 13 (trixie), 상세 버전 13.7 |
 | 아키텍처 / 현재 커널 | aarch64 / **6.18.59-v8-bsp-study01**, 부팅·모듈 로드/해제 실측 |
 | 기존 배포판 커널 | **6.18.50+rpt-rpi-v8**, 초기 환경. 기존 모듈 디렉터리와 kernel8.img·initramfs8 보존 |
-| SSH | `nakta@192.168.45.224`, hostname=nakta. 고정 IP 여부 미확인 |
+| SSH | 현재 사용자 지정 별칭 `pi`로 접속 (`ssh pi`). 기존 확인 주소는 `nakta@192.168.45.224`, hostname=nakta. 별칭의 실제 설정·고정 IP 여부는 별도 확인하지 않음 |
 | 루트 / 부트 | `/dev/mmcblk0p2` ext4 `/`, `/dev/mmcblk0p1` FAT `/boot/firmware` |
 | 부팅 설정 | 실제 파일 `/boot/firmware/config.txt`. `/boot/config.txt`는 이동 안내. 2026-11-04 사용자 제공 전문 확인 ([활성 설정](kernel-build.md#7-부팅-선택검증)) |
 | 새 부팅 파일 | kernel8-bsp-study01.img, bcm2711-rpi-4-b-bsp-study01.dtb, overlays-bsp-study01/, initramfs8-bsp-study01 존재 확인 |

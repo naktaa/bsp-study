@@ -34,10 +34,10 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 1. 작은 C 프로그램부터
 - 설치된 툴체인과 타깃 아키텍처 확인 후 작은 프로그램을 빌드하고 `file`로 확인한다.
 - 동적 링크라면 타깃 libc·로더 호환성을 확인하고 SCP/SSH로 실행한다.
-- [기존 hello 실습](../examples/hello/README.md) 완료. Make의 타깃·레시피·변수·증분 빌드는 [모듈 실습](../examples/hello_module/README.md)에서 확인했으며 일반 앱의 헤더 의존성·링크 규칙은 후속 앱 실습에서 보완한다.
+- [기존 hello 실습](../examples/hello/cross-compile.md) 완료. Make의 타깃·레시피·변수·증분 빌드는 [모듈 실습](../examples/hello_module/kernel-module.md)에서 확인했으며 일반 앱의 헤더 의존성·링크 규칙은 후속 앱 실습에서 보완한다.
 
 ## 2. 모듈 기초
-- 완료 근거와 재현: [hello 모듈 실습](../examples/hello_module/README.md).
+- 완료 근거와 재현: [hello 모듈 실습](../examples/hello_module/kernel-module.md).
 - VEDA의 init/exit 예제를 읽고 문법·빌드 경로를 검토해 최소 모듈을 작성한다.
 - 실행 커널과 헤더·설정·생성 파일·필요 시 심볼 버전 정보의 일치를 확인한다.
 - built-in/module, insmod/modprobe, 의존성, vermagic, dmesg를 실제 출력과 연결한다.

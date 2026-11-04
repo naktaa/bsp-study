@@ -304,7 +304,7 @@ findmnt /
 | 빌드 | 사용자 make 종료 상태 0. ARM64 Image 약 28MiB, 모듈 1,917개, DT 파일·Module.symvers 확인 |
 | 설치 | 새 이름의 커널·DTB·overlay, initramfs 약 18MiB 및 새 모듈 정보, 기존·새 모듈 디렉터리 공존 확인 |
 | 부팅 | 사용자 uname: `6.18.59-v8-bsp-study01`, aarch64. `/dev/mmcblk0p2` ext4 루트·SSH 재접속 확인 |
-| 모듈 동작 | [hello 모듈](../examples/hello_module/README.md)의 실제 로드·해제·로그 확인 |
+| 모듈 동작 | [hello 모듈](../examples/hello_module/kernel-module.md)의 실제 로드·해제·로그 확인 |
 | 화면 | 최초 커스텀 부팅 시 미출력. 매핑 파일 복사 후 재부팅하여 **사용자가 실제 정상 화면 확인** |
 | 최종 설정·복구 후 버전 | 2026-11-04 사용자 제공 config.txt 전문과 uname으로 6.18.59-v8-bsp-study01 재확인 |
 | 남은 확인 | 보완한 정상 배포 절차 전체 재실행·기존 커널 롤백 시험은 미수행. 센서 등 미시험 기능과 DT·initramfs 런타임 파일 식별은 별도 검증하지 않음 |
