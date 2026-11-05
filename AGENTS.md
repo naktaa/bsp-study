@@ -47,6 +47,7 @@
   - docs/kernel-build.md: 소스 확보·커밋 고정·설정·크로스 빌드·백업·배포·initramfs·부팅 설정·동작 확인·복구를 정리한다.
   - examples/hello_module/kernel-module.md: 모듈 코드·Makefile의 핵심과 크로스 빌드·전송·로드·해제·로그 확인을 정리한다.
   - examples/char_device/char-device.md: 문자 디바이스의 현재 구현·호출 흐름·코드 해설·사용자/커널 경계와 단계별 검증을 정리한다.
+  - examples/platform_device/platform-device.md: Device Tree·platform 장치·드라이버 매칭과 probe/remove, 현재 구현·검증 절차를 정리한다.
 - 전체 흐름에서 누가·언제·어떤 함수를 호출하는지 먼저 연결한다. 실제 소스를 링크하고 이해에 필요한 코드만 의미 있는 블록으로 제시한 바로 아래에 해설한다. 주요 함수·구조체·인자·반환값·오류 처리와 작성 이유를 설명한다.
 - 함수 포인터·static·const·주소 전달 등 필요한 C 문법은 해당 코드에 연결한다. 모듈 로드/장치 open, fd/struct file, 장치 등록/노드 생성, 등록 해제/노드 삭제처럼 혼동하기 쉬운 개념을 구분하고 사용자 질문을 관련 설명에 합친다.
 - VEDA 비교는 실제 확인한 코드 차이와 변경 이유를 남긴다. 현재 구현과 미구현 기능을 구분하고 예상 동작·일반 주의사항을 실제 트러블슈팅으로 기록하지 않는다.

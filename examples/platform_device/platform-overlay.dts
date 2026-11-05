@@ -1,0 +1,20 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+
+	fragment@0 {
+		target-path = "/";
+
+		__overlay__ {
+			platform-demo {
+				compatible = "nakta,platform-demo";
+				status = "okay";
+
+				label = "platform study";
+				nakta,study-value = <42>;
+			};
+		};
+	};
+};
