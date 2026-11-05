@@ -1,6 +1,7 @@
 # Local build outputs
 /examples/platform_device/*.dtbo
 /examples/mpu6050/*.dtbo
+/examples/mpu6050/mpu6050_app
 /examples/char_device/char_app
 /build/
 /out/

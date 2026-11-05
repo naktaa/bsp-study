@@ -56,7 +56,7 @@
 | SDA | 3 | GPIO2 / SDA1 | I2C 데이터 | 사용자 연결 완료 확인 |
 | SCL | 5 | GPIO3 / SCL1 | I2C 클럭 | 사용자 연결 완료 확인 |
 | AD0 | 선택: 9 | GND | 외부 LOW 고정 시 주소 0x68 | 추가 연결 여부 미정. 보드 기본 상태 확인 필요 |
-| INT | 연결하지 않음 | 미할당 | IRQ 실습에서 핀 결정 | 현재 단계 미사용 계획 |
+| INT | 11 | GPIO17 / IRQ 입력 | Data Ready, active HIGH·래치 | GPIO17 IRQ 실측 확인. 물리11 연결 설계이며 입력·풀다운 적용 |
 | XDA / XCL | 연결하지 않음 | 미할당 | 보조 I2C | 현재 단계 미사용 계획 |
 
 Pi GPIO는 3.3V 신호이고 5V tolerant가 아니다. 3.3V·GND 핀은 GPIO 데이터 핀이 아니다. 정확한 GY-521 변형의 전원 회로는 확인 전이므로 센서 응답이 없다고 임의로 5V로 올리지 않는다.
@@ -72,6 +72,7 @@ GY-521의 물리 핀 1·3·5·6 연결을 사용자 보고로 확인했다. 물�
 | 5 | GPIO3 / SCL1 | GY-521 SCL | 같은 I2C 버스 공유 가능, 주소·신호 전압 확인 |
 | 6 | GND | GY-521 GND | 공통 접지 |
 | 9 | GND | AD0 LOW 고정 시 선택 | 현재 사용 확정 아님 |
+| 11 | GPIO17 | MPU6050 INT 연결 후보 | Data Ready IRQ 동작 확인. 다른 모듈에 중복 할당하지 않음 |
 
 새 모듈은 위 형식으로 모듈별 연결표와 Pi 핀 현황에 반영한다. 임의 GPIO를 중복 할당하지 않고 전원·GND 공유와 I2C 버스 공유를 구분한다. 사용하지 않은 핀도 자동으로 여유 핀이라 가정하지 말고 overlay·다른 기능의 점유를 확인한다.
 
@@ -83,7 +84,7 @@ MPU-6050의 AD0가 LOW면 7비트 주소 0x68, HIGH면 0x69다. **외부 선을 
 
 ### 현재 버스·후속 계획
 
-커스텀 커널에서 i2c-1과 컨트롤러 fe804000.i2c의 연결은 sysfs 출력으로 확인했다. 사용자가 `/dev/i2c-1`과 i2ctransfer 설치를 확인했다. `1-0068/driver`·`1-0069/driver` 링크가 없는 상태에서 `sudo i2ctransfer -y 1 w1@0x68 0x75 r1`을 실행해 `0x68`을 받았다. 주소 0x68에서 WHO_AM_I 응답을 확인했다. 이후 새 학습 드라이버에서도 식별값 0x68·바인딩·overlay 제거와 모듈 해제를 사용자 출력으로 확인했다. 측정값 수집은 아직 확인 전이다. [실습·재현](../examples/mpu6050/mpu6050.md).
+커스텀 커널에서 i2c-1과 컨트롤러 fe804000.i2c의 연결은 sysfs 출력으로 확인했다. 사용자가 `/dev/i2c-1`과 i2ctransfer 설치를 확인했다. `1-0068/driver`·`1-0069/driver` 링크가 없는 상태에서 `sudo i2ctransfer -y 1 w1@0x68 0x75 r1`을 실행해 `0x68`을 받았다. 주소 0x68에서 WHO_AM_I 응답을 확인했다. 이후 새 학습 드라이버에서도 식별값 0x68·바인딩·overlay 제거와 모듈 해제를 사용자 출력으로 확인했다. 이후 raw 한 샘플과 misc 문자 인터페이스를 통한 앱 20회 폴링·재실행·g/deg/s 단위 출력·정상 종료도 사용자 로그로 확인했다. INT는 GPIO17(물리11) 경로의 Data Ready IRQ 증가·해제를 사용자 출력으로 확인했으며 측정 정확도·실제 수집률 검증은 남아 있다. [실습·재현](../examples/mpu6050/mpu6050.md).
 
 기존 프로젝트의 I2C bus 1·주소 0x68·GPIO line offset 17·FIFO·500Hz 목표는 비교 기준이다. GPIO17을 현재 INT 배선으로 확정하거나 500Hz가 실제 측정됐다고 기록하지 않는다. IRQ 핀·전원/I/O 전압·AD0 상태·센서 식별값은 해당 단계에서 실물과 함께 확인한다.
 
@@ -97,3 +98,5 @@ MPU-6050의 AD0가 LOW면 7비트 주소 0x68, HIGH면 0x69다. **외부 선을 
 | `../VEDA_Final_Project`, 8d0ddbe579c41886f6b9b0b50eafb30e64128633 | tank/src/imu_reader.cpp, imu_reader.hpp, config_template.ini의 imu, app_config.hpp의 ImuConfig, HYBRID_EIS_FRAMEWORK의 IMU 부분 확인 |
 
 자료별 적용 차이는 해당 실습 문서에서 설명한다. 원본 저장소는 읽기 전용이다.
+
+GPIO 조회 실측: libgpiod 2.2.1, gpiochip0=pinctrl-bcm2711(58 lines), gpiochip1=raspberrypi-exp-gpio(8 lines). GPIO17은 input, pinctrl은 pd/lo이며 gpioinfo에 consumer가 표시되지 않았다. 이는 IRQ 적용 전의 상태다. 이후 GPIO17 Level IRQ 횟수 증가·앱 공존·IRQ 해제를 별도로 확인했다.
