@@ -1,0 +1,41 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&gpio>;
+
+		__overlay__ {
+			mpu6050_iio_int_pins: mpu6050-iio-int-pins {
+				pins-int {
+					pins = "gpio17";
+					function = "gpio_in";
+					bias-pull-down;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c1>;
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			mpu6050@68 {
+				compatible = "nakta,mpu6050-iio-study";
+				reg = <0x68>;
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&mpu6050_iio_int_pins>;
+				interrupt-parent = <&gpio>;
+				/* GPIO17, IRQ_TYPE_LEVEL_HIGH */
+				interrupts = <17 4>;
+			};
+		};
+	};
+};

@@ -34,6 +34,8 @@ int main(void)
 {
     struct mpu6050_sample sample;
     __u32 previous_sequence = 0;
+    unsigned int discontinuities = 0;
+    int received = 0;
     int status = 0;
 
     printf("=== OPEN ===\n");
@@ -46,24 +48,30 @@ int main(void)
     }
 
     printf("device: %s\n", DEVICE_PATH);
-    printf("\n=== READ: %d IRQ samples, blocking read ===\n", SAMPLE_COUNT);
+    printf("\n=== READ: %d FIFO samples, blocking read ===\n", SAMPLE_COUNT);
     printf("range: accel=+/-2 g, gyro=+/-250 deg/s\n\n");
     printf("%4s %10s %6s | %26s | %26s\n",
            "", "", "", "Acceleration (g)", "Angular velocity (deg/s)");
     printf("%4s %10s %6s | %8s %8s %8s | %8s %8s %8s\n",
            "No.", "Seq", "Skip", "X", "Y", "Z", "X", "Y", "Z");
 
-    for (int i = 0; i < SAMPLE_COUNT; i++) {
+    while (received < SAMPLE_COUNT) {
         if (mpu6050_read_sample(fd, &sample) == -1) {
+            if (errno == EOVERFLOW) {
+                discontinuities++;
+                fprintf(stderr, "[READ] data discontinuity (FIFO/queue); resuming\n");
+                continue;
+            }
+
             perror("[READ] " DEVICE_PATH);
             status = 1;
             break;
         }
 
-        unsigned int skipped = i == 0 ? 0 : sample.sequence - previous_sequence - 1U;
+        unsigned int skipped = received == 0 ? 0 : sample.sequence - previous_sequence - 1U;
 
         printf("%4d %10u %6u | %+8.3f %+8.3f %+8.3f | %+8.3f %+8.3f %+8.3f\n",
-               i + 1, sample.sequence, skipped,
+               received + 1, sample.sequence, skipped,
                sample.accel[0] / ACCEL_LSB_PER_G,
                sample.accel[1] / ACCEL_LSB_PER_G,
                sample.accel[2] / ACCEL_LSB_PER_G,
@@ -72,8 +80,11 @@ int main(void)
                sample.gyro[2] / GYRO_LSB_PER_DPS);
         fflush(stdout);
         previous_sequence = sample.sequence;
+        received++;
     }
 
+    printf("\n=== RESULT ===\n");
+    printf("samples: %d, discontinuities: %u\n", received, discontinuities);
     printf("\n=== CLOSE ===\n");
 
     if (close(fd) == -1) {
