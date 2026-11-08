@@ -9,6 +9,7 @@
 - [기존 코드와의 차이](#기존-코드와의-차이)
 - [빌드·배포·실행·정리](#빌드배포실행정리)
 - [검증 현황](#검증-현황)
+- [실제 트러블슈팅](#실제-트러블슈팅)
 
 ## 구현 범위
 
@@ -352,7 +353,7 @@ scale의 예상 출력은 각각 `0.000598550`, `0.000133231`이다. 이 scale �
 
 경로가 비어 있으면 등록 상태를 확인한다. 여섯 속성이 정수를 반환하는지 확인하고 센서의 자세를 바꿔 다시 읽는다. 고정된 예상 숫자는 정하지 않는다.
 
-### 6. Pi · 같은 홈 셸 · 6축 선택과 버퍼 활성화
+### 6. Pi · 같은 홈 셸 · 6축과 버퍼 설정
 
 선행 조건: 직전 단계에서 imu_iio_path가 올바르게 설정되고 버퍼가 꺼져 있어 raw/scale 조회가 가능해야 한다. 새 터미널이면 5단계의 name 검색부터 다시 실행한다. 아래는 root 권한으로 설정 파일에 쓰기 위해 tee를 사용한다.
 
@@ -366,51 +367,56 @@ if [ -n "$imu_iio_path" ]; then
     printf '128\n' | sudo tee "$imu_iio_path/buffer/length"
     printf '1\n' | sudo tee "$imu_iio_path/buffer/watermark"
     cat "$imu_iio_path/trigger/current_trigger"
-    printf '1\n' | sudo tee "$imu_iio_path/buffer/enable"
-    grep -F 'mpu6050-iio-data-ready' /proc/interrupts
-    sudo dmesg | grep -F 'mpu6050-iio-study' | tail -3
 fi
 ```
 
-length=128은 커널 IIO 버퍼 용량이고 센서 FIFO 크기가 아니다. watermark=1은 한 scan부터 읽기 준비 상태로 알리는 설정이다. current_trigger는 이 장치에 고정된 트리거 이름을 보여준다. BUFFER enabled 로그와 IRQ 증가가 기대 결과다. 수집 중 raw 조회는 EBUSY이고 scale은 조회할 수 있다.
+length=128은 커널 IIO 버퍼 용량이고 센서 FIFO 크기가 아니다. watermark=1은 한 scan부터 읽기 준비 상태로 알리는 설정이다. current_trigger는 이 장치에 고정된 트리거 이름을 보여준다. 여기서는 버퍼를 꺼 둔다. 앱 없이 수집을 켜 놓으면 버퍼가 차므로 다음 단계에서 앱 실행 직전에 활성화한다. 수집 중 raw 조회는 EBUSY이고 scale은 조회할 수 있도록 구현했다. 이 접근 제한의 실제 확인 여부는 검증 현황에 구분한다.
 
 ### 7. Pi · 앱 디렉터리 · 20개 읽기
 
-선행 조건: 같은 셸에 imu_iio_path가 설정돼 있고 여섯 채널·버퍼가 켜져 있어야 한다. 앱이 없거나 설정 오류가 나면 켜 둔 버퍼는 8단계에서 끈다.
+선행 조건: 같은 셸의 imu_iio_path와 직전 단계의 6축·length·watermark 설정, 앱 전송 완료. 새 터미널이면 5단계에서 변수를 다시 설정한다. 버퍼를 재시작하고 바로 앱을 실행하며, 성공·오류 종료 뒤 모두 버퍼를 끈다.
 
 ```bash
 cd ~/bsp/apps
 if [ -n "$imu_iio_path" ]; then
+    printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"
+    printf '1\n' | sudo tee "$imu_iio_path/buffer/enable"
     sudo ./mpu6050_iio_app "$imu_iio_path"
     echo $?
+    printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"
+    sudo dmesg | grep -F 'mpu6050-iio-study' | tail -5
 fi
 ```
 
 OPEN → READ 표 20행 → CLOSE·종료0이 정상 경로의 기대 결과다. I2C나 버퍼 저장 실패가 없는지도 커널 로그에서 함께 확인한다. 출력은 m/s²·rad/s이며 기존 misc 앱의 g·deg/s와 단위가 다르다. 샘플 순번과 timestamp가 없으므로 연속 행만으로 유실이나 정확한 주기를 판정하지 않는다.
 
-### 8. Pi · 홈 디렉터리 · 버퍼 중지
+### 8. Pi · 홈 디렉터리 · 중지 상태와 raw 조회 확인
 
-선행 조건: 같은 셸에서 imu_iio_path 유지. 새 터미널이면 5단계 검색을 다시 실행한다.
+선행 조건: 직전 단계에서 앱 종료 후 버퍼를 중지했고 같은 셸에서 imu_iio_path를 유지한다. 새 터미널이면 5단계 검색을 다시 실행한다.
 
 ```bash
 cd ~
 if [ -n "$imu_iio_path" ]; then
-    printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"
+    cat "$imu_iio_path/buffer/enable"
     cat "$imu_iio_path/in_accel_x_raw"
     sudo dmesg | grep -F 'mpu6050-iio-study' | tail -3
 fi
 ```
 
-BUFFER disabled와 raw 조회 재개가 기대 결과다. 센서 알림 비활성화 실패가 기록됐다면 Linux IRQ 차단은 수행됐더라도 센서 쓰기 성공으로 기록하지 않는다.
+buffer/enable=0, BUFFER disabled와 raw 조회 재개가 기대 결과다. 앱이 중단돼 버퍼 중지 명령까지 실행하지 못했다면 `printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"`로 중지한다. 센서 알림 비활성화 실패가 기록됐다면 Linux IRQ 차단은 수행됐더라도 센서 쓰기 성공으로 기록하지 않는다.
 
 ### 9. Pi · overlay → 모듈 디렉터리 · 정리
 
-선행 조건: 앱 종료·버퍼 중지. 정상 경로는 이 순서를 사용하고 수집 중 강제 제거는 별도 검증한다.
+선행 조건: 앱 종료·버퍼 중지·같은 셸에 imu_iio_path 유지. 새 터미널이면 장치 제거 전에 5단계 검색으로 변수를 다시 설정한다. 정상 경로는 이 순서를 사용하고 수집 중 강제 제거는 별도 검증한다.
 
 ```bash
 cd ~/bsp/overlays
 sudo dtoverlay -r mpu6050-iio-overlay
 ls -ld /sys/bus/i2c/devices/1-0068
+if [ -n "$imu_iio_path" ]; then
+    ls -ld "$imu_iio_path"
+fi
+grep -F 'mpu6050-iio-data-ready' /proc/interrupts
 sudo dmesg | grep -F 'mpu6050-iio-study' | tail -3
 
 cd ~/bsp/modules
@@ -422,11 +428,56 @@ lsmod | grep '^mpu6050_iio '
 
 ## 검증 현황
 
-| 버전 | 확인한 결과 |
-| --- | --- |
-| scale 추가 전 raw 버전 | 사용자 빌드 후 depends=industrialio 확인. driver 링크와 `[1376.955190] ... [IIO] ready: 6 raw channels, ...` 확인. iio:device0의 name 일치와 6축 조회 성공: accel=(-3436,-242,-15082), gyro=(-293,-189,110) |
-| raw 버전 장치 제거 | 사용자 출력에서 1-0068과 iio:device0 부재, `[7716.219831] ... [REMOVE] detached` 확인. rmmod 이후 lsmod 결과는 별도 출력 미수신 |
-| scale direct 버전 | 사용자 로그의 ready: 6 raw channels + scale(10072.052929), 두 scale=0.000598550/0.000133231 확인. 장치 두 경로 부재와 REMOVE(13421.550529) 확인. rmmod 후 lsmod 결과는 별도 미수신 |
-| 현재 IRQ 버퍼 버전 | 트리거·12바이트 scan·사용자 앱·IRQ overlay 구현. 에이전트의 소스·대상 API 정적 검토만 수행했으며 빌드·전송·보드 실행은 하지 않았다. 사용자 버퍼 활성화·수신·raw 접근 제한·해제는 미검증 |
+2026-11-08까지 사용자가 제공한 출력 기준이다. 아래 성공 기록은 사용자 실행 결과이며 에이전트가 빌드하거나 보드를 재실행한 결과가 아니다.
 
-측정 정확도·6축 동시성·연속 수집은 검증 범위가 아니다. 위 raw/scale 결과는 당시 direct 버전의 근거로 보존하며 현재 IRQ 버퍼 버전을 실행한 것으로 기록하지 않는다.
+| 버전·항목 | 확인한 결과 |
+| --- | --- |
+| 최초 raw direct 버전 | depends=industrialio, driver 링크·ready(1376.955190), iio:device0 이름과 6축 raw 조회 확인. accel=(-3436,-242,-15082), gyro=(-293,-189,110). 장치 두 경로 부재·REMOVE(7716.219831) 확인 |
+| scale direct 버전 | ready(10072.052929), scale=0.000598550/0.000133231 확인. 장치 두 경로 부재·REMOVE(13421.550529) 확인 |
+| IRQ 버퍼 버전 빌드 | depends=industrialio,industrialio-triggered-buffer와 앱의 ELF ARM aarch64·동적 링크 형식을 사용자 출력으로 확인 |
+| 등록·활성화 | 새 ready(15476.277240), GPIO17 Level·Linux IRQ61 등록과 활성화 전 횟수0 확인. 6채널·length128·watermark1 설정, 트리거 mpu6050-iio-study-1-0068, BUFFER enabled(15737.565469)와 IRQ 횟수5 확인 |
+| 앱 수신·버퍼 중지 | 버퍼 재시작 후 6축 표20행·CLOSE·종료0 확인. 출력 단위는 m/s²·rad/s. enabled(15926.582049) → disabled(15926.808754) 구간의 제공 로그에 새 drop 없음 |
+| 장치 제거 | I2C 1-0068·IIO iio:device0 경로 부재, REMOVE(16131.186128) 확인 |
+
+앱의 첫 행과 마지막 행을 발췌했다. 중간 18행도 사용자 출력에서 수신 확인했으며 아래에는 생략했다.
+
+```text
+=== READ: 20 IIO scans ===
+ No. |       Acceleration (m/s^2) |   Angular velocity (rad/s)
+     |        X        Y        Z |        X        Y        Z
+   1 |   -2.017   -0.186   -9.085 |   -0.047   -0.020   +0.013
+  20 |   -2.033   -0.172   -9.080 |   -0.043   -0.014   +0.007
+=== CLOSE ===
+0
+```
+
+미확인 항목은 다음과 같다. 현재 단계의 정상 수신 성공과 구분한다.
+
+- 버퍼 수집 중 raw 조회의 EBUSY, 중지 후 raw 조회 재개는 코드로 구현했지만 사용자 실행 출력은 아직 없다.
+- 제거 후 IRQ 조회·rmmod/lsmod의 결과는 별도 출력이 없어 확정하지 않는다. I2C/IIO 장치 제거는 위 로그로 확인했다.
+- I2C 실패·짧은 읽기·수집 중 제거·앱 timeout 등 오류/경쟁 경로는 미검증이다.
+- 타임스탬프·샘플 순번이 없어 정확한 주기·전체 센서 샘플 무손실·측정 정확도는 판정하지 않는다. 센서 FIFO·타임스탬프 연결은 후속 범위다.
+
+## 실제 트러블슈팅
+
+### 앱 없이 버퍼를 켜 두어 sample dropped: -16 발생
+
+**증상:** 버퍼를 활성화한 뒤 앱 실행을 기다리던 구간에서 다음 로그가 나왔다.
+
+```text
+[15924.224341] mpu6050-iio-study 1-0068: [BUFFER] sample dropped: -16
+[15924.234381] mpu6050-iio-study 1-0068: [BUFFER] sample dropped: -16
+```
+
+**원인:** IRQ는 앱이 실행되기 전부터 수집하지만 앱이 읽지 않으면 커널 IIO 버퍼가 찬다. 이번 length=128은 공칭100Hz에서 약1.28초 분량이며 실제 수집률 측정값은 아니다. 이 로그는 센서 FIFO 넘침이나 I2C 읽기 실패가 아니라 `iio_push_to_buffers()`의 저장 실패다. 대상 커널 [iio_store_to_kfifo()](../../external/linux/drivers/iio/buffer/kfifo_buf.c)는 kfifo_in으로 한 샘플을 넣지 못하면 -EBUSY를 반환하고, [IIO 버퍼 코어](../../external/linux/drivers/iio/industrialio-buffer.c)가 이를 드라이버에 전달한다. -EBUSY의 값이 -16이다. 가득 찬 동안 새 샘플을 보관하지 못하며 기존 샘플을 자동으로 최신 값으로 교체하지 않는다. 로그가 제한된 빈도로 출력되므로 두 줄을 유실 두 개로 해석하지 않는다.
+
+**이번 처리:** 버퍼를 껐다 켠 직후 앱으로20개를 읽고 바로 중지했다. 드라이버 수정·커널 재빌드·재부팅은 하지 않았다.
+
+```text
+[15926.543837] mpu6050-iio-study 1-0068: [BUFFER] disabled
+[15926.582049] mpu6050-iio-study 1-0068: [BUFFER] enabled: 100 Hz nominal
+[15926.808754] mpu6050-iio-study 1-0068: [BUFFER] disabled
+[16131.186128] mpu6050-iio-study 1-0068: [REMOVE] detached
+```
+
+**결과와 재현 절차 보완:** 앱20행·종료0·버퍼 중지·장치 제거를 확인했다. drop은 재시작 이전인15924초대이며 제공된 새 수집 구간에는 없었다. 이것만으로 모든 하드웨어 샘플의 무손실을 증명하지 않는다. 앞으로는 6단계에서 설정만 하고 7단계에서 버퍼 시작 → 앱 읽기 → 버퍼 중지를 붙여 실행한다. 앱 close만으로 수집이 중지되지 않는 점을 유지한다.
