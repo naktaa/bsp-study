@@ -12,6 +12,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#include <linux/time.h>
 #include <linux/unaligned.h>
 
 #define MPU6050_REG_SMPLRT_DIV	0x19
@@ -67,6 +68,7 @@ static const struct iio_chan_spec mpu6050_channels[] = {
 	MPU6050_CHANNEL(IIO_ANGL_VEL, IIO_MOD_X, MPU6050_REG_GYRO_XOUT_H, 3),
 	MPU6050_CHANNEL(IIO_ANGL_VEL, IIO_MOD_Y, MPU6050_REG_GYRO_XOUT_H + 2, 4),
 	MPU6050_CHANNEL(IIO_ANGL_VEL, IIO_MOD_Z, MPU6050_REG_GYRO_XOUT_H + 4, 5),
+	IIO_CHAN_SOFT_TIMESTAMP(6),
 };
 
 /* 센서 읽기는 항상 6축이다. 사용자 선택 채널의 추출은 IIO가 맡는다. */
@@ -156,6 +158,15 @@ static const struct iio_trigger_ops mpu6050_trigger_ops = {
 	.validate_device = iio_trigger_validate_own_device,
 };
 
+static irqreturn_t mpu6050_irq(int irq, void *private)
+{
+	struct iio_dev *indio_dev = private;
+
+	/* I2C 전송 없이 IRQ 관측 시각만 기록하고 스레드를 깨운다. */
+	indio_dev->pollfunc->timestamp = iio_get_time_ns(indio_dev);
+	return IRQ_WAKE_THREAD;
+}
+
 static irqreturn_t mpu6050_irq_thread(int irq, void *private)
 {
 	struct iio_dev *indio_dev = private;
@@ -178,7 +189,7 @@ static irqreturn_t mpu6050_trigger_handler(int irq, void *private)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct mpu6050_data *data = iio_priv(indio_dev);
 	u8 raw[14];
-	__be16 scan[6];
+	IIO_DECLARE_BUFFER_WITH_TS(__be16, scan, 6) = { };
 	int ret;
 
 	ret = i2c_smbus_read_i2c_block_data(data->client, MPU6050_REG_ACCEL_XOUT_H,
@@ -192,7 +203,7 @@ static irqreturn_t mpu6050_trigger_handler(int irq, void *private)
 	/* 온도 두 바이트를 제외하고 센서의 big-endian 형식을 그대로 전달한다. */
 	memcpy(scan, raw, 6);
 	memcpy(&scan[3], &raw[8], 6);
-	ret = iio_push_to_buffers(indio_dev, scan);
+	ret = iio_push_to_buffers_with_ts(indio_dev, scan, sizeof(scan), pf->timestamp);
 	if (ret < 0)
 		dev_warn_ratelimited(&data->client->dev, "[BUFFER] sample dropped: %d\n", ret);
 
@@ -310,6 +321,10 @@ static int mpu6050_probe(struct i2c_client *client)
 	indio_dev->available_scan_masks = mpu6050_scan_masks;
 	i2c_set_clientdata(client, indio_dev);
 
+	ret = iio_device_set_clock(indio_dev, CLOCK_MONOTONIC);
+	if (ret)
+		return dev_err_probe(&client->dev, ret, "[PROBE] timestamp clock setup failed\n");
+
 	ret = mpu6050_init_sensor(client);
 	if (ret)
 		goto err_sleep;
@@ -335,7 +350,7 @@ static int mpu6050_probe(struct i2c_client *client)
 		goto err_trigger;
 
 	/* 등록 시에는 IRQ를 막아 두고 버퍼 활성화 시 허용한다. */
-	ret = request_threaded_irq(client->irq, NULL, mpu6050_irq_thread,
+	ret = request_threaded_irq(client->irq, mpu6050_irq, mpu6050_irq_thread,
 				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_NO_AUTOEN,
 				   "mpu6050-iio-data-ready", indio_dev);
 	if (ret)
@@ -345,7 +360,7 @@ static int mpu6050_probe(struct i2c_client *client)
 	if (ret)
 		goto err_irq;
 
-	dev_info(&client->dev, "[IIO] ready: raw + scale + IRQ buffer, scan=12 bytes\n");
+	dev_info(&client->dev, "[IIO] ready: raw + scale + IRQ timestamp buffer, scan=24 bytes\n");
 	return 0;
 
 err_irq:

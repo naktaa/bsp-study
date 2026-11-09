@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <poll.h>
 #include <stdint.h>
@@ -8,11 +9,13 @@
 #include <unistd.h>
 
 #define SAMPLE_COUNT 20
-#define SCAN_BYTES 12
+#define SCAN_BYTES 24
+#define TIMESTAMP_OFFSET 16
 
 static const char *channels[] = {
     "in_accel_x", "in_accel_y", "in_accel_z",
     "in_anglvel_x", "in_anglvel_y", "in_anglvel_z",
+    "in_timestamp",
 };
 
 static int read_attribute(const char *directory, const char *attribute,
@@ -58,16 +61,19 @@ static int check_scan(const char *directory)
 
         snprintf(attribute, sizeof(attribute), "scan_elements/%s_type", channels[i]);
         if (read_attribute(directory, attribute, value, sizeof(value)) ||
-            strcmp(value, "be:s16/16>>0"))
+            strcmp(value, i == 6 ? "le:s64/64>>0" : "be:s16/16>>0"))
             goto invalid;
     }
 
     if (read_attribute(directory, "buffer/enable", value, sizeof(value)) || strcmp(value, "1"))
         goto invalid;
+    if (read_attribute(directory, "current_timestamp_clock", value, sizeof(value)) ||
+        strcmp(value, "monotonic"))
+        goto invalid;
     return 0;
 
 invalid:
-    fprintf(stderr, "[CONFIG] enable all six channels in the documented 12-byte format\n");
+    fprintf(stderr, "[CONFIG] select six axes + timestamp (24 bytes), clock=monotonic\n");
     return -1;
 }
 
@@ -113,6 +119,8 @@ int main(int argc, char **argv)
     char attribute[64];
     char device_path[PATH_MAX];
     uint8_t raw[SCAN_BYTES];
+    int64_t timestamp;
+    int64_t previous_timestamp = 0;
     double scale[2];
     const char *device_name;
     int status = 0;
@@ -154,9 +162,10 @@ int main(int argc, char **argv)
     }
 
     printf("=== OPEN ===\ndevice: %s\n", device_path);
+    printf("timestamp: IRQ observation, monotonic, ns\n");
     printf("\n=== READ: %d IIO scans ===\n", SAMPLE_COUNT);
-    printf(" No. |       Acceleration (m/s^2) |   Angular velocity (rad/s)\n");
-    printf("     |        X        Y        Z |        X        Y        Z\n");
+    printf(" No. |        IRQ time (ns) |  dt (ms) |       Acceleration (m/s^2) |   Angular velocity (rad/s)\n");
+    printf("     |                      |          |        X        Y        Z |        X        Y        Z\n");
 
     for (int i = 0; i < SAMPLE_COUNT; i++) {
         if (read_sample(fd, raw)) {
@@ -165,14 +174,27 @@ int main(int argc, char **argv)
             break;
         }
 
-        printf("%4d | %+8.3f %+8.3f %+8.3f | %+8.3f %+8.3f %+8.3f\n",
-               i + 1,
+        /* Pi ARM64의 timestamp는 리틀엔디언이며 정렬된 변수로 복사한다. */
+        memcpy(&timestamp, &raw[TIMESTAMP_OFFSET], sizeof(timestamp));
+        if (timestamp <= 0 || (i > 0 && timestamp <= previous_timestamp)) {
+            fprintf(stderr, "[TIME] timestamp did not advance\n");
+            status = 1;
+            break;
+        }
+
+        printf("%4d | %20" PRId64 " | ", i + 1, timestamp);
+        if (i == 0)
+            printf("%8s", "-");
+        else
+            printf("%8.3f", (timestamp - previous_timestamp) / 1000000.0);
+        printf(" | %+8.3f %+8.3f %+8.3f | %+8.3f %+8.3f %+8.3f\n",
                decode_axis(&raw[0]) * scale[0],
                decode_axis(&raw[2]) * scale[0],
                decode_axis(&raw[4]) * scale[0],
                decode_axis(&raw[6]) * scale[1],
                decode_axis(&raw[8]) * scale[1],
                decode_axis(&raw[10]) * scale[1]);
+        previous_timestamp = timestamp;
     }
 
     printf("\n=== CLOSE ===\n");

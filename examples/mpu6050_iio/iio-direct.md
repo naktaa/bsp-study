@@ -15,7 +15,7 @@
 
 [mpu6050_iio.c](mpu6050_iio.c)는 직접 작성한 I2C 센서 드라이버를 IIO에 등록한다. **6축 raw·고정 scale 조회와 IRQ 트리거 기반 버퍼 수집**을 구현한다. 기존 [FIFO·문자 인터페이스 예제](../mpu6050/mpu6050.md)는 보존하며 두 드라이버를 같은 센서에 동시에 연결하지 않는다.
 
-sysfs 조회는 축별 현재 레지스터를 읽고, 버퍼 모드는 GPIO17 Data Ready마다 6축을 읽어 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](mpu6050_iio_app.c)는 정해진 12바이트 형식을 확인하고 20개 샘플을 읽어 scale로 환산한다. 센서는 공칭 100Hz·±2g·±250deg/s다. 센서 FIFO·별도 커널 큐·타임스탬프·범위 변경·자동 복구는 추가하지 않았다. 지연 시 센서 샘플 유실을 보완하는 FIFO는 후속 단계다.
+sysfs 조회는 축별 현재 레지스터를 읽고, 버퍼 모드는 GPIO17 Data Ready마다 6축을 읽어 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](mpu6050_iio_app.c)는 6축과 IRQ 관측 시각이 담긴 24바이트 형식을 확인하고 20개 샘플을 읽어 scale과 Δt를 출력한다. 센서는 공칭 100Hz·±2g·±250deg/s다. 센서 FIFO·별도 커널 큐·범위 변경·자동 복구는 추가하지 않았다. BSP 학습 마무리 범위는 IRQ 관측 시각과 기본 수집 검증이며, IIO에 센서 FIFO를 다시 연결하거나 EIS를 보완하는 작업은 현재 범위에서 제외한다.
 
 대상은 Pi 4, 커널 `6.18.59-v8-bsp-study01`, 소스 커밋 `b3495ea401d709af0701a85babcba5e3d788a602`다. 기존 WSL 빌드 디렉터리 `out/kernel-rpi4`와 [배선](../../docs/bringup.md#모듈과-핀-연결표)을 사용한다.
 
@@ -24,18 +24,18 @@ sysfs 조회는 축별 현재 레지스터를 읽고, 버퍼 모드는 GPIO17 Da
 1. 모듈·overlay로 I2C client를 생성하면 probe가 센서를 식별·초기화한다. 트리거·IIO 버퍼·GPIO17 IRQ를 준비하고 IIO 장치를 공개한다. 아직 센서 IRQ와 Linux IRQ는 비활성 상태다.
 2. 버퍼가 꺼진 동안 `cat in_accel_x_raw`는 IIO 코어 → read_raw → 축 레지스터 읽기로 동작한다. scale 조회는 같은 콜백에서 상수를 반환한다.
 3. 사용자가 6개 scan 채널을 선택하고 buffer/enable에 1을 쓰면 IIO가 수집 콜백을 트리거에 연결한다. set_trigger_state가 센서 Data Ready와 Linux IRQ를 켠다.
-4. 센서 INT가 HIGH가 되면 IRQ 스레드가 INT_STATUS를 읽어 래치를 해제하고 IIO 트리거를 호출한다.
-5. IIO 수집 콜백은 측정 레지스터 14바이트를 읽고 온도 2바이트를 제외한 6축을 IIO 버퍼에 넣는다. 성공·오류 모두 notify_done으로 처리를 마친다.
-6. 앱이 /dev/iio:deviceN에서 읽은 12바이트를 해석하고 sysfs에서 조회한 scale을 곱한다. 버퍼 수집 중 개별 raw 조회는 EBUSY지만 scale은 읽을 수 있다.
+4. 센서 INT가 HIGH가 되면 짧은 primary IRQ 핸들러가 monotonic 시각을 기록하고 스레드를 깨운다. IRQ 스레드는 INT_STATUS를 읽어 래치를 해제하고 IIO 트리거를 호출한다.
+5. IIO 수집 콜백은 측정 레지스터 14바이트를 읽고 온도 2바이트를 제외한 6축과 IRQ 타임스탬프를 IIO 버퍼에 넣는다. 성공·오류 모두 notify_done으로 처리를 마친다.
+6. 앱이 /dev/iio:deviceN에서 읽은 24바이트에서 6축 값과 시각을 해석하고 scale을 곱한다. 이전 행과의 시간 차이도 ms 단위로 표시한다. 버퍼 수집 중 개별 raw 조회는 EBUSY지만 scale은 읽을 수 있다.
 7. buffer/enable에 0을 쓰면 IRQ 종료를 기다린 뒤 센서 알림을 끄고 IIO가 수집 콜백을 분리한다. 앱 종료만으로 버퍼가 꺼지지는 않는다.
 8. overlay 제거 시 IIO 등록 해제 → IRQ 반환 → 트리거 등록 해제 → 버퍼 정리 → 센서 슬립 순서로 정리한다.
 
 ```text
-센서 Data Ready → GPIO17 IRQ 스레드
+센서 Data Ready → primary IRQ에서 시각 기록 → GPIO17 IRQ 스레드
   → iio_trigger_poll_nested()
   → mpu6050_trigger_handler()
   → 14바이트 측정 레지스터 읽기 → 온도 제외 → IIO 버퍼
-  → 앱 read(12바이트) → raw × scale 출력
+  → 앱 read(24바이트) → raw × scale, IRQ 시각, Δt 출력
 ```
 
 ## 코드 해설
@@ -73,7 +73,7 @@ MPU6050_CHANNEL(IIO_ACCEL, IIO_MOD_X, MPU6050_REG_ACCEL_XOUT_H, 0)
 | `address` | 콜백에서 사용할 측정 레지스터 주소. DT의 I2C 주소 `reg=<0x68>`과 다름 |
 | `info_mask_separate` | 해당 채널에 제공할 raw 속성을 비트 마스크로 선언 |
 | `info_mask_shared_by_type` | 같은 종류의 X/Y/Z가 공유하는 scale 속성 선언 |
-| `scan_index` | 버퍼 안의 순서. 가속도 X/Y/Z=0/1/2, 자이로 X/Y/Z=3/4/5 |
+| `scan_index` | 버퍼 안의 순서. 가속도 X/Y/Z=0/1/2, 자이로 X/Y/Z=3/4/5, timestamp=6 |
 | `scan_type` | 부호 있는 16비트·big-endian 저장. sysfs type은 be:s16/16>>0 |
 
 `BIT(IIO_CHAN_INFO_RAW)`는 raw 속성을 공개한다. IIO 코어가 타입·축·속성을 조합해 `in_accel_x_raw`, `in_anglvel_z_raw` 같은 표준 이름을 만든다. 직접 sysfs 파일 생성 함수를 여섯 번 호출하지 않는다. `static const` 배열은 파일 내부의 변경하지 않는 채널 설명이다.
@@ -179,7 +179,7 @@ i2c_set_clientdata(client, indio_dev);
 
 `devm_iio_device_alloc()`은 IIO 장치와 우리 상태 공간을 확보한다. `sizeof(*data)`는 포인터 크기가 아닌 `struct mpu6050_data` 크기다. devm은 장치 해제 시 해당 자원 정리를 관리한다. `i2c_set_clientdata()`는 remove에서 IIO 장치를 찾기 위한 연결이다.
 
-`INDIO_DIRECT_MODE`는 요청 시 값을 직접 읽는 모드다. 채널 수를 배열 크기에서 구해 여섯 항목과 일치시킨다. 필드를 설정한 뒤 센서를 초기화하고 트리거·버퍼·IRQ를 준비한 다음 `iio_device_register()`로 공개한다. iio_triggered_buffer_setup은 kfifo와 수집 콜백을 준비하면서 INDIO_BUFFER_TRIGGERED 모드도 추가한다. 설정 실패 시 등록하지 않고 슬립 전환을 시도한 뒤 원래 오류를 반환한다. 초기화의 레지스터 개념은 [기존 MPU6050 해설](../mpu6050/mpu6050.md#4-센서-초기화와-설정-재확인)을 참고한다.
+`INDIO_DIRECT_MODE`는 요청 시 값을 직접 읽는 모드다. 채널 수는 배열 크기에서 구하며 현재 6축과 timestamp를 합쳐 일곱 항목이다. 필드를 설정한 뒤 iio_device_set_clock으로 CLOCK_MONOTONIC을 선택하고 센서를 초기화한다. 이후 트리거·버퍼·IRQ를 준비한 다음 `iio_device_register()`로 공개한다. iio_triggered_buffer_setup은 kfifo와 수집 콜백을 준비하면서 INDIO_BUFFER_TRIGGERED 모드도 추가한다. 설정 실패 시 등록하지 않고 슬립 전환을 시도한 뒤 원래 오류를 반환한다. 초기화의 레지스터 개념은 [기존 MPU6050 해설](../mpu6050/mpu6050.md#4-센서-초기화와-설정-재확인)을 참고한다.
 
 이번에는 `iio_device_register()`와 remove의 `iio_device_unregister()`를 명시적으로 짝지었다. IIO 등록 해제로 sysfs와 활성 버퍼를 정리한 뒤 IRQ·트리거·버퍼를 역순으로 반환하고 센서를 슬립으로 전환한다. IIO 장치·트리거의 기본 할당은 devm을 사용하되 등록과 IRQ·버퍼의 해제 순서는 명시했다. immutable 트리거의 추가 참조는 IIO 장치의 최종 반환에서 정리된다. 기존 misc 예제의 파일별 상태·큐·kref를 복사하지 않는다.
 
@@ -195,7 +195,22 @@ else if (status & MPU6050_DATA_READY)
 	iio_trigger_poll_nested(data->trigger);
 ```
 
-기존 실습과 같은 HIGH·래치 방식이다. INT_STATUS 읽기로 래치를 해제하고 Data Ready일 때 트리거를 호출한다. I2C는 잠들 수 있으므로 hard IRQ에서 실행하지 않는다. request_threaded_irq의 primary는 NULL이고 IRQF_ONESHOT을 사용한다. thread 문맥에서 호출하는 poll_nested는 IIO 소비자의 threaded handler를 실행한다. 별도 작업 큐나 자체 대기 큐를 만들지 않았다.
+primary 핸들러는 다음과 같이 시각만 기록한다. I2C·문자열 출력·사용자 복사는 수행하지 않는다.
+
+```c
+static irqreturn_t mpu6050_irq(int irq, void *private)
+{
+	struct iio_dev *indio_dev = private;
+
+	/* I2C 전송 없이 IRQ 관측 시각만 기록하고 스레드를 깨운다. */
+	indio_dev->pollfunc->timestamp = iio_get_time_ns(indio_dev);
+	return IRQ_WAKE_THREAD;
+}
+```
+
+IRQ_WAKE_THREAD는 이 IRQ에 등록한 mpu6050_irq_thread를 실행하도록 요청한다. iio_get_time_ns는 장치에 선택된 시간 기준을 사용하며 이번 기본값은 monotonic이다. 날짜·시각을 표현하는 벽시계가 아니다.
+
+기존 실습과 같은 HIGH·래치 방식이다. INT_STATUS 읽기로 래치를 해제하고 Data Ready일 때 트리거를 호출한다. I2C는 잠들 수 있으므로 hard IRQ에서 실행하지 않는다. request_threaded_irq의 primary는 mpu6050_irq이며 IRQF_ONESHOT을 유지한다. 스레드와 중첩 수집이 끝날 때까지 다음 IRQ 처리를 막으므로 같은 샘플의 pollfunc timestamp를 추가 잠금 없이 전달한다. thread 문맥에서 호출하는 poll_nested는 IIO 소비자의 threaded handler를 실행한다. 별도 작업 큐나 자체 대기 큐를 만들지 않았다.
 
 트리거의 drvdata에는 indio_dev를 연결하고, IRQ의 private 인자에도 같은 장치를 넘긴다. IIO 수집 콜백의 private은 iio_poll_func이며 pf->indio_dev로 장치에 접근한다. 함수마다 전달받는 포인터 종류를 구분한다.
 
@@ -210,36 +225,42 @@ IIO 코어가 버퍼 수집을 시작·종료할 때 트리거 ops의 set_trigge
 
 물리 IRQ는 IRQF_NO_AUTOEN으로 등록해 시작 전까지 막아 둔다. 종료 시 센서 I2C 쓰기가 실패해도 Linux IRQ는 이미 차단돼 있다. 이때 경고를 남기고 성공을 반환해 IIO의 콜백 분리·정리를 진행시킨다. 이는 센서 쓰기까지 성공했다는 뜻이 아니다. 잠금을 추가하지 않은 이유는 RAW 접근은 IIO direct claim으로, 버퍼 시작·종료는 IIO의 상태 전환으로, IRQ 수집 종료는 disable_irq/free_irq로 직렬화하기 때문이다.
 
-### 6. 6축 샘플과 IIO 버퍼
+### 6. 6축·타임스탬프와 IIO 버퍼
 
 ```c
 u8 raw[14];
-__be16 scan[6];
+IIO_DECLARE_BUFFER_WITH_TS(__be16, scan, 6) = { };
 
 /* 실제 함수에서는 반환값과 길이를 검사한다. */
 memcpy(scan, raw, 6);
 memcpy(&scan[3], &raw[8], 6);
-ret = iio_push_to_buffers(indio_dev, scan);
+ret = iio_push_to_buffers_with_ts(indio_dev, scan, sizeof(scan), pf->timestamp);
 ```
 
-수집 콜백은 0x3b부터 14바이트를 한 전송으로 읽는다. 앞 6바이트는 가속도, 중간 2바이트는 온도, 뒤 6바이트는 자이로다. 온도를 건너뛰고 완전히 채운 12바이트를 보낸다. __be16은 big-endian 데이터를 보관한다는 표기다. 버퍼에서는 센서 바이트 순서를 유지하고 앱이 해석한다. sysfs raw 경로의 get_unaligned_be16 정수 변환과 구분한다.
+수집 콜백은 0x3b부터 14바이트를 한 전송으로 읽는다. 앞 6바이트는 가속도, 중간 2바이트는 온도, 뒤 6바이트는 자이로다. 온도를 건너뛴 6축 12바이트에 정렬과 timestamp를 포함해 한 scan을 보낸다. __be16은 big-endian 데이터를 보관한다는 표기다. 버퍼에서는 센서 바이트 순서를 유지하고 앱이 해석한다. sysfs raw 경로의 get_unaligned_be16 정수 변환과 구분한다.
 
 | 바이트 | scan_index | 값 |
 | --- | --- | --- |
 | 0~1 / 2~3 / 4~5 | 0 / 1 / 2 | 가속도 X / Y / Z |
 | 6~7 / 8~9 / 10~11 | 3 / 4 / 5 | 자이로 X / Y / Z |
+| 12~15 | 없음 | timestamp를 8바이트 경계에 배치하는 4바이트 패딩 |
+| 16~23 | 6 | IRQ 관측 시각, signed 64비트 ns. Pi에서는 little-endian |
 
-available_scan_masks의 GENMASK(5,0)는 하드웨어 수집을 항상 6축으로 정한다. 이는 모든 사용자에게 6축 선택을 강제한다는 뜻은 아니다. 일부 채널을 선택하면 IIO가 필요한 채널만 추출할 수 있다. 이번 앱은 복잡한 일반 디코더 대신 6축 모두 선택된 12바이트 형식만 지원한다.
+available_scan_masks의 GENMASK(5,0)는 하드웨어 수집을 항상 6축으로 정한다. 이는 모든 사용자에게 6축 선택을 강제한다는 뜻은 아니다. 일부 채널을 선택하면 IIO가 필요한 채널만 추출할 수 있다. timestamp는 IIO_CHAN_SOFT_TIMESTAMP(6)으로 선언한다. IIO가 timestamp 선택을 별도 플래그로 관리하므로 하드웨어 마스크는 기존 6축 비트만 유지한다. 이번 앱은 6축과 timestamp가 모두 선택된 24바이트 형식만 지원한다.
 
-콜백은 정상·I2C 실패·짧은 전송·버퍼 저장 실패 모두 마지막에 iio_trigger_notify_done을 호출한다. 완료를 알리지 않으면 트리거 사용 상태가 남아 후속 수집이 막힐 수 있다. 오류는 제한된 빈도로 커널 로그에 남기며 실패한 샘플을 성공값으로 보내지 않는다. 자동 리셋·재시도·유실 순번·타임스탬프는 이번 범위에 추가하지 않았다.
+콜백은 정상·I2C 실패·짧은 전송·버퍼 저장 실패 모두 마지막에 iio_trigger_notify_done을 호출한다. 완료를 알리지 않으면 트리거 사용 상태가 남아 후속 수집이 막힐 수 있다. 오류는 제한된 빈도로 커널 로그에 남기며 실패한 샘플을 성공값으로 보내지 않는다. 자동 리셋·재시도·유실 순번은 추가하지 않았다.
+
+IIO_DECLARE_BUFFER_WITH_TS는 6개의 16비트 값 뒤에 8바이트로 정렬된 시각 공간까지 확보한다. `{ }`로 초기화해 패딩도 0으로 채운다. iio_push_to_buffers_with_ts는 공간 크기를 확인하고 timestamp가 선택됐다면 마지막 8바이트에 pf->timestamp를 넣는다. 단순히 12+8=20바이트로 계산하면 안 된다. IIO_CHAN_SOFT_TIMESTAMP의 저장 형식은 CPU native endian이므로 이 예제의 little-endian Pi에서는 type이 le:s64/64>>0이다. 6축의 big-endian과 다르다.
+
+**이 시각은 센서가 실제 측정한 시각이 아니라 CPU가 IRQ 핸들러를 실행한 시각**이다. IRQ 전달 지연·래치 병합·그 뒤의 I2C 읽기 지연을 없애지는 않는다. 한편 앱이 늦게 read해도 이미 저장된 IRQ 시각을 받아볼 수 있다. 센서 FIFO가 없으므로 긴 Δt를 유실 개수로 곧바로 환산하지 않는다.
 
 센서 FIFO가 없으므로 IRQ 처리 지연 중 과거 값은 덮어써질 수 있다. IIO 버퍼는 이미 읽은 데이터를 사용자에게 전달하는 지연을 흡수할 뿐이다. 20개 수신만으로 정확한 100Hz나 무손실을 검증한 것으로 보지 않는다.
 
 ### 7. 사용자 앱과 Makefile
 
-앱 인자는 /sys/bus/iio/devices/iio:deviceN 경로다. name이 우리 장치인지, 여섯 채널의 en=1·index=0~5·type=be:s16/16>>0인지, 버퍼가 켜졌는지 먼저 확인한다. 형식이 맞지 않으면 해석하지 않고 종료한다. scale은 sysfs에서 읽어 사용하므로 감도 상수를 다시 넣지 않는다.
+앱 인자는 /sys/bus/iio/devices/iio:deviceN 경로다. name이 우리 장치인지, 6축의 en=1·index=0~5·type=be:s16/16>>0, timestamp의 en=1·index=6·type=le:s64/64>>0, clock=monotonic과 버퍼 활성화를 확인한다. 형식이 맞지 않으면 해석하지 않고 종료한다. scale은 sysfs에서 읽어 사용하므로 감도 상수를 다시 넣지 않는다.
 
-read_sample은 poll로 최대 5초 동안 데이터를 기다리고 한 scan인 12바이트를 읽는다. 제거·timeout·짧은 읽기는 오류로 처리한다. O_NONBLOCK으로 열어 준비 상태가 바뀌어도 read에서 무한 대기하지 않는다. 수신한 big-endian 두 바이트를 int16_t로 해석하고 각 센서 scale을 곱해 m/s²·rad/s를 출력한다. 20개 출력 후 close하지만 buffer/enable은 별도로 0을 써야 한다.
+read_sample은 poll로 최대 5초 동안 데이터를 기다리고 한 scan인 24바이트를 읽는다. 제거·timeout·짧은 읽기는 오류로 처리한다. O_NONBLOCK으로 열어 준비 상태가 바뀌어도 read에서 무한 대기하지 않는다. 수신한 big-endian 두 바이트를 int16_t로 해석하고 각 센서 scale을 곱해 m/s²·rad/s를 출력한다. timestamp는 오프셋16부터 memcpy로 정렬된 int64_t 변수에 복사한다. timestamp의 ns 값과 `(현재-이전)/1000000.0`인 Δt(ms)를 출력한다. 첫 행은 이전 샘플이 없어 Δt에 -를 표시한다. 0 이하이거나 증가하지 않는 시각은 오류로 처리한다. 20개 출력 후 close하지만 buffer/enable은 별도로 0을 써야 한다.
 
 Makefile의 all은 modules·overlay·app, deploy는 ko·dtbo·앱의 전송이다. 앱은 APP_CC로 ARM64 크로스 빌드한다. IIO 버퍼 형식을 공개 sysfs에서 확인하므로 별도 공유 헤더는 만들지 않았다.
 
@@ -247,7 +268,7 @@ Makefile의 all은 modules·overlay·app, deploy는 ko·dtbo·앱의 전송이�
 
 - **IIO는 센서 제어 코드를 대신 작성하지 않는다.** 레지스터 설정·전송·부호 해석은 우리가 구현하고 채널 속성·조회 호출·문자열 출력을 IIO에 맡긴다.
 - sysfs raw는 요청 시 축별 조회, /dev/iio:deviceX는 버퍼 읽기다. 버퍼에는 새 mpu6050_iio_app을 사용하며 기존 misc용 mpu6050_app과 호환되지 않는다.
-- 여섯 파일을 차례로 읽으면 각각 다른 시점에 전송한다. 여섯 값이 같은 측정 시점의 한 샘플이라는 보장은 없다. sysfs 반복 조회를 EIS용 동기화된 수집으로 취급하지 않는다.
+- 여섯 파일을 차례로 읽으면 각각 다른 시점에 전송한다. 여섯 값이 같은 측정 시점의 한 샘플이라는 보장은 없다. sysfs 반복 조회를 같은 시점의 6축 수집으로 취급하지 않는다.
 - raw는 부호 있는 정수이며 범위는 -32768~32767이다. 기존 범위에서는 가속도 raw/16384가 g, 자이로 raw/131이 deg/s다. 현재는 SI 단위 환산 계수를 scale로 제공하며 실제 곱셈은 사용자 공간에서 수행한다.
 - GPIO17 INT는 기존과 같은 물리11 배선이다. 새 overlay는 핀 입력·풀다운과 HIGH 레벨 IRQ를 선언한다. raw/scale만 조회할 때는 IRQ를 켜지 않고, 버퍼 활성화 때만 사용한다.
 
@@ -317,7 +338,9 @@ readlink -e /sys/bus/i2c/devices/1-0068/driver
 sudo dmesg | grep -F 'mpu6050-iio-study'
 ```
 
-예상 driver는 `/sys/bus/i2c/drivers/mpu6050-iio-study`이며 성공 시 `[IIO] ready: raw + scale + IRQ buffer, scan=12 bytes` 로그가 나온다. modprobe 실패 시 의존 모듈 설치 상태부터 확인하며 insmod를 계속하지 않는다.
+예상 driver는 `/sys/bus/i2c/drivers/mpu6050-iio-study`이며 성공 시 `[IIO] ready: raw + scale + IRQ timestamp buffer, scan=24 bytes` 로그가 나온다. modprobe 실패 시 의존 모듈 설치 상태부터 확인하며 insmod를 계속하지 않는다.
+
+driver 링크만으로 probe 완료를 판단하지 않는다. 센서 초기화에는 100ms 대기가 두 번 있어 링크가 보이면서 새 ready 로그는 아직 없을 수 있다. 잠시 뒤 로그를 다시 확인하고 다음 단계의 IIO 이름·timestamp 속성까지 확인한다. 이전 실행의 ready·REMOVE 로그를 이번 등록 결과와 혼동하지 않는다.
 
 ### 5. Pi · 홈 디렉터리 · IIO 장치 찾기와 raw 조회
 
@@ -353,7 +376,7 @@ scale의 예상 출력은 각각 `0.000598550`, `0.000133231`이다. 이 scale �
 
 경로가 비어 있으면 등록 상태를 확인한다. 여섯 속성이 정수를 반환하는지 확인하고 센서의 자세를 바꿔 다시 읽는다. 고정된 예상 숫자는 정하지 않는다.
 
-### 6. Pi · 같은 홈 셸 · 6축과 버퍼 설정
+### 6. Pi · 같은 홈 셸 · 6축·timestamp·버퍼 설정
 
 선행 조건: 직전 단계에서 imu_iio_path가 올바르게 설정되고 버퍼가 꺼져 있어 raw/scale 조회가 가능해야 한다. 새 터미널이면 5단계의 name 검색부터 다시 실행한다. 아래는 root 권한으로 설정 파일에 쓰기 위해 tee를 사용한다.
 
@@ -361,20 +384,22 @@ scale의 예상 출력은 각각 `0.000598550`, `0.000133231`이다. 이 scale �
 cd ~
 if [ -n "$imu_iio_path" ]; then
     printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"
-    for channel in in_accel_x in_accel_y in_accel_z in_anglvel_x in_anglvel_y in_anglvel_z; do
+    for channel in in_accel_x in_accel_y in_accel_z in_anglvel_x in_anglvel_y in_anglvel_z in_timestamp; do
         printf '1\n' | sudo tee "$imu_iio_path/scan_elements/${channel}_en"
     done
     printf '128\n' | sudo tee "$imu_iio_path/buffer/length"
     printf '1\n' | sudo tee "$imu_iio_path/buffer/watermark"
     cat "$imu_iio_path/trigger/current_trigger"
+    cat "$imu_iio_path/current_timestamp_clock"
+    cat "$imu_iio_path/scan_elements/in_timestamp_type"
 fi
 ```
 
 length=128은 커널 IIO 버퍼 용량이고 센서 FIFO 크기가 아니다. watermark=1은 한 scan부터 읽기 준비 상태로 알리는 설정이다. current_trigger는 이 장치에 고정된 트리거 이름을 보여준다. 여기서는 버퍼를 꺼 둔다. 앱 없이 수집을 켜 놓으면 버퍼가 차므로 다음 단계에서 앱 실행 직전에 활성화한다. 수집 중 raw 조회는 EBUSY이고 scale은 조회할 수 있도록 구현했다. 이 접근 제한의 실제 확인 여부는 검증 현황에 구분한다.
 
-### 7. Pi · 앱 디렉터리 · 20개 읽기
+### 7. Pi · 앱 디렉터리 · 시각·간격과 함께 20개 읽기
 
-선행 조건: 같은 셸의 imu_iio_path와 직전 단계의 6축·length·watermark 설정, 앱 전송 완료. 새 터미널이면 5단계에서 변수를 다시 설정한다. 버퍼를 재시작하고 바로 앱을 실행하며, 성공·오류 종료 뒤 모두 버퍼를 끈다.
+선행 조건: 같은 셸의 imu_iio_path와 직전 단계의 6축·timestamp·length·watermark 설정, 새 모듈과 앱을 함께 갱신한 상태. 새 터미널이면 5단계에서 변수를 다시 설정한다. 버퍼를 재시작하고 바로 앱을 실행하며, 성공·오류 종료 뒤 모두 버퍼를 끈다.
 
 ```bash
 cd ~/bsp/apps
@@ -388,7 +413,7 @@ if [ -n "$imu_iio_path" ]; then
 fi
 ```
 
-OPEN → READ 표 20행 → CLOSE·종료0이 정상 경로의 기대 결과다. I2C나 버퍼 저장 실패가 없는지도 커널 로그에서 함께 확인한다. 출력은 m/s²·rad/s이며 기존 misc 앱의 g·deg/s와 단위가 다르다. 샘플 순번과 timestamp가 없으므로 연속 행만으로 유실이나 정확한 주기를 판정하지 않는다.
+OPEN → READ 표 20행(IRQ time·dt 포함) → CLOSE·종료0이 정상 경로의 기대 결과다. 시각 증가와 공칭100Hz에 대응하는 약10ms 간격을 관찰하되 엄격한 허용 범위나 무손실 합격 기준으로 쓰지 않는다. I2C나 버퍼 저장 실패가 없는지도 커널 로그에서 함께 확인한다. 출력은 m/s²·rad/s이며 기존 misc 앱의 g·deg/s와 단위가 다르다. timestamp는 IRQ 관측 시각이고 샘플 순번은 없으므로 간격 변화만으로 센서 유실이나 정확한 측정 시각을 판정하지 않는다.
 
 ### 8. Pi · 홈 디렉터리 · 중지 상태와 raw 조회 확인
 
@@ -434,29 +459,33 @@ lsmod | grep '^mpu6050_iio '
 | --- | --- |
 | 최초 raw direct 버전 | depends=industrialio, driver 링크·ready(1376.955190), iio:device0 이름과 6축 raw 조회 확인. accel=(-3436,-242,-15082), gyro=(-293,-189,110). 장치 두 경로 부재·REMOVE(7716.219831) 확인 |
 | scale direct 버전 | ready(10072.052929), scale=0.000598550/0.000133231 확인. 장치 두 경로 부재·REMOVE(13421.550529) 확인 |
-| IRQ 버퍼 버전 빌드 | depends=industrialio,industrialio-triggered-buffer와 앱의 ELF ARM aarch64·동적 링크 형식을 사용자 출력으로 확인 |
-| 등록·활성화 | 새 ready(15476.277240), GPIO17 Level·Linux IRQ61 등록과 활성화 전 횟수0 확인. 6채널·length128·watermark1 설정, 트리거 mpu6050-iio-study-1-0068, BUFFER enabled(15737.565469)와 IRQ 횟수5 확인 |
-| 앱 수신·버퍼 중지 | 버퍼 재시작 후 6축 표20행·CLOSE·종료0 확인. 출력 단위는 m/s²·rad/s. enabled(15926.582049) → disabled(15926.808754) 구간의 제공 로그에 새 drop 없음 |
-| 장치 제거 | I2C 1-0068·IIO iio:device0 경로 부재, REMOVE(16131.186128) 확인 |
+| timestamp 추가 전 IRQ 버퍼 빌드 | depends=industrialio,industrialio-triggered-buffer와 앱의 ELF ARM aarch64·동적 링크 형식을 사용자 출력으로 확인 |
+| timestamp 추가 전 등록·활성화 | 새 ready(15476.277240), GPIO17 Level·Linux IRQ61 등록과 활성화 전 횟수0 확인. 6채널·length128·watermark1 설정, 트리거 mpu6050-iio-study-1-0068, BUFFER enabled(15737.565469)와 IRQ 횟수5 확인 |
+| timestamp 추가 전 앱 수신·버퍼 중지 | 버퍼 재시작 후 6축 표20행·CLOSE·종료0 확인. 출력 단위는 m/s²·rad/s. enabled(15926.582049) → disabled(15926.808754) 구간의 제공 로그에 새 drop 없음 |
+| timestamp 추가 전 장치 제거 | I2C 1-0068·IIO iio:device0 경로 부재, REMOVE(16131.186128) 확인 |
+| 현재 timestamp 버전 등록 | 새 ready(17976.379682)의 scan=24 bytes, current_timestamp_clock=monotonic, in_timestamp_en 속성 확인 |
+| 현재 timestamp 버전 수신 | 6축+timestamp 설정 후20개 수신·시각 증가·CLOSE·종료0 확인. 19개 간격은 최소10.013ms·최대10.019ms·평균10.015ms이며 이 구간의 관측률은 약99.85Hz |
+| 현재 timestamp 버전 중지·제거 | buffer/enable=0, 중지 후 in_accel_x_raw=-3426 조회 확인. I2C/IIO 장치 경로 부재·REMOVE(19097.883415), 안내한 정리 순서의 IRQ·최종 lsmod 조회 출력 없음 확인 |
 
-앱의 첫 행과 마지막 행을 발췌했다. 중간 18행도 사용자 출력에서 수신 확인했으며 아래에는 생략했다.
+현재 24바이트 버전 앱의 첫 행과 마지막 행을 발췌했다. 중간 18행도 사용자 출력에서 수신 확인했으며 아래에는 생략했다. 위 12바이트 버전의 과거 결과와 구분한다.
 
 ```text
 === READ: 20 IIO scans ===
- No. |       Acceleration (m/s^2) |   Angular velocity (rad/s)
-     |        X        Y        Z |        X        Y        Z
-   1 |   -2.017   -0.186   -9.085 |   -0.047   -0.020   +0.013
-  20 |   -2.033   -0.172   -9.080 |   -0.043   -0.014   +0.007
+ No. |        IRQ time (ns) |  dt (ms) |       Acceleration (m/s^2) |   Angular velocity (rad/s)
+     |                      |          |        X        Y        Z |        X        Y        Z
+   1 |       18258644188569 |        - |   -2.061   -0.168   -9.084 |   -0.042   -0.013   +0.007
+  20 |       18258834481392 |   10.017 |   -2.028   -0.208   -9.099 |   -0.046   -0.013   +0.010
 === CLOSE ===
 0
 ```
 
+간격 통계는 제공된20개 시각의19개 차이에서 계산했다. 첫 시각부터 마지막 시각까지 약190.293ms인 짧은 관찰이며 장기 안정성 시험은 아니다. 앱이 출력한 시각은 센서의 정확한 측정 시각이 아닌 CPU의 IRQ 관측 시각이다. 이번 수집 구간의 제공 로그는 enabled(18258.685048) → disabled(18258.910338)이며 새 drop 메시지는 없었다.
+
 미확인 항목은 다음과 같다. 현재 단계의 정상 수신 성공과 구분한다.
 
-- 버퍼 수집 중 raw 조회의 EBUSY, 중지 후 raw 조회 재개는 코드로 구현했지만 사용자 실행 출력은 아직 없다.
-- 제거 후 IRQ 조회·rmmod/lsmod의 결과는 별도 출력이 없어 확정하지 않는다. I2C/IIO 장치 제거는 위 로그로 확인했다.
+- 버퍼 수집 중 raw 조회의 EBUSY는 코드로 구현했지만 사용자 실행 출력은 아직 없다. 중지 후 raw 재개는 확인했다.
 - I2C 실패·짧은 읽기·수집 중 제거·앱 timeout 등 오류/경쟁 경로는 미검증이다.
-- 타임스탬프·샘플 순번이 없어 정확한 주기·전체 센서 샘플 무손실·측정 정확도는 판정하지 않는다. 센서 FIFO·타임스탬프 연결은 후속 범위다.
+- 정지 상태 60초 기준선과 장기 주기 안정성은 아직 확인하지 않았다. IRQ 시각만으로 전체 센서 샘플 무손실·측정 정확도를 판정하지 않는다. IIO 센서 FIFO 연결·EIS 보완은 현재 범위에서 제외한다.
 
 ## 실제 트러블슈팅
 
