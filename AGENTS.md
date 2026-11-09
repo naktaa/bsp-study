@@ -5,18 +5,30 @@ Codex와 Claude Code가 함께 읽는 공통 규칙이다. Claude Code 전용 �
 ## 목적
 - Raspberry Pi 4에서 커널·모듈·사용자/커널 경계·DT·I2C·센서 드라이버·IRQ/FIFO/IIO를 이해하고 검증한다.
 - 최종 목표는 VEDA Final 프로젝트에서 사용한 모듈·센서(IMU, 카메라, I2S 마이크, PCA9685 팬·틸트, 초음파, 모터)를 BSP 관점에서 처리하고 U-Boot·Yocto로 묶는 것이다.
-- 남은 장치는 "mainline 드라이버 탐색 → DT/overlay 작성 → 표준 인터페이스 검증 → 드라이버 구조 해설"을 기본 패턴으로 한다. 직접 드라이버 작성은 학습 가치가 명확할 때만 TASK에 명시한다.
+- 남은 장치는 "mainline 드라이버 탐색 → DT/overlay 작성 → 표준 인터페이스 검증 → 드라이버 구조 해설"을 기본 패턴(TASK 유형 B)으로 한다. 순서는 U-Boot·Yocto 부팅 체계를 먼저 갖추고 장치를 하나씩 추가한다(`docs/roadmap.md` 2부). 직접 드라이버 작성은 학습 가치가 명확할 때만 TASK에 명시한다.
 - EIS 보완과 IIO 센서 FIFO 재연결은 현재 범위에서 제외한다. VEDA와 기존 프로젝트는 학습·비교 기준이다.
 
 ## 역할
 | 주체 | 담당 | 하지 않음 |
 | --- | --- | --- |
-| 사용자 | 계획·수정 승인, 보드 배포·실행·실측, 커밋 | — |
-| Claude Code | 다음 TASK 계획, 구현 리뷰, 모든 문서 작성·갱신 | 실습 코드(.c/.h/Makefile/.dts/.py) 수정 |
-| Codex | TASK 범위의 실습 코드·Makefile·overlay 구현, WSL 크로스 빌드 확인, TASK '구현 보고' 작성 | 문서 수정, 보드 조작, 커밋 |
+| 사용자 | 계획·수정 승인, 전체 커널 빌드·Yocto 이미지 빌드, SD 카드 작업·복구, 보드 배포·실행·실측, 브랜치 병합·커밋 | — |
+| Claude Code | 다음 TASK 계획, 구현 리뷰, 모든 문서 작성·갱신 | 실습 코드·설정(.c/.h/Makefile/.dts/.py, 커널 config fragment, Yocto 레시피·conf, 부트 스크립트) 수정 |
+| Codex | TASK 범위의 실습 코드·Makefile·overlay·커널 config fragment·Yocto 레이어·부트 스크립트 구현, 외부 모듈·DTBO 크로스 빌드 확인, TASK '구현 보고' 작성 | 문서 수정, 전체 커널·Yocto 빌드, 보드 조작, 커밋 |
 
 - 도구 간 인계는 `docs/tasks/T-*.md` 파일로만 한다. 채팅으로 전달된 내용도 TASK 파일에 반영되어야 다음 단계의 근거가 된다.
 - 하위 에이전트는 사용자가 요청할 때만 사용한다.
+
+## TASK 유형
+TASK마다 유형을 먼저 정하고 TASK 파일 '유형'에 적는다. 위 역할 표를 기본으로 유형별 분담은 아래와 같다.
+
+| 유형 | 내용 | Codex | Claude Code | 사용자 |
+| --- | --- | --- | --- | --- |
+| A 직접 구현 | 학습용 드라이버·앱을 직접 작성 (1~10단계 방식) | 드라이버·앱·Makefile·overlay | 계획, 커널 API·문맥 리뷰 | 배포·실측 |
+| B mainline 드라이버 + DT 적용 | 대상 커널의 기존 드라이버를 overlay·config로 연결 | overlay, config fragment, 검증 앱 | mainline 드라이버·binding·overlay 탐색과 구조 해설 | 커널 재빌드·설치, 배포·실측 |
+| C 부팅·빌드 체계 | U-Boot·Yocto 등 부팅 경로·이미지 구성 | Yocto 레시피·conf, 부트 스크립트 | 복구 경로를 포함한 계획, 부팅 순서 해설 | 장시간 빌드, SD 카드 작업·부팅 확인·복구 |
+
+- 유형 C는 기존 SD 카드·부팅 파일 백업과 복구 절차를 TASK 계획에 먼저 적는다. 복구 경로가 없으면 진행하지 않는다.
+- B에서 직접 드라이버를 쓰는 것은 학습 가치가 명확할 때만 TASK에 명시하고 유형 A로 나눈다.
 
 ## 승인 원칙 (두 에이전트 공통)
 - **파일을 수정·생성·삭제하기 전에 항상 계획을 설명하고 사용자 승인을 받은 뒤 진행한다.** 계획에는 목적, 변경 파일, 바꿀 내용 요약, 검증 방법을 포함한다.
@@ -28,16 +40,33 @@ Codex와 Claude Code가 함께 읽는 공통 규칙이다. Claude Code 전용 �
 ## Codex 구현 규칙
 - 사용자가 지정한 `docs/tasks/T-*.md`를 읽고, 구현 전 변경 파일·함수·처리 흐름을 짧게 설명해 승인받는다.
 - TASK '범위 > 변경 파일' 목록 밖의 파일은 수정하지 않는다. 필요하면 구현 보고에 사유를 적고 멈춘다.
-- 실행은 WSL 크로스 빌드(`make`)와 정적 확인까지만 한다. scp·ssh·insmod·설치·재부팅 등 보드 조작은 하지 않는다.
+- 실행은 WSL 크로스 빌드 중 외부 모듈·사용자 앱·DTBO 빌드(`make`)와 정적 확인까지만 한다. 전체 커널 빌드와 bitbake는 실행하지 않는다. scp·ssh·insmod·설치·재부팅 등 보드 조작은 하지 않는다.
+- 커널 config 변경은 저장소의 `configs/bsp-study.config` fragment에만 쓴다. `out/kernel-rpi4/.config`를 직접 고치지 않는다. fragment 적용과 전체 커널 빌드는 사용자가 한다.
 - 문서(*.md)는 TASK 파일의 '구현 보고' 섹션만 쓴다.
 - 완료 기준에 없는 기능(추가 통계·범용 확장·추가 잠금·옵션)을 넣지 않는다.
-- 구현 보고에는 변경 요약, 빌드 명령과 결과, 판단이 필요했던 부분, 사용자가 보드에서 실행할 명령을 적는다. 실행하지 않은 것을 성공으로 쓰지 않는다.
+- 구현 보고에는 변경 요약, 빌드 명령과 결과, 변경한 C 소스의 `external/linux/scripts/checkpatch.pl --no-tree -f <파일>` 결과, 판단이 필요했던 부분, 사용자가 보드에서 실행할 명령을 적는다. checkpatch 경고를 남기면 이유를 적는다. 실행하지 않은 것을 성공으로 쓰지 않는다.
 
 ## 환경
 - 컴파일은 노트북 WSL2 Ubuntu에서 하고 Pi는 실행·검증에 사용한다. initramfs 생성 등 필요한 설치 작업은 Pi에서 할 수 있다.
 - Pi 접속은 사용자 지정 SSH 별칭 `pi`를 사용한다(`ssh pi`, `scp 파일 pi:bsp/...`). 과거 IP 기반 실측 기록과 구분한다.
 - Pi로 보내는 산출물은 `~/bsp/` 아래에 모은다. `.ko`는 `~/bsp/modules/`, 사용자 실행 파일은 `~/bsp/apps/`를 기본으로 한다. 기존 커널 부팅 파일·설치 경로와 과거 실행 기록은 유지한다.
 - VEDA PDF의 소스 다운로드 → 설정 → 크로스 빌드 → 설치 → 부팅 확인 흐름을 기준으로 현재 환경에 필요한 차이만 추가한다. 다음 단계 설정을 미리 늘리지 않는다.
+- Yocto 레이어는 저장소의 `yocto/meta-bsp-study`에 둔다. 빌드 디렉터리·`DL_DIR`·`SSTATE_DIR`는 저장소 밖 `~/yocto` 아래에 둔다.
+
+## 병렬 트랙
+부팅 체계(2부 11~12단계)와 장치 추가(13~17단계)를 나눠 진행할 수 있다.
+
+| 트랙 | 브랜치 | 작업 폴더 | TASK 번호 | SD 카드 |
+| --- | --- | --- | --- | --- |
+| 부팅 | `boot` | `~/bspworkspace/bsp-study` | T-B01, T-B02 … | 부팅 트랙 전용 별도 카드 |
+| 센서 | `sensor` | `~/bspworkspace/bsp-study-sensor` (git worktree) | T-S01, T-S02 … | 기존 6.18.59 커널 카드 |
+
+- 브랜치·worktree 생성과 main 병합은 사용자가 한다. 예: `git worktree add ../bsp-study-sensor -b sensor` (main에서).
+- 각 에이전트 세션은 자기 트랙 폴더에서만 작업한다. 작업 전 현재 폴더·브랜치로 트랙을 확인한다. 한 트랙 안에서는 TASK를 한 번에 하나만 진행한다.
+- 기존 `T-NNN` 번호는 그대로 유지한다. 트랙 밖 작업은 계속 `T-NNN`을 쓴다.
+- 트랙 안에서는 TASK 파일과 해당 학습 문서만 갱신한다. 예외로 센서 트랙은 `docs/bringup.md`의 '모듈과 핀 연결표' 절을 갱신할 수 있고, 부팅 트랙은 bringup.md를 고치지 않는다. `docs/worklog.md`·`docs/roadmap.md`·`README.md`는 트랙을 main에 합칠 때만 갱신한다.
+- `out/`·`external/`은 Git 대상이 아니므로 sensor worktree에 없다. 센서 트랙의 모듈·DTBO 빌드와 checkpatch는 원본 폴더의 빌드 트리를 쓴다: `make KDIR=$HOME/bspworkspace/bsp-study/out/kernel-rpi4`, `$HOME/bspworkspace/bsp-study/external/linux/scripts/checkpatch.pl`.
+- 센서 하나가 센서 트랙에서 완료되면 부팅 트랙에서 레이어 추가 TASK로 Yocto 이미지에 반영한다.
 
 ## 코드 가독성
 - 현재 단계에 필요한 기능만 구현한다. 오류 검사·유실 통지·안전한 해제는 유지하되 상태·잠금·추상화를 최소화해 읽기 쉬운 구조를 우선한다.
@@ -49,7 +78,7 @@ Codex와 Claude Code가 함께 읽는 공통 규칙이다. Claude Code 전용 �
 - Make의 타깃·의존성·레시피·변수·.PHONY·Kbuild 역할은 실습 범위다. CMake는 사용자 앱에 필요해질 때 다룬다.
 
 ## 근거와 검증
-- 명령·API·DT binding은 대상 커널(6.18.59, `external/linux`) 소스·설정과 공식 문서에 맞춘다. 버전·주소·GPIO·부트 경로를 추측하지 않는다.
+- 명령·API·DT binding은 대상 커널(6.18.59, `external/linux`) 소스·설정과 공식 문서에 맞춘다. 드라이버·overlay·config 존재 여부는 `external/linux`와 `out/kernel-rpi4/.config`에서 확인하고, 확인하지 못한 것은 "확인 필요"로 적는다. 버전·주소·GPIO·부트 경로를 추측하지 않는다.
 - 사용자 제공 실측, 에이전트의 읽기 확인, 예상 결과, 미확인을 구분한다.
 - 빌드 성공·설치 성공·부팅 성공·기능 정상 동작을 구분하고 미검증 항목을 명시한다.
 - 참고 저장소 `../VEDA`, `../VEDA_Final_Project`는 읽기 전용이다. 참고한 경로와 범위를 남긴다.
