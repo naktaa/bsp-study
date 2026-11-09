@@ -1,7 +1,7 @@
 # 현재 진행 상태
 
 ## 현재 단계
-MPU6050 IIO 연속 수집판(경과 초·소수 둘째 자리 CSV)으로 60초 정지 기준선을 확보했다(2026-11-10). 5990샘플/59.98초로 실제 주기 약 99.85Hz와 일치하고, 종료 후 버퍼 중지·raw 재개·장치·모듈 정리를 확인했다. 가속도 크기는 0.92 g, 자이로 bias는 -2.31/-0.60/+0.57 °/s로 보정 전 관측값이다([IIO 문서 6장](../examples/mpu6050_iio/iio-direct.md#6-미검증한계)). Python 자이로 라이브 그래프는 사용자 화면으로 확인했다.
+같은 MPU6050을 mainline `inv_mpu6050`에 연결해 학습용 IIO 드라이버와 비교했다(2026-11-10, T-001). rpi `i2c-sensor` overlay를 부팅 시 적용해 `inv-mpu6050-i2c` 바인딩, GPIO17 Edge IRQ, scan 배치(온도 포함 index 0~7)를 확인했다. 표준 도구 `iio_generic_buffer`로 6축+timestamp 5샘플을 받았다(IRQ 0→5, 간격 약 20ms). 실행 중 `dtoverlay` 적용에서는 `interrupt-parent`가 해결되지 않아 buffer가 생성되지 않았다. 차이와 트러블슈팅은 [IIO 문서 2-4·4-7·5장](../examples/mpu6050_iio/iio-direct.md#2-4-mainline-inv_mpu6050와의-차이)에 있다. `config.txt`는 원복했다.
 
 ## 완료 요약
 - WSL ARM64 크로스 빌드·Pi 실행, 커스텀 커널 6.18.59-v8-bsp-study01 부팅·외부 모듈 실습 완료. overlay 매핑 누락으로 발생한 화면 장애도 복구 확인.
@@ -11,14 +11,17 @@ MPU6050 IIO 연속 수집판(경과 초·소수 둘째 자리 CSV)으로 60초 �
 - timestamp 추가 전 IIO raw·scale 조회, 6채널/12바이트 버퍼 수집·SI 단위 출력·정상 앱 종료·버퍼 중지·장치 제거 확인. 앱 없이 켠 버퍼의 포화(-EBUSY)와 재시작 후 수신 결과를 구분해 기록했다.
 - 현재 IIO timestamp 버전의20개 수신·종료0, 19개 IRQ 간격 평균10.015ms와 정상 정리 확인. 상세 수치·대표 로그는 IIO 문서에 기록했다.
 - 연속 수집판 60초 정지 수집·CSV 기록·정상 정리와 축별 평균·표준편차 기준선 확보.
+- mainline `inv_mpu6050` + `i2c-sensor` overlay 연결, 표준 도구 버퍼 수신, 학습용 드라이버와의 채널·scale·IRQ 종류·timestamp·FIFO 차이 정리(roadmap 9단계 완료).
 
 ## 막힌 점·미확인
 진행을 막는 문제는 없다. IIO 버퍼 활성 중 raw 접근 제한, 오류/수집 중 제거, 현재판 앱 자체 종료 코드는 미검증이다. 가속도 크기 0.92 g의 원인(영점·감도 오차 추정)은 보정 없이 분리하지 않았다. 짧은 IRQ 간격 관찰만으로 장기 주기 안정성·전체 센서 샘플 무손실·측정 정확도를 판정하지 않는다.
 
+mainline 비교에서는 가속도 ay 차이가 60초 표준편차의 약 4배로 남았고(자세 재현·50/100Hz 필터 차이 미분리), 원복 뒤 IRQ 행·IIO 장치 부재 직접 확인과 실행 중 `dtoverlay`의 `interrupt-parent` 미해결 원인은 확인 필요다.
+
 기존 커널 복귀 시험, 이름을 바꾼 hello 모듈의 재검증, 센서 슬립 재읽기·AD0 외부 선 및 기판 회로 확인은 남아 있다. 기존 FIFO의 여러 패킷 drain·오류 복구·중복 open 거절도 실제 검증한 범위와 구분한다.
 
 ## 다음 작업
-mainline `inv_mpu6050` 드라이버를 overlay로 연결해 학습용 드라이버와 출력·scale·sysfs 구조를 비교한다(roadmap 9단계 남은 항목, TASK 유형 B). 이후 roadmap 2부 11단계(U-Boot)로 넘어간다. Python의 가속도 전환·창 닫기 후 버퍼 중지는 선택 확인이다. IIO 센서 FIFO 연결·EIS 보완은 현재 범위에 추가하지 않는다.
+roadmap 2부 11단계(U-Boot 부팅, TASK 유형 C)를 계획한다. SD 카드 백업·복구 경로를 먼저 정한다. Python의 가속도 전환·창 닫기 후 버퍼 중지는 선택 확인이다. IIO 센서 FIFO 연결·EIS 보완은 현재 범위에 추가하지 않는다.
 
 ## 상세 문서
 - [현재 환경](bringup.md)
