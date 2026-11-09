@@ -34,6 +34,7 @@ deploy:
 	scp mpu6050_iio.ko $(PI_HOST):$(PI_MODULE_DIR)/
 	scp mpu6050-iio-overlay.dtbo $(PI_HOST):$(PI_OVERLAY_DIR)/
 	scp mpu6050_iio_app $(PI_HOST):$(PI_APP_DIR)/
+	scp imu_plot.py $(PI_HOST):$(PI_APP_DIR)/
 
 clean:
 	$(MAKE) -C "$(KDIR)" M="$(CURDIR)" \

@@ -15,7 +15,7 @@
 
 [mpu6050_iio.c](mpu6050_iio.c)는 직접 작성한 I2C 센서 드라이버를 IIO에 등록한다. **6축 raw·고정 scale 조회와 IRQ 트리거 기반 버퍼 수집**을 구현한다. 기존 [FIFO·문자 인터페이스 예제](../mpu6050/mpu6050.md)는 보존하며 두 드라이버를 같은 센서에 동시에 연결하지 않는다.
 
-sysfs 조회는 축별 현재 레지스터를 읽고, 버퍼 모드는 GPIO17 Data Ready마다 6축을 읽어 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](mpu6050_iio_app.c)는 6축과 IRQ 관측 시각이 담긴 24바이트 형식을 확인하고 20개 샘플을 읽어 scale과 Δt를 출력한다. 센서는 공칭 100Hz·±2g·±250deg/s다. 센서 FIFO·별도 커널 큐·범위 변경·자동 복구는 추가하지 않았다. BSP 학습 마무리 범위는 IRQ 관측 시각과 기본 수집 검증이며, IIO에 센서 FIFO를 다시 연결하거나 EIS를 보완하는 작업은 현재 범위에서 제외한다.
+sysfs 조회는 축별 현재 레지스터를 읽고, 버퍼 모드는 GPIO17 Data Ready마다 6축을 읽어 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](mpu6050_iio_app.c)는 6축과 IRQ 관측 시각이 담긴 24바이트 형식을 확인하고 Ctrl+C까지 연속 수신해 SI 단위 CSV를 기록한다. 선택 실행하는 [imu_plot.py](imu_plot.py)는 같은 IIO 장치에서 직접 읽어 가속도·각속도를 전환하는 독립 라이브 테스트 도구다. C 기록 앱과는 번갈아 실행한다. 센서는 공칭 100Hz·±2g·±250deg/s다. 센서 FIFO·별도 커널 큐·범위 변경·자동 복구는 추가하지 않았다. BSP 학습 마무리 범위는 IRQ 관측 시각과 기본 수집 검증이며, IIO에 센서 FIFO를 다시 연결하거나 EIS를 보완하는 작업은 현재 범위에서 제외한다.
 
 대상은 Pi 4, 커널 `6.18.59-v8-bsp-study01`, 소스 커밋 `b3495ea401d709af0701a85babcba5e3d788a602`다. 기존 WSL 빌드 디렉터리 `out/kernel-rpi4`와 [배선](../../docs/bringup.md#모듈과-핀-연결표)을 사용한다.
 
@@ -26,8 +26,8 @@ sysfs 조회는 축별 현재 레지스터를 읽고, 버퍼 모드는 GPIO17 Da
 3. 사용자가 6개 scan 채널을 선택하고 buffer/enable에 1을 쓰면 IIO가 수집 콜백을 트리거에 연결한다. set_trigger_state가 센서 Data Ready와 Linux IRQ를 켠다.
 4. 센서 INT가 HIGH가 되면 짧은 primary IRQ 핸들러가 monotonic 시각을 기록하고 스레드를 깨운다. IRQ 스레드는 INT_STATUS를 읽어 래치를 해제하고 IIO 트리거를 호출한다.
 5. IIO 수집 콜백은 측정 레지스터 14바이트를 읽고 온도 2바이트를 제외한 6축과 IRQ 타임스탬프를 IIO 버퍼에 넣는다. 성공·오류 모두 notify_done으로 처리를 마친다.
-6. 앱이 /dev/iio:deviceN에서 읽은 24바이트에서 6축 값과 시각을 해석하고 scale을 곱한다. 이전 행과의 시간 차이도 ms 단위로 표시한다. 버퍼 수집 중 개별 raw 조회는 EBUSY지만 scale은 읽을 수 있다.
-7. buffer/enable에 0을 쓰면 IRQ 종료를 기다린 뒤 센서 알림을 끄고 IIO가 수집 콜백을 분리한다. 앱 종료만으로 버퍼가 꺼지지는 않는다.
+6. 앱이 /dev/iio:deviceN에서 읽은 24바이트에서 6축 값과 시각을 해석하고 scale을 곱한다. 첫 IRQ부터의 경과 초와 SI 단위 6축을 CSV에 저장하고 약1초마다 최신 값을 터미널에 표시한다. 버퍼 수집 중 개별 raw 조회는 EBUSY지만 scale은 읽을 수 있다.
+7. buffer/enable에 0을 쓰면 IRQ 종료를 기다린 뒤 센서 알림을 끄고 IIO가 수집 콜백을 분리한다. 현재 C 앱과 Python 도구는 정상 종료 시 이 쓰기를 수행한다. 장치 파일 close 자체가 버퍼를 끄는 것은 아니다.
 8. overlay 제거 시 IIO 등록 해제 → IRQ 반환 → 트리거 등록 해제 → 버퍼 정리 → 센서 슬립 순서로 정리한다.
 
 ```text
@@ -258,11 +258,67 @@ IIO_DECLARE_BUFFER_WITH_TS는 6개의 16비트 값 뒤에 8바이트로 정렬�
 
 ### 7. 사용자 앱과 Makefile
 
-앱 인자는 /sys/bus/iio/devices/iio:deviceN 경로다. name이 우리 장치인지, 6축의 en=1·index=0~5·type=be:s16/16>>0, timestamp의 en=1·index=6·type=le:s64/64>>0, clock=monotonic과 버퍼 활성화를 확인한다. 형식이 맞지 않으면 해석하지 않고 종료한다. scale은 sysfs에서 읽어 사용하므로 감도 상수를 다시 넣지 않는다.
+앱은 인자 없이 실행한다. `find_device()`가 sysfs name으로 `mpu6050-iio-study` 한 개를 찾고 `check_scan()`이 6축 index=0~5·type=be:s16/16>>0, timestamp index=6·type=le:s64/64>>0, clock=monotonic을 확인한다. 이미 버퍼가 켜져 있으면 다른 reader의 수집을 방해하지 않도록 종료한다. 형식 확인 뒤 `prepare_buffer()`가 7개 채널·length=128·watermark=1을 설정한다. scale은 sysfs에서 읽어 사용하므로 감도 상수를 다시 넣지 않는다. 모듈·overlay 등록은 기존처럼 별도 준비다.
 
-read_sample은 poll로 최대 5초 동안 데이터를 기다리고 한 scan인 24바이트를 읽는다. 제거·timeout·짧은 읽기는 오류로 처리한다. O_NONBLOCK으로 열어 준비 상태가 바뀌어도 read에서 무한 대기하지 않는다. 수신한 big-endian 두 바이트를 int16_t로 해석하고 각 센서 scale을 곱해 m/s²·rad/s를 출력한다. timestamp는 오프셋16부터 memcpy로 정렬된 int64_t 변수에 복사한다. timestamp의 ns 값과 `(현재-이전)/1000000.0`인 Δt(ms)를 출력한다. 첫 행은 이전 샘플이 없어 Δt에 -를 표시한다. 0 이하이거나 증가하지 않는 시각은 오류로 처리한다. 20개 출력 후 close하지만 buffer/enable은 별도로 0을 써야 한다.
+read_sample은 poll로 최대 5초 동안 데이터를 기다리고 한 scan인 24바이트를 읽는다. 제거·timeout·짧은 읽기는 오류로 처리한다. O_NONBLOCK으로 열어 준비 상태가 바뀌어도 read에서 무한 대기하지 않는다. 수신한 big-endian 두 바이트를 int16_t로 해석하고 각 센서 scale을 곱해 m/s²·rad/s를 출력한다. timestamp는 오프셋16부터 memcpy로 정렬된 int64_t 변수에 복사한다. 0 이하이거나 증가하지 않는 시각은 오류로 처리한다. 현재 앱은 20개 제한 없이 연속 수신한다. CSV 헤더와 장치 파일 준비를 마친 뒤 앱이 buffer/enable=1로 수집을 시작한다. Ctrl+C·SIGTERM·읽기/기록 오류 시 공통 out 경로에서 자신이 시작한 버퍼를 중지하고 CSV와 장치 파일을 닫는다. 버퍼 중지 실패는 오류로 표시한다. SIGKILL·전원 차단에서는 종료 처리를 보장하지 않는다.
 
-Makefile의 all은 modules·overlay·app, deploy는 ko·dtbo·앱의 전송이다. 앱은 APP_CC로 ARM64 크로스 빌드한다. IIO 버퍼 형식을 공개 sysfs에서 확인하므로 별도 공유 헤더는 만들지 않았다.
+#### 연속 수신과 CSV 기록
+
+```c
+static volatile sig_atomic_t stopping;
+
+static void stop_capture(int signal_number)
+{
+    (void)signal_number;
+    stopping = 1;
+}
+```
+
+sigaction으로 SIGINT(Ctrl+C)·SIGTERM 처리 함수를 연결한다. 신호 처리 중에는 파일 작업을 하지 않고 sig_atomic_t 플래그만 변경한다. poll/read의 EINTR 재시도도 이 플래그를 확인하므로 종료 신호를 받고 다시 무한 대기하지 않는다. 정상 루프에서 fclose·close를 수행하며 읽기·기록·종료 오류는 실패 상태로 반환한다.
+
+```c
+values[axis] = decode_axis(&raw[axis * 2]) * scale[axis / 3];
+```
+
+axis=0~2는 가속도 scale, 3~5는 각속도 scale을 곱한다. CSV 열은 `time_s,ax_m_s2,ay_m_s2,az_m_s2,gx_rad_s,gy_rad_s,gz_rad_s`다. 시간은 `(timestamp - first_timestamp) / 1000000000.0`으로 계산한 경과 초이며 첫 샘플은0.00이다. CSV와 터미널 모두 시간·m/s²·rad/s를 소수점 두 자리로 표시한다. 내부에서는 기존 정수 ns로 시각 증가를 검사하고 flush·표시 간격을 판단한다. CSV에는 절대 IRQ ns를 저장하지 않는다. 반올림으로 작은 값·미세한 간격 차이는 사라지므로 이 CSV를 정밀 시간 분석용으로 취급하지 않는다. 매 샘플을 기록하지만 터미널에는 약1초마다 최신 값·경과 초·수신 개수를 정렬된 표로 출력한다.
+
+```csv
+time_s,ax_m_s2,ay_m_s2,az_m_s2,gx_rad_s,gy_rad_s,gz_rad_s
+0.00,-6.29,-1.29,-6.46,-0.05,-0.04,0.02
+0.01,-6.20,-1.23,-6.36,-0.04,-0.08,0.03
+```
+
+위 행은 새 출력 형식 예시이며 새 버전의 보드 실행 결과는 아니다. 단위와 부호를 유지하고 출력 자릿수만 줄이며 Python의 IIO 직접 수신 형식은 바꾸지 않는다.
+
+getpwuid로 실행 사용자의 홈을 찾고, sudo 실행이면 SUDO_USER의 passwd 항목을 사용한다. 앱이 `~/bsp/logs/`를 준비하며 open_log는 `20261109-153042_mpu6050.csv` 형식으로 파일을 생성한다. 부모 디렉터리는 미리 있어야 한다. 파일명은 Pi 현지 시각이며 파일명 내림차순 정렬로 최신 기록을 찾을 수 있다. CSV 내부 monotonic 시각과 파일명의 달력 시각은 서로 다른 용도다. fopen의 `wx`는 같은 이름이 이미 있으면 실패하므로 같은 초 재실행 시 기존 기록을 덮어쓰지 않는다.
+
+약100ms마다 fflush하고 종료 시 fclose해 CSV 기록을 OS에 전달한다. fflush는 사용자 공간 버퍼를 OS에 전달하는 것이며 정전 시 디스크 보존을 보장하는 fsync와는 다르다. 기록 오류는 무시하지 않고 앱을 종료한다. 저장 공간 사용량은 수집 시간에 따라 늘어나며 자동 회전·삭제는 구현하지 않았다.
+
+#### 테스트용 그래프와 단위
+
+[imu_plot.py](imu_plot.py)는 Pi 데스크톱에서 인자 없이 실행하는 라이브 테스트 도구다. CSV와 C 앱을 거치지 않고 같은 커널 드라이버의 `/dev/iio:deviceN`에서 직접 수신한다. 센서 레지스터 설정은 기존 드라이버가 맡는다. C 기록 앱과 동시에 실행하지 않는다. IIO 버퍼는 두 reader에게 전체 샘플을 각각 복제하는 구조가 아니며, Python은 이미 활성화된 버퍼를 발견하면 설정을 바꾸지 않고 종료한다. 이 검사는 잠금에 의한 독점 보장은 아니므로 실행 중 C 앱을 추가로 켜지 않는다.
+
+`find_device()`는 sysfs name으로 장치를 자동 선택하고, 없거나 여러 개면 종료한다. `capture()`는 monotonic clock·7채널 index/type·scale을 확인하고 채널을 켠 뒤 length=128·watermark=1을 설정한다. 장치 파일을 non-blocking으로 열고 버퍼를 켠 다음 GUI를 실행한다. contextmanager의 `finally`는 창 닫기·Ctrl+C·읽기 오류 뒤 버퍼를 끄고 파일을 닫는다. 채널·length·watermark 설정은 유지하며 모듈·overlay를 제거하지 않는다. 권한 오류나 강제 종료 등으로 정리가 실패했다면 셸에서 buffer/enable을 확인하고 수동 중지한다.
+
+```python
+axes = struct.unpack_from(">6h", raw, offset)
+timestamp = struct.unpack_from("<q", raw, offset + 16)[0]
+```
+
+`decode_scans()`는 C 앱과 같은24바이트 형식을 해석한다. `>6h`는 big-endian signed16비트6축이고 `<q`는 패딩 뒤 little-endian signed64비트 IRQ ns다. 각 축에 sysfs scale을 곱해 SI 값으로 만든 뒤 표시 단위로 바꾼다. 빈 읽기·불완전 scan·증가하지 않는 시각은 오류다.
+
+화면은100ms마다 최대128개 scan을 배치로 읽고 최근10초 XYZ를 갱신한다. 데이터가 아직 없으면 BlockingIOError를 처리하고 GUI를 유지하며, 5초간 수신이 없으면 오류로 종료한다. GUI와 읽기를 같은 이벤트 루프에서 처리하는 작은 테스트 도구다. 화면 그리기나 원격 데스크톱 부하로 읽기가 늦어지면 IIO 버퍼가 찰 수 있으며, 무손실 기록용으로 쓰지 않는다. C 앱은 별도의 CSV 수집용으로 유지한다.
+
+| 클릭 선택 | IIO scale 적용 단위 | 그래프 환산·의미 |
+| --- | --- | --- |
+| Gyroscope (기본) | rad/s | `값 × 180 / pi` → deg/s, 축 주위 회전 속도 |
+| Accelerometer | m/s² | `값 / 9.80665` → g, 중력을 포함한 가속도 |
+
+가로축은 정수 IRQ 시각에서 첫 시각을 뺀 뒤 초로 환산한다. XYZ의 색을 유지하며 RadioButtons 클릭으로 표시 대상·단위·세로축 범위를 함께 바꾼다. 현재 센서 설정에 맞춰 가속도 약±2g, 자이로 약±250deg/s 범위를 표시한다. 기울인 채 멈추면 가속도에는 중력 성분이 남지만 각속도는 오프셋 근처로 돌아온다. 각도 적분·자세 추정·자동 bias 보정은 하지 않는다.
+
+기존 프로젝트의 `../VEDA_Final_Project/tank/scripts/gyro_axis_plot.py`를 읽어 비교했다. 그 도구는 smbus2로 센서를 직접 설정·조회하고 bias를 뺀 자이로3축과 단순 적분 각도3개를 표시했다. 새 도구는 I2C 레지스터에 직접 접근하지 않고 기존 커널 드라이버의 IIO 버퍼를 사용한다. 기존 직접 I2C 측정 도구를 바인딩 중인 센서에 함께 실행하지 않는다.
+
+Makefile의 all은 modules·overlay·app, deploy는 ko·dtbo·앱·테스트 Python 파일의 전송이다. 앱은 APP_CC로 ARM64 크로스 빌드한다. IIO 버퍼 형식을 공개 sysfs에서 확인하므로 별도 공유 헤더는 만들지 않았다.
 
 ## 헷갈리는 개념
 
@@ -308,7 +364,7 @@ cd ~/bspworkspace/bsp-study/examples/mpu6050_iio
 make deploy
 ```
 
-deploy는 만든 ko·dtbo·앱을 각각 ~/bsp/modules·overlays·apps로 전송만 한다. 로드·overlay 적용은 별도다.
+deploy는 만든 ko·dtbo·앱과 imu_plot.py를 각각 ~/bsp/modules·overlays·apps로 전송만 한다. 로드·overlay 적용은 별도다.
 
 ### 3. Pi · 홈 디렉터리 · 버전과 기존 점유 확인
 
@@ -376,7 +432,7 @@ scale의 예상 출력은 각각 `0.000598550`, `0.000133231`이다. 이 scale �
 
 경로가 비어 있으면 등록 상태를 확인한다. 여섯 속성이 정수를 반환하는지 확인하고 센서의 자세를 바꿔 다시 읽는다. 고정된 예상 숫자는 정하지 않는다.
 
-### 6. Pi · 같은 홈 셸 · 6축·timestamp·버퍼 설정
+### 6. Pi · 같은 홈 셸 · 6축·timestamp·버퍼 설정 (개념 확인용)
 
 선행 조건: 직전 단계에서 imu_iio_path가 올바르게 설정되고 버퍼가 꺼져 있어 raw/scale 조회가 가능해야 한다. 새 터미널이면 5단계의 name 검색부터 다시 실행한다. 아래는 root 권한으로 설정 파일에 쓰기 위해 tee를 사용한다.
 
@@ -395,25 +451,45 @@ if [ -n "$imu_iio_path" ]; then
 fi
 ```
 
-length=128은 커널 IIO 버퍼 용량이고 센서 FIFO 크기가 아니다. watermark=1은 한 scan부터 읽기 준비 상태로 알리는 설정이다. current_trigger는 이 장치에 고정된 트리거 이름을 보여준다. 여기서는 버퍼를 꺼 둔다. 앱 없이 수집을 켜 놓으면 버퍼가 차므로 다음 단계에서 앱 실행 직전에 활성화한다. 수집 중 raw 조회는 EBUSY이고 scale은 조회할 수 있도록 구현했다. 이 접근 제한의 실제 확인 여부는 검증 현황에 구분한다.
+length=128은 커널 IIO 버퍼 용량이고 센서 FIFO 크기가 아니다. watermark=1은 한 scan부터 읽기 준비 상태로 알리는 설정이다. current_trigger는 이 장치에 고정된 트리거 이름을 보여준다. 여기서는 버퍼를 꺼 둔다. 현재 C 앱과 Python 도구는 이 설정과 버퍼 시작·중지를 자체 수행하므로 이 단계의 수동 설정 없이 실행해도 된다. 앱 없이 버퍼만 켜 두면 버퍼가 찬다. 수집 중 raw 조회는 EBUSY이고 scale은 조회할 수 있도록 구현했다. 이 접근 제한의 실제 확인 여부는 검증 현황에 구분한다.
 
-### 7. Pi · 앱 디렉터리 · 시각·간격과 함께 20개 읽기
+### 7. Pi · 앱 디렉터리 · 연속 수신과 CSV 기록
 
-선행 조건: 같은 셸의 imu_iio_path와 직전 단계의 6축·timestamp·length·watermark 설정, 새 모듈과 앱을 함께 갱신한 상태. 새 터미널이면 5단계에서 변수를 다시 설정한다. 버퍼를 재시작하고 바로 앱을 실행하며, 성공·오류 종료 뒤 모두 버퍼를 끈다.
+선행 조건: 새 앱의 WSL 빌드·전송 완료, 모듈·overlay 등록 완료, Python 등 다른 수집 앱 종료·버퍼 비활성 상태. 셸 변수·채널 수동 설정은 필요 없다. WSL에서 변경된 앱만 빌드·전송한다.
 
 ```bash
-cd ~/bsp/apps
-if [ -n "$imu_iio_path" ]; then
-    printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"
-    printf '1\n' | sudo tee "$imu_iio_path/buffer/enable"
-    sudo ./mpu6050_iio_app "$imu_iio_path"
-    echo $?
-    printf '0\n' | sudo tee "$imu_iio_path/buffer/enable"
-    sudo dmesg | grep -F 'mpu6050-iio-study' | tail -5
-fi
+# WSL · 예제 디렉터리
+cd ~/bspworkspace/bsp-study/examples/mpu6050_iio
+make app
+scp mpu6050_iio_app pi:bsp/apps/
 ```
 
-OPEN → READ 표 20행(IRQ time·dt 포함) → CLOSE·종료0이 정상 경로의 기대 결과다. 시각 증가와 공칭100Hz에 대응하는 약10ms 간격을 관찰하되 엄격한 허용 범위나 무손실 합격 기준으로 쓰지 않는다. I2C나 버퍼 저장 실패가 없는지도 커널 로그에서 함께 확인한다. 출력은 m/s²·rad/s이며 기존 misc 앱의 g·deg/s와 단위가 다르다. timestamp는 IRQ 관측 시각이고 샘플 순번은 없으므로 간격 변화만으로 센서 유실이나 정확한 측정 시각을 판정하지 않는다.
+```bash
+# Pi · 앱 디렉터리 · 약10초 관찰 뒤 Ctrl+C
+cd ~/bsp/apps
+./mpu6050_iio_app
+```
+
+IIO 설정 쓰기 권한이 없거나 기존 로그 디렉터리에 쓰지 못하면 `sudo ./mpu6050_iio_app`으로 실행한다. sudo 실행에서도 기록 위치는 원래 사용자의 `~/bsp/logs/`다. 앱이 표시한 CSV 경로와 계속 증가하는 수신 개수를 확인한 뒤 Ctrl+C로 종료한다. 앱이 버퍼 중지·파일 닫기를 수행하고 CLOSE를 출력한다. 종료 상태는 `echo $?`로 확인한다. 이미 활성화된 버퍼를 발견하면 임의로 끄지 않고 다른 수집을 먼저 정리하도록 안내한다.
+
+CSV 기록과 Python 그래프는 별개 실행 경로다. 그래프를 시험하기 전 C 앱을 종료한다. 앱 종료 후8단계의 버퍼·raw 확인은 검증용이며 매 실행의 필수 준비 명령은 아니다.
+
+#### Pi · 데스크톱 터미널 · 독립 라이브 그래프 (선택)
+
+선행 조건: 모듈·overlay로 IIO 장치가 등록돼 있고 C 앱은 종료·버퍼는 비활성 상태여야 한다. 위6단계의 수동 채널 설정은 Python 실행에는 필요하지 않다. VNC/Connect 또는 로컬 Pi 데스크톱의 터미널에서 실행한다. Python3·Matplotlib·GUI 지원 설치 여부는 아직 미확인이다. 필요한 경우 사용자가 Pi에서 설치한다.
+
+```bash
+cd ~
+sudo apt install python3-matplotlib python3-tk
+cd ~/bsp/apps
+sudo --preserve-env=DISPLAY,XAUTHORITY,WAYLAND_DISPLAY,XDG_RUNTIME_DIR python3 imu_plot.py
+```
+
+CSV 인자 없이 장치를 자동 검색하고 수집을 시작한다. sysfs 채널·버퍼 설정과 장치 읽기에 권한이 필요해 sudo를 사용한다. GUI 환경 변수는 현재 Pi 데스크톱의 것을 전달한다. SSH 텍스트 터미널만으로 GUI가 뜬다고 가정하지 않는다. GUI 접근 권한은 실제 데스크톱에서 검증해야 하며 시스템 전체의 디스플레이 접근을 임의로 허용하지 않는다.
+
+Gyroscope/Accelerometer를 클릭해 단위와 XYZ를 전환하고, 각 축 방향으로 돌리거나 기울인 채 멈추며 반응을 비교한다. 창을 닫으면 Python의 수집과 버퍼도 중지된다. C 앱은 실행하지 않아도 되며 CSV도 생성하지 않는다. 종료 후 아래8단계에서 buffer/enable=0과 raw 조회 재개를 확인한다. 오류나 강제 종료로 버퍼가 남으면 수동으로0을 쓴다.
+
+I2C·버퍼 저장 오류는 커널 로그와 함께 확인한다. timestamp는 IRQ 관측 시각이며 간격만으로 센서 유실 개수나 정확한 측정 시각을 판정하지 않는다.
 
 ### 8. Pi · 홈 디렉터리 · 중지 상태와 raw 조회 확인
 
@@ -453,7 +529,7 @@ lsmod | grep '^mpu6050_iio '
 
 ## 검증 현황
 
-2026-11-08까지 사용자가 제공한 출력 기준이다. 아래 성공 기록은 사용자 실행 결과이며 에이전트가 빌드하거나 보드를 재실행한 결과가 아니다.
+기존 검증은 2026-11-08까지 사용자가 제공한 출력 기준이다. C 앱의 사용자 제공 CSV10행에서 약10.01~10.02ms 간격과 SI6축 기록, 터미널 수신 개수901~2401의 증가·움직임 반응·Ctrl+C 입력을 확인했다. 종료 코드·버퍼 중지는 아직 출력 미확인이다. 경과 초·소수점 두 자리로 바꾼 새 표시 버전은 빌드·보드 검증 전이다. Python의 기존 드라이버 직접 수신·자이로 라이브 그래프는 사용자 화면으로 확인했으며 가속도 전환·창 닫기 후 버퍼 중지는 최종 출력 확인이 남아 있다. 아래20개 수신 결과는 이전 고정20개 앱의 결과로 보존한다. 아래 성공 기록은 사용자 실행 결과이며 에이전트가 빌드하거나 보드를 재실행한 결과가 아니다.
 
 | 버전·항목 | 확인한 결과 |
 | --- | --- |
@@ -463,11 +539,12 @@ lsmod | grep '^mpu6050_iio '
 | timestamp 추가 전 등록·활성화 | 새 ready(15476.277240), GPIO17 Level·Linux IRQ61 등록과 활성화 전 횟수0 확인. 6채널·length128·watermark1 설정, 트리거 mpu6050-iio-study-1-0068, BUFFER enabled(15737.565469)와 IRQ 횟수5 확인 |
 | timestamp 추가 전 앱 수신·버퍼 중지 | 버퍼 재시작 후 6축 표20행·CLOSE·종료0 확인. 출력 단위는 m/s²·rad/s. enabled(15926.582049) → disabled(15926.808754) 구간의 제공 로그에 새 drop 없음 |
 | timestamp 추가 전 장치 제거 | I2C 1-0068·IIO iio:device0 경로 부재, REMOVE(16131.186128) 확인 |
-| 현재 timestamp 버전 등록 | 새 ready(17976.379682)의 scan=24 bytes, current_timestamp_clock=monotonic, in_timestamp_en 속성 확인 |
-| 현재 timestamp 버전 수신 | 6축+timestamp 설정 후20개 수신·시각 증가·CLOSE·종료0 확인. 19개 간격은 최소10.013ms·최대10.019ms·평균10.015ms이며 이 구간의 관측률은 약99.85Hz |
-| 현재 timestamp 버전 중지·제거 | buffer/enable=0, 중지 후 in_accel_x_raw=-3426 조회 확인. I2C/IIO 장치 경로 부재·REMOVE(19097.883415), 안내한 정리 순서의 IRQ·최종 lsmod 조회 출력 없음 확인 |
+| 고정20개 timestamp 버전 등록 | 새 ready(17976.379682)의 scan=24 bytes, current_timestamp_clock=monotonic, in_timestamp_en 속성 확인 |
+| 고정20개 timestamp 버전 수신 | 6축+timestamp 설정 후20개 수신·시각 증가·CLOSE·종료0 확인. 19개 간격은 최소10.013ms·최대10.019ms·평균10.015ms이며 이 구간의 관측률은 약99.85Hz |
+| 고정20개 timestamp 버전 중지·제거 | buffer/enable=0, 중지 후 in_accel_x_raw=-3426 조회 확인. I2C/IIO 장치 경로 부재·REMOVE(19097.883415), 안내한 정리 순서의 IRQ·최종 lsmod 조회 출력 없음 확인 |
+| Python 라이브 테스트 | 사용자 화면에서 자이로 XYZ·deg/s·시간축 약43초까지 갱신 확인. C 앱·CSV를 거치지 않는 경로의 표시 성공 |
 
-현재 24바이트 버전 앱의 첫 행과 마지막 행을 발췌했다. 중간 18행도 사용자 출력에서 수신 확인했으며 아래에는 생략했다. 위 12바이트 버전의 과거 결과와 구분한다.
+이전 고정20개·24바이트 버전 앱의 첫 행과 마지막 행을 발췌했다. 중간 18행도 사용자 출력에서 수신 확인했으며 아래에는 생략했다. 위 12바이트 버전의 과거 결과와 구분한다.
 
 ```text
 === READ: 20 IIO scans ===
@@ -509,4 +586,4 @@ lsmod | grep '^mpu6050_iio '
 [16131.186128] mpu6050-iio-study 1-0068: [REMOVE] detached
 ```
 
-**결과와 재현 절차 보완:** 앱20행·종료0·버퍼 중지·장치 제거를 확인했다. drop은 재시작 이전인15924초대이며 제공된 새 수집 구간에는 없었다. 이것만으로 모든 하드웨어 샘플의 무손실을 증명하지 않는다. 앞으로는 6단계에서 설정만 하고 7단계에서 버퍼 시작 → 앱 읽기 → 버퍼 중지를 붙여 실행한다. 앱 close만으로 수집이 중지되지 않는 점을 유지한다.
+**결과와 재현 절차 보완:** 앱20행·종료0·버퍼 중지·장치 제거를 확인했다. drop은 재시작 이전인15924초대이며 제공된 새 수집 구간에는 없었다. 이것만으로 모든 하드웨어 샘플의 무손실을 증명하지 않는다. 당시에는 버퍼 시작 → 앱 읽기 → 버퍼 중지를 셸에서 붙여 실행했다. 현재 앱은 시작·중지 쓰기를 직접 수행하므로7단계의 단일 실행 절차를 사용한다. 장치 파일 close만으로 수집이 중지되는 것은 아니다.
