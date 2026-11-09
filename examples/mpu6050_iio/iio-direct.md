@@ -294,6 +294,23 @@ sudo dmesg | grep -F 'mpu6050-iio-study' | tail -2
 
 CSV 첫 줄은 `time_s,ax_m_s2,ay_m_s2,az_m_s2,gx_rad_s,gy_rad_s,gz_rad_s`이다. 값은 첫 IRQ부터의 경과 초와 SI 6축을 소수 둘째 자리로 기록한다. 앱은 `~/bsp/logs`를 직접 만들고, sudo로 실행해도 원래 사용자의 홈에 기록하며, 같은 이름의 파일은 덮어쓰지 않는다(`fopen "wx"`). 수집 중 다른 터미널에서 `cat "$imu_iio_path/in_accel_x_raw"`를 실행하면 4-4의 표대로 `Device or resource busy`가 예상된다.
 
+**정해진 시간만 수집(정지 기준선):** 센서를 고정해 두고 Ctrl+C 대신 `timeout`으로 SIGINT를 보낸 뒤 CSV에서 축별 평균·표준편차와 간격을 계산한다. 결과는 [6장](#6-미검증한계)에 있다.
+
+```bash
+# [Pi] ~/bsp/apps — 4-3 적용 후. --preserve-status가 없으면 timeout이 앱 종료 코드 대신 124를 반환한다
+cd ~/bsp/apps
+sudo timeout --preserve-status -s INT 60 ./mpu6050_iio_app; echo "exit=$?"
+f=$(ls -t ~/bsp/logs/*_mpu6050.csv | head -1)
+awk -F, 'NR==1{for(i=2;i<=7;i++)h[i]=$i;next}
+ {n++; for(i=2;i<=7;i++){s[i]+=$i;q[i]+=$i*$i}
+  if(n>1){d=$1-p; ds+=d; if(d>mx)mx=d; if(mn==""||d<mn)mn=d} p=$1}
+ END{printf "samples=%d duration=%.2fs\n",n,p;
+  for(i=2;i<=7;i++){m=s[i]/n; printf "%-10s mean=%9.4f std=%8.4f\n",h[i],m,sqrt(q[i]/n-m*m)}
+  printf "dt mean=%.4fs min=%.2fs max=%.2fs\n",ds/(n-1),mn,mx}' "$f"
+```
+
+CSV 시각은 10ms 단위로 잘리므로 간격 min/max는 반올림 영향을 받는다. 개별 간격 분포 판단에는 쓰지 않는다.
+
 **설명 — primary와 thread 분리, LATCH + IRQF_ONESHOT:** primary 핸들러는 hard IRQ 문맥이라 잠들 수 없다. I2C 전송은 잠들 수 있으므로 thread로 미루고, primary에서는 시각만 가능한 한 빨리 기록한다.
 
 ```c
@@ -399,6 +416,20 @@ mpu6050_sleep(client);
 ## 6. 미검증·한계
 
 - **실측(이전 고정 20샘플 버전, 사용자 실행):** 24바이트 scan 20샘플, IRQ 간격 평균 10.015ms, 종료 0·정지 후 raw 재개·정상 제거 확인.
-- **미검증:** 수집 중 raw `EBUSY` 출력, 현재 연속 수집판(경과 초·소수 둘째 자리)의 보드 실행·종료 코드, Python의 가속도 전환과 창 닫기 후 버퍼 중지, 수집 중 제거·I2C 실패·timeout 경로.
-- **미측정:** 정지 상태 60초 기준선과 장기 주기 안정성. IRQ 시각 간격만으로 무손실이나 측정 정확도를 판정하지 않는다.
+- **실측(현재 연속 수집판, 2026-11-10 사용자 실행):** `timeout -s INT 60`으로 60초 수집 후 `=== CLOSE ===`·`samples: 5990`, CSV 기록. 이후 buffer/enable `0`, raw 재개(`in_accel_x_raw` = -9700 → -5.81 m/s², ax 평균과 일치), dmesg `[BUFFER] disabled` → `[REMOVE] detached` 확인. `--preserve-status` 없이 실행해 표시된 `exit=124`는 timeout의 반환값이며 앱 자체 종료 코드는 확인하지 못했다.
+
+**60초 정지 기준선 (2026-11-10, 기울어진 정지 자세, 보정 없음)**
+
+| 항목 | 평균 | 표준편차 | 해석 |
+| --- | --- | --- | --- |
+| ax / ay / az (m/s²) | -5.7710 / -2.1730 / -6.6152 | 0.0167 / 0.0172 / 0.0254 | 크기 √(합) = 9.04 m/s²(0.92 g) |
+| gx / gy / gz (rad/s) | -0.0404 / -0.0105 / 0.0099 | 0.0025 / 0.0026 / 0.0021 | 영점 bias -2.31 / -0.60 / +0.57 °/s |
+| 샘플 | 5990개 / 59.98초 | — | 평균 간격 10.0ms |
+
+- **샘플 수:** 59.98초를 이전에 관찰한 IRQ 주기 10.015ms로 나누면 5989 간격, 곧 5990샘플로 실측과 같다. 100Hz 기준(5999)보다 적은 것은 유실이 아니라 실제 주기 약 99.85Hz로 설명된다. 다만 주기가 일정하다는 가정이므로 무손실을 확정하지 않는다.
+- **가속도 크기 0.92 g:** scale 상수(9.80665/16384)는 맞으므로 센서 영점 오프셋·감도 오차로 추정한다. 저가형 모듈의 실제 사양과 6방향 보정은 확인하지 않았고 원인을 분리하지 않았다.
+- **자이로 bias:** 데이터시트의 초기 영점 오차 범위(±20 °/s) 안이다. 보정하지 않은 값이다.
+
+- **미검증:** 수집 중 raw `EBUSY` 출력, 현재판 앱 자체 종료 코드(`--preserve-status`), Python의 가속도 전환과 창 닫기 후 버퍼 중지, 수집 중 제거·I2C 실패·timeout 경로.
+- **미측정:** 장기 주기 안정성, 축별 회전 방향 검증, 6방향 정지 보정. IRQ 시각 간격만으로 무손실이나 측정 정확도를 판정하지 않는다.
 - **한계:** 센서 FIFO가 없어 IRQ 처리가 늦어지면 이전 값이 덮어써질 수 있고, 긴 Δt를 유실 개수로 환산할 수 없다. scale은 ±2g·±250deg/s 고정이며 보정하지 않는다.
