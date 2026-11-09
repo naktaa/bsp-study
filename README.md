@@ -31,19 +31,30 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 - [MPU6050 I2C 매칭·식별값 읽기](examples/mpu6050/mpu6050.md)
 - [MPU6050 IIO 채널·scale·IRQ 버퍼](examples/mpu6050_iio/iio-direct.md)
 
-실습 코드 수정·빌드·설치·실행은 사용자가 직접 하고, 에이전트는 설명·읽기 검토·문서 정리를 기본으로 한다.
+실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
 
 ## 시작
 1. 이 저장소와 같은 상위 폴더의 `VEDA`, `VEDA_Final_Project`를 참고한다. 기존 clone이 있으면 그 위치를 사용한다.
-2. 에이전트와 `AGENTS.md`, `docs/worklog.md`, `docs/roadmap.md`의 현재 단계를 확인한다.
-3. 보드와 개발 PC의 실제 환경을 조사해 `docs/bringup.md`를 채운다.
-4. 계획 설명·승인 → 사용자 직접 실습 → 결과와 개념 대화 → 학습 문서·현재 상태 갱신 순서로 진행한다.
-5. 의미 있는 변경은 검증 후 추천 커밋 메시지(`Feat:`, `Fix:`, `Chore:` 등)만 남기고 사용자가 직접 커밋한다. 에이전트는 특정 파일의 커밋을 명시적으로 요청받은 경우에만 수행한다.
+2. `AGENTS.md`(공통), `CLAUDE.md`(Claude Code), `docs/worklog.md`, `docs/roadmap.md`의 현재 단계를 확인한다.
+3. 보드와 개발 PC의 실제 환경은 `docs/bringup.md`에서 관리한다.
+4. TASK 단위로 진행한다.
+
+```
+[Claude Code] /plan-task <주제>  → 계획 설명 → 승인 → docs/tasks/T-NNN 작성
+[Codex]       T-NNN 읽기 → 구현 계획 설명 → 승인 → 구현·WSL 빌드 → 구현 보고
+[Claude Code] /review-task NNN   → 리뷰·수정 지시(필요 시 Codex 재작업) → 이해 확인 질문
+[사용자]      보드 배포·실행 → TASK '실측 결과'에 출력 붙여넣기
+[Claude Code] /close-task NNN    → 문서 갱신 계획 → 승인 → 갱신·추천 커밋 메시지
+[사용자]      커밋
+```
+
+5. 단계가 끝나면 `/interview-note <주제>`로 `docs/interview/`에 면접용 요약을 만든다.
 
 참고 레포를 이 저장소 내부에 넣거나 함께 커밋하지 않는다. 커널 소스도 별도 관리한다.
 
 ## 문서
-- [에이전트 지침](AGENTS.md)
+- [공통 에이전트 지침](AGENTS.md) · [Claude Code 지침](CLAUDE.md) · [문서 규칙](.claude/rules/docs.md)
+- [TASK 목록](docs/tasks/) · [면접 요약](docs/interview/)
 - [학습 순서와 완료 기준](docs/roadmap.md)
 - [환경·배선·참고 자료](docs/bringup.md)
 - [현재 상태와 진행 기록](docs/worklog.md)
