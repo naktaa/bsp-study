@@ -97,23 +97,8 @@ read_raw는 측정값을 `*val`에 쓰고 **값의 형식**(`IIO_VAL_INT` 등)�
 
 같은 GY-521(I2C1 0x68, INT GPIO17)을 학습용 드라이버 대신 대상 커널의 `inv_mpu6050`에 연결했다. DT는 rpi `i2c-sensor` overlay의 `mpu6050` 파라미터를 썼다. 두 드라이버 모두 IIO 장치를 만들지만 **IRQ 설정을 누가 정하는지, 샘플을 어디서 꺼내는지, 시각을 어떻게 붙이는지**가 다르다.
 
-```mermaid
-flowchart LR
-    subgraph S["학습용 mpu6050_iio"]
-        direction LR
-        S1["DT: level HIGH"] --> S2["칩: active-high LATCH 고정"]
-        S2 --> S3["IRQ마다 측정 레지스터 읽기"]
-        S3 --> S4["IRQ 시각 (MONOTONIC)"]
-    end
-    subgraph M["mainline inv_mpu6050"]
-        direction LR
-        M1["DT: EDGE_FALLING"] --> M2["칩: DT 종류에 맞춰 active-low"]
-        M2 --> M3["센서 FIFO 일괄 읽기"]
-        M3 --> M4["주기 추정 시각 (REALTIME 기본)"]
-    end
-    style S fill:#e8f1fb,stroke:#4a78b0
-    style M fill:#fdf0e3,stroke:#c07a2c
-```
+- **학습용 `mpu6050_iio`:** DT level HIGH → 칩 active-high LATCH(코드 고정) → IRQ마다 측정 레지스터 읽기 → IRQ 시각(MONOTONIC)
+- **mainline `inv_mpu6050`:** DT EDGE_FALLING → 칩 active-low(DT 값에 맞춤) → 센서 FIFO 일괄 읽기 → 주기 추정 시각(REALTIME 기본)
 
 | 항목 | 학습용 `mpu6050_iio.c` | mainline `inv_mpu6050` | 근거 |
 | --- | --- | --- | --- |
