@@ -1,7 +1,6 @@
 ---
 name: plan-task
-description: 다음 BSP 학습 TASK를 계획하고 승인 후 docs/tasks/T-NNN 파일을 만든다
-disable-model-invocation: true
+description: 사용자가 다음 작업, 새 장치·roadmap 단계의 계획을 확정하자고 할 때 사용한다. TASK 유형과 범위를 설명하고 승인받은 뒤 docs/tasks/에 TASK 파일을 만든다
 argument-hint: [주제 또는 비워두면 roadmap 기준 다음 단계]
 allowed-tools: Read Grep Glob Bash(git status *) Bash(git log *) Bash(ls *)
 ---

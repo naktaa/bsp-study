@@ -40,13 +40,15 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 4. TASK 단위로 진행한다.
 
 ```
-[Claude Code] /plan-task <주제>  → 계획 설명 → 승인 → docs/tasks/T-NNN 작성
+[Claude Code] 계획 확정 요청 (plan-task) → 계획 설명 → 승인 → docs/tasks/T-NNN 작성
 [Codex]       T-NNN 읽기 → 구현 계획 설명 → 승인 → 구현·WSL 빌드 → 구현 보고
-[Claude Code] /review-task NNN   → 리뷰·수정 지시(필요 시 Codex 재작업) → 이해 확인 질문
-[사용자]      보드 배포·실행 → TASK '실측 결과'에 출력 붙여넣기
+[Claude Code] 구현 완료·리뷰 요청 (review-task) → 리뷰·수정 지시(필요 시 Codex 재작업) → 이해 확인 질문
+[사용자]      보드 배포·실행 → 출력을 채팅으로 전달 → Claude가 TASK '실측 결과'에 기록
 [Claude Code] /close-task NNN    → 문서 갱신 계획 → 승인 → 갱신·추천 커밋 메시지
 [사용자]      커밋
 ```
+
+계획 확정·리뷰는 대화로 요청하면 해당 skill이 적용되며 `/plan-task`·`/review-task`로 직접 실행해도 된다. 마감·면접 요약은 `/close-task`·`/interview-note`로 직접 실행한다.
 
 5. 단계가 끝나면 `/interview-note <주제>`로 `docs/interview/`에 면접용 요약을 만든다.
 

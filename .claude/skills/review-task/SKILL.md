@@ -1,12 +1,13 @@
 ---
 name: review-task
-description: Codex가 구현한 TASK를 git diff 기준으로 리뷰하고 수정 지시와 이해 확인 질문을 남긴다
-disable-model-invocation: true
+description: 사용자가 Codex 구현이 끝났다고 하거나 구현 리뷰를 요청할 때 사용한다. TASK 범위·구현 보고와 git diff를 대조해 리뷰하고 수정 지시와 이해 확인 질문을 TASK에 남긴다
 argument-hint: [T-번호]
 allowed-tools: Read Grep Glob Bash(git diff *) Bash(git status *) Bash(git log *)
 ---
 
 대상: `docs/tasks/T-$ARGUMENTS*.md`
+
+번호 없이 대화로 요청받았으면 상태가 `구현`·`리뷰`인 TASK를 대상으로 한다. 해당 TASK가 없거나 둘 이상이면 사용자에게 묻는다.
 
 1. TASK 파일의 범위·완료 기준·구현 보고를 읽고, `git status`·`git diff`로 실제 변경을 확인한다.
 2. 아래를 점검한다. 근거는 파일:줄로 적는다.

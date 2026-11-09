@@ -4,7 +4,7 @@
 
 ## 진행
 - 재개 시 `docs/worklog.md`, `docs/roadmap.md`, 진행 중인 `docs/tasks/T-*.md`만 먼저 읽는다. 상세 문서는 필요할 때 읽는다.
-- 작업은 skill로 진행한다: `/plan-task` → (Codex 구현) → `/review-task` → (사용자 보드 실측) → `/close-task`. 면접 요약은 `/interview-note`.
+- 작업 흐름: 계획 확정 → (Codex 구현) → 리뷰 → (사용자 보드 실측) → 마감. 계획 확정·리뷰는 사용자가 대화로 요청하면 `plan-task`·`review-task` skill을 따른다. 마감과 면접 요약은 사용자가 `/close-task`·`/interview-note`로 직접 실행한다.
 - 계획 단위는 보드에서 하루 안에 검증 가능한 크기로 자른다. 개념 설명은 TASK 수행에 필요한 3개 이내로 한다.
 - 모든 파일 수정 전에 계획(목적·파일·변경 요약·검증)을 설명하고 승인받는다 (AGENTS.md 승인 원칙).
 
