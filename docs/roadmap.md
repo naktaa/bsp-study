@@ -109,7 +109,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | --- | --- | --- | --- | --- |
 | 11 | U-Boot 부팅 | 기존 카드 | 완료 | 백업·복구 절차 확보 후 U-Boot 경유 부팅, firmware가 적용한 DTB·overlay가 커널까지 전달됨을 확인 |
 | 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 예정 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅 |
-| 13 | 카메라 IMX219 | 기존 카드 | 진행 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
+| 13 | 카메라 IMX219 | 기존 카드 | 완료 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
 | 14 | I2S 마이크 | 기존 카드 | 예정 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
 | 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | PWM 채널로 서보 위치 제어 |
 | 16 | 초음파 IIO srf04 | 기존 카드 | 예정 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
@@ -136,7 +136,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 13. 카메라 IMX219
 - 확인함: `drivers/media/i2c/imx219.c`(`CONFIG_VIDEO_IMX219=m`), `CONFIG_VIDEO_BCM2835_UNICAM=m`, `overlays/imx219-overlay.dts`. VEDA Final 문서에 IMX219 언급이 있다. 실물 모듈 모델은 확인 필요.
 - 센서 드라이버(I2C 제어)와 CSI 수신 드라이버(unicam)의 역할, media controller 그래프를 해설한다.
-- 작업 노트: [13-camera](tasks/13-camera.md).
+- 작업 노트: [13-camera](tasks/13-camera.md). 2026-11-11 완료: `imx219`·unicam 바인딩, media 그래프, 사진·노출 메타데이터, 20fps 프레임 간격 49.985ms, 자동 감지·명시 overlay 확인([카메라 문서](../examples/camera/camera.md)).
 
 ## 14. I2S 마이크
 - 마이크 모델은 확인 필요(VEDA_Final_Project에서 모델명을 찾지 못함).
