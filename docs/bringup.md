@@ -37,12 +37,12 @@
 
 ### SD 카드
 
-병렬 트랙([AGENTS.md](../AGENTS.md#병렬-트랙))에서 트랙별로 SD 카드를 나눠 쓴다. 카드를 바꿔 끼울 때는 전원을 분리한다.
+부팅·빌드 TASK와 장치 TASK([AGENTS.md 작업 구분](../AGENTS.md#작업-구분))는 SD 카드를 나눠 쓴다. 카드를 바꿔 끼울 때는 전원을 분리한다.
 
-| 카드 | 트랙 | 내용 | 상태 |
+| 카드 | 용도 | 내용 | 상태 |
 | --- | --- | --- | --- |
-| 기존 카드 | 센서 | Debian 13 + 커스텀 커널 6.18.59-v8-bsp-study01, 위 표의 부팅 파일 | 사용 중. 최초 부팅 백업은 위 WSL 표 |
-| 부팅 트랙 카드 | 부팅 | U-Boot·Yocto 시험용 | 용량·준비 여부·초기 내용 확인 필요 |
+| 기존 카드 (64GB) | 장치 TASK(`T-S*`) | Debian 13 + 커스텀 커널 6.18.59-v8-bsp-study01, 위 표의 부팅 파일. T-B01 U-Boot 시험도 이 카드에서 함 | 사용 중. 최초 부팅 백업은 위 WSL 표, T-B01 직전 부트 파티션 백업은 WSL `out/boot-backup-tb01/`. `/boot/firmware`에 `u-boot.bin`·`boot.scr`·`config.txt.bak-tb01`이 남아 있으나 현재 `config.txt`는 직접 부팅(`kernel=kernel8-bsp-study01.img`) |
+| 새 카드 | 부팅·빌드 TASK(`T-B*`), Yocto 이미지 | 아직 없음 | 구매함, 도착 전. 용량 확인 필요 |
 
 ## 모듈과 핀 연결표
 

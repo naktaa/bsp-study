@@ -28,6 +28,7 @@ AGENTS.md에서 옮긴 기존 문서 기준에 하네스 운영 규칙을 추가
   - examples/char_device/char-device.md: 문자 디바이스의 현재 구현·호출 흐름·코드 해설·사용자/커널 경계와 단계별 검증을 정리한다.
   - examples/mpu6050/mpu6050.md: MPU6050의 현재 I2C 구현·DT 매칭·레지스터 접근과 사용자 실측·재현 절차를 정리한다.
   - examples/mpu6050_iio/iio-direct.md: 기존 FIFO 예제를 보존하고 별도로 진행하는 IIO 채널·raw/scale·트리거 버퍼 실습의 코드와 검증을 정리한다.
+  - boot/uboot/uboot-boot.md: U-Boot 빌드·부트 스크립트, firmware → U-Boot → 커널의 DT·bootargs 전달과 재현·원복 절차를 정리한다.
   - examples/platform_device/platform-device.md: Device Tree·platform 장치·드라이버 매칭과 probe/remove, 현재 구현·검증 절차를 정리한다.
 - 전체 흐름에서 누가·언제·어떤 함수를 호출하는지 먼저 연결한다. 실제 소스를 링크하고 이해에 필요한 코드만 의미 있는 블록으로 제시한 바로 아래에 해설한다. 주요 함수·구조체·인자·반환값·오류 처리와 작성 이유를 설명한다.
 - 함수 포인터·static·const·주소 전달 등 필요한 C 문법은 해당 코드에 연결한다. 모듈 로드/장치 open, fd/struct file, 장치 등록/노드 생성, 등록 해제/노드 삭제처럼 혼동하기 쉬운 개념을 구분하고 사용자 질문을 관련 설명에 합친다.

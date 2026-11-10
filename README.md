@@ -21,6 +21,8 @@ WSL에서 ARM64 프로그램·커널·외부 모듈을 크로스 빌드하고 Pi
 
 MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](examples/mpu6050_iio/iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 [worklog](docs/worklog.md)에 구분한다.
 
+2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](boot/uboot/uboot-boot.md)). Yocto 최소 이미지는 계획 초안 단계다.
+
 ## 복습·재현
 
 - [첫 사용자 프로그램](examples/hello/cross-compile.md)
@@ -30,6 +32,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 - [Device Tree·platform 드라이버](examples/platform_device/platform-device.md)
 - [MPU6050 I2C 매칭·식별값 읽기](examples/mpu6050/mpu6050.md)
 - [MPU6050 IIO 채널·scale·IRQ 버퍼](examples/mpu6050_iio/iio-direct.md)
+- [U-Boot 경유 커스텀 커널 부팅](boot/uboot/uboot-boot.md)
 
 실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
 

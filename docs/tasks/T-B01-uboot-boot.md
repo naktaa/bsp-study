@@ -277,7 +277,7 @@ same
   - U-Boot 배너 줄, `boot.scr` 실행 메시지, firmware "no match initramfs" 메시지의 원문
   - U-Boot 프롬프트에서 USB 키보드 입력
   - U-Boot 경유 상태에서 장시간 운용, 센서 IIO 버퍼 수집
-- 병합 시 반영 (트랙 TASK만, worklog·roadmap·README):
+- 병합 시 반영 (트랙 TASK만, worklog·roadmap·README): 아래 항목 모두 main에 반영함(브랜치 규칙 변경 후 main에서 처리)
   - worklog: 현재 단계를 U-Boot 경유 부팅 확인으로, 다음 작업을 roadmap 12단계 Yocto 최소 이미지로
   - roadmap 11단계: 완료 표시, [U-Boot 학습 문서](../../boot/uboot/uboot-boot.md) 링크
   - bringup.md SD 카드 표: 카드 한 장(64GB)을 두 트랙이 공용, `/boot/firmware`에 `u-boot.bin`·`boot.scr`·`config.txt.bak-tb01`이 남아 있으나 현재 `config.txt`는 기존 직접 부팅

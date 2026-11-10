@@ -124,7 +124,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 11. U-Boot 부팅
 - 부팅용 SD 카드를 쓴다(T-B01은 카드가 한 장이라 기존 카드에서 진행). 변경 전에 부트 파티션 백업과 복구 절차(SD 리더기로 `config.txt`·부팅 파일 되돌리기)를 먼저 확인한다.
 - Pi firmware가 `config.txt`에 따라 U-Boot를 읽고, 기본 DTB에 `dtoverlay`를 적용한 DT를 U-Boot에 넘긴다. U-Boot가 이 DT를 커널에 그대로 넘기는지 커널의 `/proc/device-tree`에서 overlay 노드로 대조한다.
-- U-Boot 소스·버전·defconfig, 부트 스크립트 형식, firmware DT를 받는 방식은 이 단계 계획에서 확인한다(확인 필요).
+- 2026-11-10 완료(T-B01): U-Boot `v2026.10`(`rpi_arm64_defconfig`)과 `boot.scr`로 커스텀 커널을 부팅하고, firmware DT(`fdt_addr`)를 그대로 넘겨 overlay 노드·`interrupt-parent`가 커널에 남는 것과 원복을 확인했다([U-Boot 문서](../boot/uboot/uboot-boot.md)). 시리얼 콘솔과 PC SD 리더 복구는 미검증이다.
 - 확인할 계층: firmware → U-Boot → 커널 → rootfs. 실패 시 어느 단계에서 멈췄는지 시리얼·화면 출력으로 구분한다(시리얼 콘솔 준비 여부 확인 필요).
 
 ## 12. Yocto 최소 이미지
