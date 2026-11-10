@@ -19,7 +19,7 @@ VEDA Final 프로젝트에서 사용한 모듈·센서(IMU, 카메라, I2S 마�
 
 WSL에서 ARM64 프로그램·커널·외부 모듈을 크로스 빌드하고 Pi 4의 커널 `6.18.59-v8-bsp-study01`에서 실행했다. 커널 부팅·화면 장애 복구, 문자 디바이스·Device Tree/platform 실습을 확인했다.
 
-MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](examples/mpu6050_iio/iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 [worklog](docs/worklog.md)에 구분한다.
+MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](examples/mpu6050_iio/iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 IIO 문서 6장에 구분한다.
 
 2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](boot/uboot/uboot-boot.md)). Yocto 최소 이미지는 계획 초안 단계다.
 
@@ -31,7 +31,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 - [문자 디바이스 코드·데이터 왕복·ioctl](examples/char_device/char-device.md)
 - [Device Tree·platform 드라이버](examples/platform_device/platform-device.md)
 - [MPU6050 I2C 매칭·식별값 읽기](examples/mpu6050/mpu6050.md)
-- [MPU6050 IIO 채널·scale·IRQ 버퍼](examples/mpu6050_iio/iio-direct.md)
+- [MPU6050 IIO 채널·scale·IRQ 버퍼·mainline 비교](examples/mpu6050_iio/iio-direct.md)
 - [U-Boot 경유 커스텀 커널 부팅](boot/uboot/uboot-boot.md)
 
 실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
@@ -40,28 +40,25 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 1. 이 저장소와 같은 상위 폴더의 `VEDA`, `VEDA_Final_Project`를 참고한다. 기존 clone이 있으면 그 위치를 사용한다.
 2. `AGENTS.md`(공통), `CLAUDE.md`(Claude Code), `docs/worklog.md`, `docs/roadmap.md`의 현재 단계를 확인한다.
 3. 보드와 개발 PC의 실제 환경은 `docs/bringup.md`에서 관리한다.
-4. TASK 단위로 진행한다.
+4. 작업 노트 단위로 진행한다.
 
 ```
-[Claude Code] 계획 확정 요청 (plan-task) → 계획 설명 → 승인 → docs/tasks/T-NNN 작성
-[Codex]       T-NNN 읽기 → 구현 계획 설명 → 승인 → 구현·WSL 빌드 → 구현 보고
-[Claude Code] 구현 완료·리뷰 요청 (review-task) → 리뷰·수정 지시(필요 시 Codex 재작업) → 이해 확인 질문
-[사용자]      보드 배포·실행 → 출력을 채팅으로 전달 → Claude가 TASK '실측 결과'에 기록
-[Claude Code] /close-task NNN    → 문서 갱신 계획 → 승인 → 갱신·추천 커밋 메시지
-[사용자]      커밋
+[사용자·Claude] PM 대화로 계획 확정 (plan) → docs/tasks/NN-주제.md 작업 노트
+[Claude]        코드 구현이 필요하면 docs/tasks/NN-주제.codex.md 지시서
+[Codex]         지시서 읽기 → 구현 계획 승인 → 구현·WSL 빌드 → 구현 보고
+[Claude]        리뷰 (review) → 수정 지시 또는 통과
+[사용자]        노트 진행 순서대로 보드 실행 → 대표 출력을 노트 '결과'에
+[Claude]        마무리 (wrap-up) → 학습 문서 작성·갱신 → worklog·roadmap 갱신 → 추천 커밋 메시지
+[사용자]        커밋·머지
 ```
 
-계획 확정·리뷰는 대화로 요청하면 해당 skill이 적용되며 `/plan-task`·`/review-task`로 직접 실행해도 된다. 마감·면접 요약은 `/close-task`·`/interview-note`로 직접 실행한다.
-
-부팅·빌드와 장치 TASK는 `T-NNN` 대신 `T-B01`(부팅)·`T-S01`(장치)처럼 접두사 번호를 쓰고, skill 인자도 `B01`·`S01`로 준다. TASK마다 main에서 브랜치를 만들어 진행하고 마감 후 `--no-ff`로 머지한다. 규칙은 [AGENTS.md 작업 구분](AGENTS.md#작업-구분)·[커밋·브랜치](AGENTS.md#커밋브랜치)에 있다.
-
-5. 단계가 끝나면 `/interview-note <주제>`로 `docs/interview/`에 면접용 요약을 만든다.
+NN은 roadmap 단계 번호다. skill(`plan`·`review`·`wrap-up`)은 대화로 요청해도 적용된다. 브랜치·커밋 규칙은 [AGENTS.md 커밋·브랜치](AGENTS.md#커밋브랜치)에 있다.
 
 참고 레포를 이 저장소 내부에 넣거나 함께 커밋하지 않는다. 커널 소스도 별도 관리한다.
 
 ## 문서
 - [공통 에이전트 지침](AGENTS.md) · [Claude Code 지침](CLAUDE.md) · [문서 규칙](.claude/rules/docs.md)
-- [TASK 목록](docs/tasks/) · [면접 요약](docs/interview/)
+- [작업 노트](docs/tasks/) · [학습 문서 템플릿](docs/learning-template.md)
 - [학습 순서와 완료 기준](docs/roadmap.md)
 - [환경·배선·참고 자료](docs/bringup.md)
 - [현재 상태와 진행 기록](docs/worklog.md)
