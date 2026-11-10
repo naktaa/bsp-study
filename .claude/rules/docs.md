@@ -36,3 +36,4 @@ paths:
 - examples/mpu6050/mpu6050.md: MPU6050 I2C·IRQ·FIFO 학습용 드라이버
 - examples/mpu6050_iio/iio-direct.md: IIO 채널·버퍼·timestamp, mainline `inv_mpu6050` 비교
 - boot/uboot/uboot-boot.md: U-Boot 빌드·부트 스크립트, DT·bootargs 전달
+- examples/camera/camera.md: IMX219 센서·unicam 드라이버, 노출·타임스탬프 경로
