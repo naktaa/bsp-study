@@ -50,7 +50,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 
 계획 확정·리뷰는 대화로 요청하면 해당 skill이 적용되며 `/plan-task`·`/review-task`로 직접 실행해도 된다. 마감·면접 요약은 `/close-task`·`/interview-note`로 직접 실행한다.
 
-부팅·센서 트랙으로 나눠 진행할 때는 `T-NNN` 대신 `T-B01`(부팅)·`T-S01`(센서)처럼 트랙 접두사 번호를 쓰고, skill 인자도 `B01`·`S01`로 준다. 트랙 규칙은 [AGENTS.md](AGENTS.md#병렬-트랙)에 있다.
+부팅·빌드와 장치 TASK는 `T-NNN` 대신 `T-B01`(부팅)·`T-S01`(장치)처럼 접두사 번호를 쓰고, skill 인자도 `B01`·`S01`로 준다. TASK마다 main에서 브랜치를 만들어 진행하고 마감 후 `--no-ff`로 머지한다. 규칙은 [AGENTS.md 작업 구분](AGENTS.md#작업-구분)·[커밋·브랜치](AGENTS.md#커밋브랜치)에 있다.
 
 5. 단계가 끝나면 `/interview-note <주제>`로 `docs/interview/`에 면접용 요약을 만든다.
 

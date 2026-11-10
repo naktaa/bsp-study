@@ -16,7 +16,6 @@ allowed-tools: Read Grep Glob Bash(git diff *) Bash(git status *)
    - `docs/roadmap.md` — 단계 완료 표시(실측 근거가 있을 때만)
    - `docs/bringup.md` — 배선·장치가 바뀐 경우
    - README 현재 상태 — 큰 단계가 끝난 경우
-   - 트랙 안의 TASK(`T-B*`·`T-S*`)는 TASK 파일과 해당 학습 문서만 갱신한다. 센서 트랙만 bringup.md '모듈과 핀 연결표' 절을 갱신할 수 있다. worklog·roadmap·README에 넣을 내용은 TASK '마감'의 '병합 시 반영'에 적어 두고 main 병합 때 반영한다.
 4. 승인되면 `git diff`로 사용자가 직접 바꾼 내용이 있는지 확인한 뒤 필요한 부분만 Edit한다.
-5. TASK '마감' 섹션에 갱신 문서·미검증 항목·추천 커밋 메시지(`Feat:`/`Fix:`/`Docs:` 한 줄)를 적고 상태를 `완료`로 바꾼다.
+5. TASK '마감' 섹션에 갱신 문서·미검증 항목·추천 커밋 메시지(`Feat:`/`Fix:`/`Docs:`/`Chore:`/`Refactor:` 한 줄)를 적고 상태를 `완료`로 바꾼다. roadmap의 큰 단계가 끝났으면 태그 이름(예: `v0.2-iio`)도 추천한다. 커밋·머지는 사용자가 하며, git 명령(커밋·머지·삭제·태그)은 사용자가 요청할 때만 준다.
 6. 면접 요약이 필요한 단계면 `/interview-note`를 제안한다.

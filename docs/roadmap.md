@@ -103,7 +103,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 
 ## 2부: 부팅 체계와 장치 확장
 
-필수 과정에서 수동으로 검증한 커널·overlay·IIO 수집을 U-Boot·Yocto 부팅 체계로 묶고, VEDA Final 장치를 하나씩 추가한다. 부팅 체계를 먼저 갖추고 장치는 그 뒤에 추가한다. 유형(A 직접 구현·B mainline 드라이버+DT·C 부팅·빌드 체계)별 역할은 [AGENTS.md TASK 유형](../AGENTS.md#task-유형), 트랙 운영은 [병렬 트랙](../AGENTS.md#병렬-트랙)을 따른다.
+필수 과정에서 수동으로 검증한 커널·overlay·IIO 수집을 U-Boot·Yocto 부팅 체계로 묶고, VEDA Final 장치를 하나씩 추가한다. 부팅 체계를 먼저 갖추고 장치는 그 뒤에 추가한다. 유형(A 직접 구현·B mainline 드라이버+DT·C 부팅·빌드 체계)별 역할은 [AGENTS.md TASK 유형](../AGENTS.md#task-유형), TASK 번호와 브랜치는 [작업 구분](../AGENTS.md#작업-구분)·[커밋·브랜치](../AGENTS.md#커밋브랜치)를 따른다.
 
 | 단계 | 유형 | 실습 | 완료 기준 |
 | --- | --- | --- | --- |
@@ -115,14 +115,14 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 16 | B | 초음파 IIO srf04 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
 | 17 | B | 모터 PWM (마지막) | 하드웨어 PWM·방향 GPIO로 정·역·정지 제어, 별도 전원 확인 |
 
-- 13~17단계는 장치마다 **개발 TASK → 레이어 추가 TASK**로 나눈다. 개발 TASK는 센서 트랙에서 WSL 크로스 빌드 경로로 기존 6.18.59 커널 SD 카드에 적용해 실측한다. 완료되면 부팅 트랙에서 레이어 추가 TASK로 모듈·overlay·설정·검증 앱을 `meta-bsp-study`에 넣고 Yocto 이미지에서 재검증한다.
+- 13~17단계는 장치마다 **개발 TASK → 레이어 추가 TASK**로 나눈다. 개발 TASK(`T-S*`)는 WSL 크로스 빌드 경로로 기존 6.18.59 커널 SD 카드에 적용해 실측한다. 완료·머지되면 레이어 추가 TASK(`T-B*`)로 모듈·overlay·설정·검증 앱을 `meta-bsp-study`에 넣고 Yocto 이미지에서 재검증한다.
 - 드라이버·overlay·config 존재 여부는 `external/linux`(b3495ea)와 `out/kernel-rpi4/.config`에서 확인한다. 아래 "확인함"은 2026-11-09 에이전트 읽기 확인이며 보드 동작 확인이 아니다. 확인하지 못한 것은 "확인 필요"로 둔다.
 - 커널 config 변경은 `configs/bsp-study.config` fragment로 관리한다. fragment 적용과 전체 커널 빌드는 사용자가 한다.
 - Yocto 빌드 디렉터리·`DL_DIR`·`SSTATE_DIR`는 저장소 밖 `~/yocto` 아래에 둔다.
 - 새 장치의 배선·전원은 실제 연결 후 [bringup](bringup.md)에 기록한다. Pi GPIO는 3.3V이며 5V를 견디지 못한다.
 
 ## 11. U-Boot 부팅
-- 부팅 트랙 전용 SD 카드를 쓴다. 변경 전에 부트 파티션 백업과 복구 절차(SD 리더기로 `config.txt`·부팅 파일 되돌리기)를 먼저 확인한다.
+- 부팅용 SD 카드를 쓴다(T-B01은 카드가 한 장이라 기존 카드에서 진행). 변경 전에 부트 파티션 백업과 복구 절차(SD 리더기로 `config.txt`·부팅 파일 되돌리기)를 먼저 확인한다.
 - Pi firmware가 `config.txt`에 따라 U-Boot를 읽고, 기본 DTB에 `dtoverlay`를 적용한 DT를 U-Boot에 넘긴다. U-Boot가 이 DT를 커널에 그대로 넘기는지 커널의 `/proc/device-tree`에서 overlay 노드로 대조한다.
 - U-Boot 소스·버전·defconfig, 부트 스크립트 형식, firmware DT를 받는 방식은 이 단계 계획에서 확인한다(확인 필요).
 - 확인할 계층: firmware → U-Boot → 커널 → rootfs. 실패 시 어느 단계에서 멈췄는지 시리얼·화면 출력으로 구분한다(시리얼 콘솔 준비 여부 확인 필요).

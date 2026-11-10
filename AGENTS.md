@@ -53,20 +53,16 @@ TASK마다 유형을 먼저 정하고 TASK 파일 '유형'에 적는다. 위 역
 - VEDA PDF의 소스 다운로드 → 설정 → 크로스 빌드 → 설치 → 부팅 확인 흐름을 기준으로 현재 환경에 필요한 차이만 추가한다. 다음 단계 설정을 미리 늘리지 않는다.
 - Yocto 레이어는 저장소의 `yocto/meta-bsp-study`에 둔다. 빌드 디렉터리·`DL_DIR`·`SSTATE_DIR`는 저장소 밖 `~/yocto` 아래에 둔다.
 
-## 병렬 트랙
-부팅 체계(2부 11~12단계)와 장치 추가(13~17단계)를 나눠 진행할 수 있다.
+## 작업 구분
+부팅 체계(2부 11~12단계)와 장치 추가(13~17단계)는 TASK 번호로 구분한다. 진행은 [커밋·브랜치](#커밋브랜치) 규칙을 따른다.
 
-| 트랙 | 브랜치 | 작업 폴더 | TASK 번호 | SD 카드 |
-| --- | --- | --- | --- | --- |
-| 부팅 | `boot` | `~/bspworkspace/bsp-study` | T-B01, T-B02 … | 부팅 트랙 전용 별도 카드 |
-| 센서 | `sensor` | `~/bspworkspace/bsp-study-sensor` (git worktree) | T-S01, T-S02 … | 기존 6.18.59 커널 카드 |
+| 구분 | TASK 번호 | SD 카드 |
+| --- | --- | --- |
+| 부팅·빌드 | T-B01, T-B02 … | 부팅용 카드(Yocto 이미지) |
+| 장치 | T-S01, T-S02 … | 기존 카드(Debian + 6.18.59) |
+| 그 밖 | T-NNN | 해당 TASK에 명시 |
 
-- 브랜치·worktree 생성과 main 병합은 사용자가 한다. 예: `git worktree add ../bsp-study-sensor -b sensor` (main에서).
-- 각 에이전트 세션은 자기 트랙 폴더에서만 작업한다. 작업 전 현재 폴더·브랜치로 트랙을 확인한다. 한 트랙 안에서는 TASK를 한 번에 하나만 진행한다.
-- 기존 `T-NNN` 번호는 그대로 유지한다. 트랙 밖 작업은 계속 `T-NNN`을 쓴다.
-- 트랙 안에서는 TASK 파일과 해당 학습 문서만 갱신한다. 예외로 센서 트랙은 `docs/bringup.md`의 '모듈과 핀 연결표' 절을 갱신할 수 있고, 부팅 트랙은 bringup.md를 고치지 않는다. `docs/worklog.md`·`docs/roadmap.md`·`README.md`는 트랙을 main에 합칠 때만 갱신한다.
-- `out/`·`external/`은 Git 대상이 아니므로 sensor worktree에 없다. 센서 트랙의 모듈·DTBO 빌드와 checkpatch는 원본 폴더의 빌드 트리를 쓴다: `make KDIR=$HOME/bspworkspace/bsp-study/out/kernel-rpi4`, `$HOME/bspworkspace/bsp-study/external/linux/scripts/checkpatch.pl`.
-- 센서 하나가 센서 트랙에서 완료되면 부팅 트랙에서 레이어 추가 TASK로 Yocto 이미지에 반영한다.
+- 장치 TASK가 완료·머지되면 부팅 쪽에서 레이어 추가 TASK로 Yocto 이미지에 반영한다.
 
 ## 코드 가독성
 - 현재 단계에 필요한 기능만 구현한다. 오류 검사·유실 통지·안전한 해제는 유지하되 상태·잠금·추상화를 최소화해 읽기 쉬운 구조를 우선한다.
@@ -90,6 +86,13 @@ TASK마다 유형을 먼저 정하고 TASK 파일 '유형'에 적는다. 위 역
 - 장애는 로그와 변경 내용을 대조해 원인을 좁히고 작은 변경을 단계적으로 적용한다. 해결 후 정상 재현 명령도 고친다.
 - 문서 검증을 위해 커널이나 실습을 다시 실행하지 않는다.
 
-## 커밋
-- 커밋은 구현·빌드·보드 실측이 끝난 TASK 단위로 묶고, 사용자가 직접 한다. 에이전트는 git add/commit/push 하지 않는다.
-- 메시지는 접두사 첫 글자를 대문자로 쓴다: `Feat: ...`, `Fix: ...`, `Docs: ...`, `Chore: ...`.
+## 커밋·브랜치
+- GitHub Flow를 따른다. main에는 보드 검증과 마감이 끝난 상태만 둔다.
+- 브랜치 1개 = TASK 1개. 이름은 `<타입>/<짧은-설명>`이며 무엇을 하는지 한눈에 보이게 소문자 kebab-case로 쓴다. TASK 번호는 넣지 않는다(TASK 파일의 '브랜치' 줄로 연결). 예: `feat/camera`, `feat/yocto-minimal`, `docs/pin-plan`.
+- 타입은 `feat`·`fix`·`docs`·`chore`·`refactor`이고 커밋 접두사(`Feat:`·`Fix:`·`Docs:`·`Chore:`·`Refactor:`)와 맞춘다. TASK가 없는 하네스·규칙 수정은 사용자가 정하면 main에서 바로 할 수 있다.
+- 새 브랜치는 항상 최신 main에서 만든다. 다른 작업 브랜치에서 갈라지지 않는다.
+- 장치·센서는 장치마다 별도 TASK·브랜치로 진행한다. 여러 장치를 함께 켜는 확인은 마지막 통합 TASK에서 한다.
+- 커밋은 TASK 단위로 묶는다. 코드·TASK 파일·학습 문서·면접 요약을 한 커밋에 넣고, 서로 무관한 변경만 나눈다. 커밋은 구현·빌드·보드 실측이 끝난 뒤 사용자가 한다.
+- 메시지는 접두사 첫 글자를 대문자로 쓴다: `Feat: ...`, `Fix: ...`, `Docs: ...`, `Chore: ...`, `Refactor: ...`.
+- 머지는 사용자가 `git merge --no-ff`로 하고, 머지 후 브랜치를 삭제한다. roadmap의 큰 단계가 끝나면 태그를 단다(예: `v0.2-iio`).
+- 에이전트는 git add/commit/push와 브랜치 생성·전환·머지를 하지 않는다. 추천 커밋 메시지와 브랜치 이름만 주고, git 명령(커밋·머지·삭제·태그)은 사용자가 요청할 때만 준다.
