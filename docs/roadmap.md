@@ -1,8 +1,8 @@
 # 학습 순서
 
-BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표로 한다. 커널·모듈·문자 디바이스·Device Tree와 MPU6050 I2C·IRQ·FIFO 실습을 거쳐 IIO IRQ 타임스탬프·기본 수신·정상 해제까지 확인했다. 장기 주기 안정성·측정 기준선과 오류/경쟁 경로는 후속 범위다. 단계별 상태와 검증 근거는 [worklog](worklog.md)와 연결된 학습 문서에서 관리한다.
+BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표로 한다. 커널·모듈·문자 디바이스·Device Tree와 MPU6050 I2C·IRQ·FIFO 실습을 거쳐 IIO IRQ 타임스탬프·기본 수신·정상 해제까지 확인했다. 장기 주기 안정성·측정 기준선과 오류/경쟁 경로는 후속 범위다. 단계별 상태와 검증 근거는 [worklog](worklog.md)와 연결된 학습 문서에서 관리한다. 필수 과정 이후 [2부](#2부-부팅-체계와-장치-확장)에서 U-Boot·Yocto 부팅 체계를 먼저 갖추고 VEDA Final 장치를 하나씩 추가한다.
 구현·수정 전 목적·개념·파일과 범위·검증 방법을 설명하고, 결과를 사용자와 함께 해석한다.
-각 단계는 동작 근거와 함께 코드·설정의 역할, 실패 시 확인할 계층을 설명할 수 있을 때 완료한다. 실습 코드·설정 수정과 빌드·실행은 사용자가 직접 하고 에이전트는 설명·읽기 검토·문서 정리를 기본으로 한다.
+각 단계는 동작 근거와 함께 코드·설정의 역할, 실패 시 확인할 계층을 설명할 수 있을 때 완료한다. 실습 코드·설정은 Codex가 TASK 범위 안에서 작성하고 외부 모듈·DTBO 빌드까지 확인한다. 전체 커널·Yocto 이미지 빌드, SD 카드 작업과 보드 배포·실측은 사용자가 하고, Claude Code는 계획·리뷰·문서를 맡는다. 모든 수정은 사용자 승인 후 진행한다([AGENTS.md 역할](../AGENTS.md#역할)).
 
 ## 필수 과정
 
@@ -92,19 +92,77 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - 직접 작성한 드라이버에 필요한 최소 IIO 채널과 단일 값 읽기를 추가한 뒤 버퍼 수집으로 확장한다. 기존 드라이버 전체 기능 복제는 목표가 아니다.
 - [IIO 예제](../examples/mpu6050_iio/iio-direct.md)는 6축 raw → scale → GPIO17 트리거 버퍼 → IRQ 타임스탬프 순서로 확장했다. 현재 24바이트 scan 20개 수신·시각 증가·약10ms 간격·앱 종료0·버퍼 중지 후 raw 재개·정상 해제를 확인했다. 기존 FIFO·misc 예제는 비교 기준으로 보존하며 IIO 센서 FIFO 재연결은 현재 범위에서 제외한다. 장기 기준선 등 남은 검증은 10단계에서 다룬다.
 - scan_elements의 index/type과 활성 채널을 기준으로 크기·엔디언·정렬·시간을 해석하는 작은 수집 앱을 만든다. 앱이 여러 파일로 커지면 CMake의 add_executable, 타깃별 옵션·의존성과 별도 빌드 디렉터리를 함께 실습한다. 커널 모듈 빌드는 Kbuild를 사용한다.
-- 학습용 드라이버와 기존 드라이버를 번갈아 검증하고 설정·출력 차이를 설명한다.
+- 학습용 드라이버와 기존 드라이버를 번갈아 검증하고 설정·출력 차이를 설명한다. 2026-11-10 같은 센서를 mainline `inv_mpu6050`(rpi `i2c-sensor` overlay, 부팅 시 적용)에 연결해 바인딩·sysfs·scan 배치·GPIO17 Edge IRQ·`iio_generic_buffer` 6축+timestamp 수신을 확인하고 차이를 정리했다([IIO 문서 2-4](../examples/mpu6050_iio/iio-direct.md#2-4-mainline-inv_mpu6050와의-차이)). 완료.
 
 ## 10. 측정과 문제 분석
-- 정지 상태 60초 수집부터 시작하고 목표 주기는 장치 지원값 확인 후 정한다.
-- 단위·축·bias·timestamp clock과 수집 조건을 맞춰 기준선 및 기존 드라이버와 비교한다.
+- 정지 상태 60초 수집부터 시작하고 목표 주기는 장치 지원값 확인 후 정한다. 2026-11-10 학습용 IIO 드라이버(100Hz)로 60초 정지 기준선을 확보했다([IIO 문서 6장](../examples/mpu6050_iio/iio-direct.md#6-미검증한계)). 축별 회전 검증과 문제 분석 정리는 남아 있다.
+- 단위·축·bias·timestamp clock과 수집 조건을 맞춰 기준선 및 기존 드라이버와 비교한다. 2026-11-10 mainline 5샘플은 기준선과 가속도 1% 이내로 일치했지만 ay 차이가 60초 표준편차의 약 4배이고, 주파수(50/100Hz)·timestamp clock(REALTIME/MONOTONIC)·자세 재현을 맞추지 않아 부분 비교로 둔다.
 - 실제 수집률·간격·오류·누락 의심 구간을 기록한다. 타임스탬프 간격만으로 하드웨어 누락을 단정하지 않는다.
 - 각 단계에서 발생한 실제 문제를 빌드·부팅·매칭·버스·IRQ·형식 등 계층별 근거로 정리한다. 검증을 위해 위험한 고장을 만들지 않는다.
 - 새 세션에서 빌드·배포·바인딩·수집을 재현할 수 있도록 명령과 설정을 남긴다.
 
-## 선택 과제
+## 2부: 부팅 체계와 장치 확장
+
+필수 과정에서 수동으로 검증한 커널·overlay·IIO 수집을 U-Boot·Yocto 부팅 체계로 묶고, VEDA Final 장치를 하나씩 추가한다. 부팅 체계를 먼저 갖추고 장치는 그 뒤에 추가한다. 유형(A 직접 구현·B mainline 드라이버+DT·C 부팅·빌드 체계)별 역할은 [AGENTS.md TASK 유형](../AGENTS.md#task-유형), 트랙 운영은 [병렬 트랙](../AGENTS.md#병렬-트랙)을 따른다.
+
+| 단계 | 유형 | 실습 | 완료 기준 |
+| --- | --- | --- | --- |
+| 11 | C | U-Boot 부팅 | 기존 SD 백업·복구 절차 확보 후 U-Boot 경유 부팅, firmware가 적용한 DTB·overlay가 커널까지 전달됨을 확인 |
+| 12 | C | Yocto 최소 이미지 | meta-raspberrypi + `yocto/meta-bsp-study` 이미지 부팅, IMU 모듈·overlay 포함, IIO 버퍼 수집 재검증 |
+| 13 | B | 카메라 IMX219 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
+| 14 | B | I2S 마이크 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
+| 15 | B | PCA9685 팬·틸트 | PWM 채널로 서보 위치 제어, 같은 I2C 버스의 IMU와 공존 확인 |
+| 16 | B | 초음파 IIO srf04 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
+| 17 | B | 모터 PWM (마지막) | 하드웨어 PWM·방향 GPIO로 정·역·정지 제어, 별도 전원 확인 |
+
+- 13~17단계는 장치마다 **개발 TASK → 레이어 추가 TASK**로 나눈다. 개발 TASK는 센서 트랙에서 WSL 크로스 빌드 경로로 기존 6.18.59 커널 SD 카드에 적용해 실측한다. 완료되면 부팅 트랙에서 레이어 추가 TASK로 모듈·overlay·설정·검증 앱을 `meta-bsp-study`에 넣고 Yocto 이미지에서 재검증한다.
+- 드라이버·overlay·config 존재 여부는 `external/linux`(b3495ea)와 `out/kernel-rpi4/.config`에서 확인한다. 아래 "확인함"은 2026-11-09 에이전트 읽기 확인이며 보드 동작 확인이 아니다. 확인하지 못한 것은 "확인 필요"로 둔다.
+- 커널 config 변경은 `configs/bsp-study.config` fragment로 관리한다. fragment 적용과 전체 커널 빌드는 사용자가 한다.
+- Yocto 빌드 디렉터리·`DL_DIR`·`SSTATE_DIR`는 저장소 밖 `~/yocto` 아래에 둔다.
+- 새 장치의 배선·전원은 실제 연결 후 [bringup](bringup.md)에 기록한다. Pi GPIO는 3.3V이며 5V를 견디지 못한다.
+
+## 11. U-Boot 부팅
+- 부팅 트랙 전용 SD 카드를 쓴다. 변경 전에 부트 파티션 백업과 복구 절차(SD 리더기로 `config.txt`·부팅 파일 되돌리기)를 먼저 확인한다.
+- Pi firmware가 `config.txt`에 따라 U-Boot를 읽고, 기본 DTB에 `dtoverlay`를 적용한 DT를 U-Boot에 넘긴다. U-Boot가 이 DT를 커널에 그대로 넘기는지 커널의 `/proc/device-tree`에서 overlay 노드로 대조한다.
+- U-Boot 소스·버전·defconfig, 부트 스크립트 형식, firmware DT를 받는 방식은 이 단계 계획에서 확인한다(확인 필요).
+- 확인할 계층: firmware → U-Boot → 커널 → rootfs. 실패 시 어느 단계에서 멈췄는지 시리얼·화면 출력으로 구분한다(시리얼 콘솔 준비 여부 확인 필요).
+
+## 12. Yocto 최소 이미지
+- meta-raspberrypi와 저장소 내 `yocto/meta-bsp-study` 레이어로 최소 이미지를 만든다. Yocto 릴리스와 meta-raspberrypi 브랜치는 이 단계 계획에서 고정한다(확인 필요).
+- 커널을 현재 6.18.59 커밋(b3495ea)에 맞출지(linux-raspberrypi bbappend) meta-raspberrypi 기본 커널을 쓸지는 이 단계 계획에서 결정한다. 기본 커널을 쓰면 외부 모듈을 그 커널 버전에 맞춰 다시 빌드한다.
+- IMU IIO 모듈·overlay·수집 앱을 레시피로 포함하고 Yocto 이미지에서 IIO 버퍼 수집을 재검증한다.
+- 11단계 U-Boot를 이미지 부팅 경로에 넣는 설정은 선택한 meta-raspberrypi 브랜치 문서로 확인한다.
+- 장시간 빌드와 SD 카드 기록은 사용자가 한다. Codex는 레시피·conf 작성과 정적 확인까지 한다.
+
+## 13. 카메라 IMX219
+- 확인함: `drivers/media/i2c/imx219.c`(`CONFIG_VIDEO_IMX219=m`), `CONFIG_VIDEO_BCM2835_UNICAM=m`, `overlays/imx219-overlay.dts`. VEDA Final 문서에 IMX219 언급이 있다. 실물 모듈 모델은 확인 필요.
+- 센서 드라이버(I2C 제어)와 CSI 수신 드라이버(unicam)의 역할, media controller 그래프를 해설한다.
+- Yocto 레이어 추가 시 libcamera 등 사용자 공간 패키지 필요 여부는 확인 필요.
+
+## 14. I2S 마이크
+- 마이크 모델은 확인 필요(VEDA_Final_Project에서 모델명을 찾지 못함).
+- 후보 확인함: `sound/soc/codecs/ics43432.c`·`adau7002.c`·`dmic.c`, simple-card, bcm2835-i2s(모두 `=m`), `overlays/adau7002-simple-overlay.dts`, `overlays/googlevoicehat-soundcard-overlay.dts`. 모델 확인 후 맞는 codec·overlay를 고른다.
+- ASoC의 CPU DAI·codec·machine(card) 연결을 해설하고 `arecord`로 캡처를 확인한다.
+- I2S는 GPIO18~21을 쓴다. 17단계 PWM 기본 핀과의 충돌을 함께 확인한다.
+
+## 15. PCA9685 팬·틸트
+- 확인함: `drivers/pwm/pwm-pca9685.c`(`CONFIG_PWM_PCA9685=m`), `overlays/i2c-pwm-pca9685a-overlay.dts`.
+- I2C1 버스를 MPU6050(0x68)과 공유한다. PCA9685 실제 주소와 서보 전원 조건은 실물로 확인한다.
+- PWM 서브시스템(pwmchip·채널·주기·duty)을 해설하고 sysfs로 서보 위치를 제어한다.
+
+## 16. 초음파 IIO srf04
+- 확인함: `drivers/iio/proximity/srf04.c`, binding `devantech-srf04.yaml`. 현재 설정은 `# CONFIG_SRF04 is not set`이고 rpi overlay는 없다. 따라서 config fragment 추가와 사용자 커널(모듈) 재빌드, Codex의 overlay 작성이 필요하다.
+- 실물 모듈 모델은 확인 필요. HC-SR04 계열이면 Echo가 5V이므로 분압·레벨 변환을 배선 전에 확인한다.
+- GPIO 펄스 폭 측정을 IIO 채널로 노출하는 구조를 1~10단계의 IIO 구현과 비교한다.
+
+## 17. 모터 PWM
+- 전류·전원 위험과 다른 장치 영향이 커서 마지막에 둔다. 모터 전원은 Pi와 분리하고 GND만 공통으로 둔다.
+- VEDA Final `tank/src/tank_drive.cpp`는 EN/IN1/IN2와 wiringPi `pwmWrite`로 제어한다. 모터 드라이버 칩 모델은 확인 필요.
+- 확인함: `drivers/pwm/pwm-bcm2835.c`(`=m`), `pwm-gpio`(`=m`), `overlays/pwm-overlay.dts`·`pwm-2chan-overlay.dts`. pwm-2chan 기본 핀은 GPIO18/19로 I2S와 겹치므로 핀 선택은 14단계 배선과 함께 정한다.
+- 속도는 PWM sysfs, 방향은 libgpiod로 제어하고 정지·종료 시 출력이 꺼지는지 확인한다.
+
+## 제외 범위
 - EIS 보완은 현재 범위에서 제외한다. 추후 사용자가 별도로 요청할 때 대상·범위부터 다시 계획한다.
-- Yocto: 수동으로 검증한 커널·overlay·수집 앱을 고정한 구성의 이미지에 포함하고 부팅·수집을 재현한다.
-- U-Boot 부팅·복구, 카메라 경로 분석은 필요에 따라 추가한다.
 
 ## 공식 자료 진입점
 실제 명령과 API는 대상 커널 버전에 맞춰 다시 확인한다.
@@ -114,3 +172,5 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - https://docs.kernel.org/i2c/writing-clients.html
 - https://docs.kernel.org/driver-api/iio/index.html
 - https://docs.yoctoproject.org/
+- https://docs.u-boot.org/
+- https://git.yoctoproject.org/meta-raspberrypi/
