@@ -12,7 +12,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | --- | --- | --- | --- | --- |
 | 완료 | GY-521 / MPU-6050 IMU | I2C1 `0x68` + INT(GPIO17) | 직접 작성: `examples/mpu6050`, `examples/mpu6050_iio` (mainline: `drivers/iio/imu/inv_mpu6050`) | 확정 |
 | 완료(13) | 카메라 IMX219 | MIPI CSI-2 + I2C(카메라 전용 `i2c-10` `0x10`) | `imx219` + Raspberry Pi unicam(`bcm2835_unicam_legacy`), `imx219` overlay | 센서 확정(실측), 모듈 제품 확인 필요 |
-| 진행(14) | INMP441 I2S MEMS 마이크 | I2S(PCM) 수신 | `bcm2835-i2s` + 코덱 `ics43432` + `simple-audio-card`, overlay `examples/mic/inmp441-overlay.dts` | 확정 |
+| 완료(14) | INMP441 I2S MEMS 마이크 | I2S(PCM) 수신 | `bcm2835-i2s` + 코덱 `ics43432` + `simple-audio-card`, overlay `examples/mic/inmp441-overlay.dts` | 확정 |
 | 15 | PCA9685 + SG90 ×2 (팬·틸트) | I2C1 `0x40` | `pwm-pca9685`, `i2c-pwm-pca9685a` overlay | 확정(VEDA 설정 `i2c_address=64`) |
 | 16 | 초음파 HC-SR04 계열 | GPIO Trig + GPIO Echo(IRQ) | IIO `srf04` (`devantech,srf04`) | 확인 필요 |
 | 17 | DC 모터 + 모터 드라이버 | 하드웨어 PWM(EN) + GPIO(IN1/IN2) ×2 | `pwm-bcm2835`, `pwm-2chan` overlay | 드라이버 칩 확인 필요 |

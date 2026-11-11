@@ -110,7 +110,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 11 | U-Boot 부팅 | 기존 카드 | 완료 | 백업·복구 절차 확보 후 U-Boot 경유 부팅, firmware가 적용한 DTB·overlay가 커널까지 전달됨을 확인 |
 | 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 예정 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅 |
 | 13 | 카메라 IMX219 | 기존 카드 | 완료 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
-| 14 | I2S 마이크 | 기존 카드 | 진행 (1·2·3 완료) | ALSA 캡처 장치 등록, 녹음 파일 확인 |
+| 14 | I2S 마이크 | 기존 카드 | 완료 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
 | 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | PWM 채널로 서보 위치 제어 |
 | 16 | 초음파 IIO srf04 | 기존 카드 | 예정 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
 | 17 | 모터 PWM | 기존 카드 | 예정 | 하드웨어 PWM·방향 GPIO로 정·역·정지 제어, 별도 전원 확인 |
@@ -142,7 +142,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - 단계: 1) 기존 overlay로 배선·녹음 확인 2) simple-audio-card + `ics43432` overlay 직접 작성 3) `ics43432`를 직접 작성한 `inmp441` 코덱 드라이버로 교체해 2와 비교 4) alsa-lib 캡처 앱 + 실시간 파형 그래프
 - 1·2 작업 노트: [14-mic](tasks/14-mic.md). 2026-11-11 완료: INMP441을 `adau7002-simple`(A)과 직접 작성한 `inmp441` overlay(`ics43432` 코덱, B)로 연결, 캡처 카드 등록·녹음·원복 확인([마이크 문서](../examples/mic/mic.md)).
 - 3 작업 노트: [14-3-mic-codec](tasks/14-3-mic-codec.md). 2026-11-11 완료: 직접 작성한 코덱 드라이버 `nakta,inmp441`로 교체, probe 지연·`insmod` 후 카드 등록, 레이트 8000~50000Hz 반영, unbind 후 `rmmod`, `/lib/modules` 설치 시 자동 적재, 원복 확인([마이크 문서](../examples/mic/mic.md)).
-- 4는 다음에 계획한다.
+- 4 작업 노트: [14-4-mic-app](tasks/14-4-mic-app.md). 2026-11-11 완료: alsa-lib 캡처 앱으로 협상 값 출력·이득 녹음, 소비 지연에 따른 xrun 횟수 확인(buffer는 넘치는 간격만 늘림), Pi 데스크톱 실시간 파형, 원복([마이크 문서](../examples/mic/mic.md)).
 - ASoC의 CPU DAI·codec·machine(card) 연결을 해설하고 `arecord`로 캡처를 확인한다.
 - I2S는 GPIO18~21을 쓴다. 17단계 PWM 기본 핀과의 충돌을 함께 확인한다.
 
