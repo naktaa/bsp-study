@@ -10,6 +10,7 @@
 /examples/char_device/char_app
 /build/
 /out/
+/examples/*/out/
 /tmp/
 *.o
 *.a
