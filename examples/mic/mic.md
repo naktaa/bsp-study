@@ -1,4 +1,4 @@
-# I2S 마이크 INMP441: ASoC 세 드라이버를 DT로 묶고 코덱 드라이버 작성
+# I2S 마이크 INMP441: ASoC 연결, 코덱 드라이버, alsa-lib 캡처 앱
 
 - [1. 한눈에 보기](#1-한눈에-보기)
 - [2. 구조](#2-구조)
@@ -10,10 +10,10 @@
 ## 1. 한눈에 보기
 
 - **목적:** INMP441 I2S MEMS 마이크를 커널의 기존 드라이버로 연결해 ALSA로 녹음하고, ASoC가 CPU DAI·코덱·machine 세 드라이버를 DT로 어떻게 묶는지 이해한다. STM32에서 I2S·DMA를 직접 다뤘던 일이 리눅스에서는 어디서 처리되는지 대응시킨다.
-- **기능:** A단계는 기존 rpi overlay `adau7002-simple`로 배선과 녹음을 확인했다. B단계는 같은 구조의 overlay [inmp441-overlay.dts](inmp441-overlay.dts)를 직접 써서 코덱을 `invensense,ics43432`로 바꾸고 카드 이름을 `inmp441`로 했다. C단계(14-3)는 `ics43432` 대신 INMP441 사양으로 직접 작성한 코덱 드라이버 [inmp441_codec.c](../mic_codec/inmp441_codec.c)(`nakta,inmp441`, 외부 모듈)를 overlay [inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)로 연결했다.
-- **결과(사용자 보드 실행):** 두 overlay 모두 DT만으로 세 모듈이 자동 적재되고 캡처 카드가 등록됐다. 48kHz·S32_LE·2채널 녹음에서 ch0(L/R=GND)에만 소리가 실리고 목소리를 귀로 확인했다. B단계 코덱은 레이트를 8000~52800Hz, 형식을 S24_LE·S32_LE로 좁혔다. 원복 후 캡처 장치가 없어졌다. C단계는 코덱 모듈을 넣기 전 카드가 대기(`parse error`)하다가 `insmod` 직후 카드 `inmp441study`가 만들어졌고, 레이트가 내 드라이버 값인 8000~50000Hz로 바뀌었다. 카드 unbind 후 `rmmod`, `/lib/modules` 설치 후 부팅 시 자동 적재까지 확인했다.
-- **범위:** 직접 작성한 것은 코덱 드라이버뿐이다. CPU DAI(I2S)·DMA·machine 드라이버, alsa-lib 앱 작성, 재생(DAC), 다른 장치와 동시 사용은 하지 않았다.
-- **관련 파일:** [inmp441-overlay.dts](inmp441-overlay.dts), [Makefile](Makefile), C단계 [inmp441_codec.c](../mic_codec/inmp441_codec.c)·[inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)·[Makefile](../mic_codec/Makefile), 작업 노트 [14-mic](../../docs/tasks/14-mic.md)·[Codex 지시서](../../docs/tasks/14-mic.codex.md), [14-3-mic-codec](../../docs/tasks/14-3-mic-codec.md)·[Codex 지시서](../../docs/tasks/14-3-mic-codec.codex.md), 사양 [hardware.md](../../docs/hardware.md#inmp441-i2s-mems-마이크), 배선 [bringup.md](../../docs/bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `sound/soc/bcm/bcm2835-i2s.c`, `sound/soc/codecs/ics43432.c`, `sound/soc/generic/simple-card.c`
+- **기능:** A단계는 기존 rpi overlay `adau7002-simple`로 배선과 녹음을 확인했다. B단계는 같은 구조의 overlay [inmp441-overlay.dts](inmp441-overlay.dts)를 직접 써서 코덱을 `invensense,ics43432`로 바꾸고 카드 이름을 `inmp441`로 했다. C단계(14-3)는 `ics43432` 대신 INMP441 사양으로 직접 작성한 코덱 드라이버 [inmp441_codec.c](../mic_codec/inmp441_codec.c)(`nakta,inmp441`, 외부 모듈)를 overlay [inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)로 연결했다. D단계(14-4)는 B단계 구성에서 `arecord` 대신 직접 작성한 alsa-lib 앱 [mic_capture.c](../mic_app/mic_capture.c)로 녹음하고, [mic_plot.py](../mic_app/mic_plot.py)로 실시간 파형을 그렸다.
+- **결과(사용자 보드 실행):** 두 overlay 모두 DT만으로 세 모듈이 자동 적재되고 캡처 카드가 등록됐다. 48kHz·S32_LE·2채널 녹음에서 ch0(L/R=GND)에만 소리가 실리고 목소리를 귀로 확인했다. B단계 코덱은 레이트를 8000~52800Hz, 형식을 S24_LE·S32_LE로 좁혔다. 원복 후 캡처 장치가 없어졌다. C단계는 코덱 모듈을 넣기 전 카드가 대기(`parse error`)하다가 `insmod` 직후 카드 `inmp441study`가 만들어졌고, 레이트가 내 드라이버 값인 8000~50000Hz로 바뀌었다. 카드 unbind 후 `rmmod`, `/lib/modules` 설치 후 부팅 시 자동 적재까지 확인했다. D단계는 협상 값 출력, 이득 8 녹음, 소비 지연에 따른 xrun 횟수(계산과 일치), Pi 데스크톱 실시간 파형을 확인했다.
+- **범위:** 직접 작성한 것은 코덱 드라이버와 사용자 공간 캡처 앱·그래프다. CPU DAI(I2S)·DMA·machine 드라이버, mmap·poll 캡처, 재생(DAC), 다른 장치와 동시 사용은 하지 않았다.
+- **관련 파일:** [inmp441-overlay.dts](inmp441-overlay.dts), [Makefile](Makefile), C단계 [inmp441_codec.c](../mic_codec/inmp441_codec.c)·[inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)·[Makefile](../mic_codec/Makefile), D단계 [mic_capture.c](../mic_app/mic_capture.c)·[mic_plot.py](../mic_app/mic_plot.py)·[Makefile](../mic_app/Makefile), 작업 노트 [14-mic](../../docs/tasks/14-mic.md)·[Codex 지시서](../../docs/tasks/14-mic.codex.md), [14-3-mic-codec](../../docs/tasks/14-3-mic-codec.md)·[Codex 지시서](../../docs/tasks/14-3-mic-codec.codex.md), [14-4-mic-app](../../docs/tasks/14-4-mic-app.md)·[Codex 지시서](../../docs/tasks/14-4-mic-app.codex.md), 사양 [hardware.md](../../docs/hardware.md#inmp441-i2s-mems-마이크), 배선 [bringup.md](../../docs/bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `sound/soc/bcm/bcm2835-i2s.c`, `sound/soc/codecs/ics43432.c`, `sound/soc/generic/simple-card.c`
 
 ## 2. 구조
 
@@ -41,7 +41,7 @@
 | 드라이버 | `ics43432` (코덱, B) / `inmp441_codec` (코덱, C 직접 작성) | 레지스터 없음. 지원 형식·채널·레이트만 알림 |
 | 드라이버 | `simple-audio-card` (machine) | DT대로 CPU DAI와 코덱을 묶어 ALSA 카드 등록 |
 | 프레임워크 | ALSA PCM 코어 | hw_params 협상, ring buffer·period, xrun 감지, `/dev/snd` 장치 |
-| 사용자 공간 | `arecord`(alsa-lib) | 형식·레이트·채널 요청, 읽어서 WAV 저장 |
+| 사용자 공간 | `arecord` / `mic_capture`(D, alsa-lib) | 형식·레이트·채널·period·buffer 요청, 읽어서 WAV 저장. D는 ch0 변환·이득·xrun 복구, stdout → `mic_plot.py` |
 
 ## 3. 알아야 할 개념
 
@@ -91,6 +91,20 @@ simple-audio-card는 DT의 cpu·codec 노드에 등록된 component를 찾는다
 
 부팅 때 DT 노드가 생기면 uevent의 `MODALIAS=of:N...Cnakta,inmp441`을 udev가 받아 `modprobe`하고, `modprobe`는 `/lib/modules/<버전>/modules.alias`에서 모듈을 찾는다. mainline 드라이버는 이 표에 있지만 `~/bsp/modules`의 외부 모듈은 없어서 매 부팅 `insmod`가 필요했다. `extra/`에 설치하고 `depmod -a`로 표를 다시 만들자 6.5초에 자동 적재되어 대기 없이 카드가 만들어졌다.
 
+### period·buffer와 xrun: 앱에서 보는 DMA 버퍼 (D단계)
+
+앱은 레이트·period·buffer를 `snd_pcm_hw_params_set_*_near`로 **요청**하고, `snd_pcm_hw_params()` 뒤 실제 값을 다시 읽는다([mic_capture.c#L170](../mic_app/mic_capture.c#L170)). 레지스터·DMA 설정은 커널이 하고 앱은 협상 결과만 받는다. 이 점이 STM32와 다르다. `snd_pcm_readi()`는 period가 찰 때까지 잠들고, buffer가 넘치면 `-EPIPE`를 돌려준다. 그러면 `snd_pcm_recover()`로 다시 시작하고, 넘친 동안의 샘플은 잃는다([mic_capture.c#L312](../mic_app/mic_capture.c#L312)).
+
+48kHz, period 1024(21.3ms)에서 매 읽기 뒤 쉬는 시간(`-s`)을 바꾼 결과(5초):
+
+| 쉬는 시간 | buffer | xrun | 해석 |
+| --- | --- | --- | --- |
+| 15ms | 4096 (85ms) | 0 | period보다 짧아 따라감 |
+| 30ms | 4096 (85ms) | 19 | 초당 약 13,900프레임 부족 → 약 0.29초마다 넘침 |
+| 30ms | 16384 (341ms) | 4 | 같은 부족분 → 약 1.18초마다 넘침 |
+
+buffer는 넘치는 간격만 늘리고, 계속 느린 소비는 막지 못한다. STM32 DMA circular 버퍼를 키워도 처리 루프가 느리면 결국 덮어쓰는 것과 같다.
+
 ## 4. 구현 흐름
 
 1. **firmware가 DT를 합친다:** `config.txt`의 `dtoverlay=inmp441`로 [inmp441-overlay.dts](inmp441-overlay.dts)가 기본 DTB에 적용된다.
@@ -107,6 +121,11 @@ simple-audio-card는 DT의 cpu·codec 노드에 등록된 component를 찾는다
    - [L31](../mic_codec/inmp441_codec.c#L31) probe는 `devm_snd_soc_register_component()` 한 번이다. 이 등록이 끝나야 대기하던 simple-card가 카드를 만든다. 실패는 `dev_err_probe()`로 돌려줘 `-EPROBE_DEFER`도 조용히 전달된다.
    - remove가 없다. devm이 해제 때 component 등록을 풀어 준다(`soc-devres.c`).
    - component 드라이버는 비어 있다. `ics43432`의 `endianness`를 넣으면 BE 형식까지 광고되고(`soc-core.c` L2889), `use_pmdown_time`은 재생 스트림에만 쓰여 넣지 않았다(Codex 구현 보고).
+
+6. **D단계: alsa-lib 앱으로 캡처한다:** B단계 overlay(카드 `inmp441`) 그대로, 앱이 `S32_LE`·2채널을 고정하고 레이트·period·buffer를 요청한다.
+   - [L244](../mic_app/mic_capture.c#L244) ch0만 `>> 8`로 24비트 값을 얻고, 정수 이득을 곱해 ±8388607로 자른다. 1초마다 이득 전 peak·RMS·clip·xrun을 stderr로 출력한다.
+   - 출력은 WAV(모노 32비트, 끝에서 헤더 크기 보정) 또는 `-o -`(int32 원시 샘플)다. `mic_capture -o - | python3 mic_plot.py`로 실시간 파형을 그린다.
+   - 빌드는 WSL에서 Ubuntu 22.04 `libasound2-dev:arm64`(multiarch)로 크로스 컴파일하고, 실행 때는 Pi의 `libasound.so.2`를 쓴다(필요 GLIBC 2.34).
 
 ## 5. 재현
 
@@ -191,6 +210,22 @@ sudo cp /boot/firmware/config.txt.bak-14-3 /boot/firmware/config.txt
 sudo reboot
 ```
 
+**D단계 (alsa-lib 캡처 앱)** — 전체 단계는 [14-4 작업 노트](../../docs/tasks/14-4-mic-app.md). 선행 조건: WSL `libasound2-dev:arm64` 설치(노트 0단계), Pi에 B단계 overlay 적용.
+
+```bash
+# [WSL] ~/bspworkspace/bsp-study/examples/mic_app
+make
+make deploy                       # mic_capture, mic_plot.py → pi:bsp/apps/
+```
+
+```bash
+# [Pi]
+~/bsp/apps/mic_capture -d 5 -g 8 -o ~/bsp/mic/d-g8.wav           # 이득 8 녹음
+~/bsp/apps/mic_capture -d 5 -s 30 -b 16384 -o /dev/null          # 느린 소비 → xrun 관찰
+# [Pi 데스크톱 터미널] 실시간 파형
+~/bsp/apps/mic_capture -d 0 -g 8 -o - | python3 ~/bsp/apps/mic_plot.py
+```
+
 ## 6. 트러블슈팅과 한계
 
 | 증상 | 원인 | 해결 |
@@ -204,9 +239,11 @@ sudo reboot
 | C: `rmmod: Module inmp441_codec is in use` | 카드가 코덱 모듈 참조를 잡고 있음 | `asoc-simple-card/unbind` 후 `rmmod` |
 | C: 코덱 없이 `asoc-simple-card/bind`가 `I/O error` | probe가 `-EPROBE_DEFER`로 끝나 bind 쓰기가 오류를 돌려준 것으로 봄 | 코덱 적재 후 자동으로 다시 probe됨 |
 | C: `insmod` 직후 `arecord -l`이 비어 있음 | 코덱 등록 뒤 카드 재probe까지 짧은 시간차로 봄 | 잠시 뒤 다시 확인(이어진 녹음은 성공) |
-| 녹음 소리가 작음 | MEMS 감도 −26 dBFS(94 dB SPL)라 말소리가 최대치의 수 %이고, 경로에 증폭 단계가 없음 | 소프트웨어 이득(14-4 앱)이나 ALSA softvol |
+| 녹음 소리가 작음 | MEMS 감도 −26 dBFS(94 dB SPL)라 말소리가 최대치의 수 %이고, 경로에 증폭 단계가 없음 | D단계 `-g 8`로 확실히 커짐(말소리 peak 2.8만 × 8 ≈ 23만, 한계 838만까지 여유) |
+| D: 그래프 실행 직후 `[XRUN]` 2회 | python이 창을 띄우는 동안 stdin을 읽지 않아 파이프가 차고 앱이 막힘 | 창이 뜬 뒤에는 늘지 않음. 조치 없음 |
+| D: 휴대폰 음악에 그래프 반응이 약함 | 실내 소음 RMS 2천~5천 대비 신호가 작고, 선형 y축(파형 ±838만 고정, 레벨은 10초 최댓값 기준) | 가까이 두고 `[LEVEL] rms` 비교, 필요하면 dB 눈금(확인 필요) |
 
 **한 번 나온 이상:** 재부팅 직후 첫 녹음(`a-quiet`, A단계)에서 0~50ms는 0이었다가 이후 끝까지 ch0·ch1 모두 최대치(8,388,608)였고 "뿌직" 소리로 들렸다. ch1까지 최대치라 마이크 소리가 아니라 데이터가 잘못 읽힌 것이다. 이어서 녹음한 `a-loud`·`q1`·`q2`와 B단계 녹음은 정상이라 재현되지 않았다. 재부팅 직후 첫 캡처의 프레임 어긋남이나 순간 접촉 불량을 의심하지만 원인은 확인하지 않았다.
 
-- **미검증:** `a-quiet` 이상의 원인과 재현 여부, B단계 `b-loud`·C단계 `c-loud`의 채널별 진폭 수치(녹음·청취는 완료, 수치 미확인), C단계 코덱 없이 bind한 뒤의 대기 목록, 실행 중 `dtoverlay` 적용·제거, 레이트별(16k·44.1k) 녹음, alsa-lib 앱으로 period·buffer 크기와 xrun 관찰.
+- **미검증:** `a-quiet` 이상의 원인과 재현 여부, B단계 `b-loud`·C단계 `c-loud`의 채널별 진폭 수치(녹음·청취는 완료, 수치 미확인), C단계 코덱 없이 bind한 뒤의 대기 목록, D단계 이득 후 peak 수치와 휴대폰을 가까이 둔 레벨 변화, 실행 중 `dtoverlay` 적용·제거, 레이트별(16k·44.1k) 녹음, mmap·poll 기반 캡처.
 - **한계:** GPIO18~21을 I2S가 점유하므로 17단계 모터 PWM은 GPIO12/13으로 옮겨야 한다([bringup.md](../../docs/bringup.md#40핀-한눈에-보기)). 오른쪽 슬롯은 비어 있어 마이크 하나는 모노다.
