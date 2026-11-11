@@ -1,4 +1,4 @@
-# I2S 마이크 INMP441: ASoC 세 드라이버를 DT로 묶기
+# I2S 마이크 INMP441: ASoC 세 드라이버를 DT로 묶고 코덱 드라이버 작성
 
 - [1. 한눈에 보기](#1-한눈에-보기)
 - [2. 구조](#2-구조)
@@ -10,10 +10,10 @@
 ## 1. 한눈에 보기
 
 - **목적:** INMP441 I2S MEMS 마이크를 커널의 기존 드라이버로 연결해 ALSA로 녹음하고, ASoC가 CPU DAI·코덱·machine 세 드라이버를 DT로 어떻게 묶는지 이해한다. STM32에서 I2S·DMA를 직접 다뤘던 일이 리눅스에서는 어디서 처리되는지 대응시킨다.
-- **기능:** A단계는 기존 rpi overlay `adau7002-simple`로 배선과 녹음을 확인했다. B단계는 같은 구조의 overlay [inmp441-overlay.dts](inmp441-overlay.dts)를 직접 써서 코덱을 `invensense,ics43432`로 바꾸고 카드 이름을 `inmp441`로 했다. 드라이버 코드는 쓰지 않았다.
-- **결과(사용자 보드 실행):** 두 overlay 모두 DT만으로 세 모듈이 자동 적재되고 캡처 카드가 등록됐다. 48kHz·S32_LE·2채널 녹음에서 ch0(L/R=GND)에만 소리가 실리고 목소리를 귀로 확인했다. B단계 코덱은 레이트를 8000~52800Hz, 형식을 S24_LE·S32_LE로 좁혔다. 원복 후 캡처 장치가 없어졌다.
-- **범위:** 코덱·machine 드라이버 작성, alsa-lib 앱 작성, 재생(DAC), 다른 장치와 동시 사용은 하지 않았다.
-- **관련 파일:** [inmp441-overlay.dts](inmp441-overlay.dts), [Makefile](Makefile), 작업 노트 [14-mic](../../docs/tasks/14-mic.md)·[Codex 지시서](../../docs/tasks/14-mic.codex.md), 사양 [hardware.md](../../docs/hardware.md#inmp441-i2s-mems-마이크), 배선 [bringup.md](../../docs/bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `sound/soc/bcm/bcm2835-i2s.c`, `sound/soc/codecs/ics43432.c`, `sound/soc/generic/simple-card.c`
+- **기능:** A단계는 기존 rpi overlay `adau7002-simple`로 배선과 녹음을 확인했다. B단계는 같은 구조의 overlay [inmp441-overlay.dts](inmp441-overlay.dts)를 직접 써서 코덱을 `invensense,ics43432`로 바꾸고 카드 이름을 `inmp441`로 했다. C단계(14-3)는 `ics43432` 대신 INMP441 사양으로 직접 작성한 코덱 드라이버 [inmp441_codec.c](../mic_codec/inmp441_codec.c)(`nakta,inmp441`, 외부 모듈)를 overlay [inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)로 연결했다.
+- **결과(사용자 보드 실행):** 두 overlay 모두 DT만으로 세 모듈이 자동 적재되고 캡처 카드가 등록됐다. 48kHz·S32_LE·2채널 녹음에서 ch0(L/R=GND)에만 소리가 실리고 목소리를 귀로 확인했다. B단계 코덱은 레이트를 8000~52800Hz, 형식을 S24_LE·S32_LE로 좁혔다. 원복 후 캡처 장치가 없어졌다. C단계는 코덱 모듈을 넣기 전 카드가 대기(`parse error`)하다가 `insmod` 직후 카드 `inmp441study`가 만들어졌고, 레이트가 내 드라이버 값인 8000~50000Hz로 바뀌었다. 카드 unbind 후 `rmmod`, `/lib/modules` 설치 후 부팅 시 자동 적재까지 확인했다.
+- **범위:** 직접 작성한 것은 코덱 드라이버뿐이다. CPU DAI(I2S)·DMA·machine 드라이버, alsa-lib 앱 작성, 재생(DAC), 다른 장치와 동시 사용은 하지 않았다.
+- **관련 파일:** [inmp441-overlay.dts](inmp441-overlay.dts), [Makefile](Makefile), C단계 [inmp441_codec.c](../mic_codec/inmp441_codec.c)·[inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)·[Makefile](../mic_codec/Makefile), 작업 노트 [14-mic](../../docs/tasks/14-mic.md)·[Codex 지시서](../../docs/tasks/14-mic.codex.md), [14-3-mic-codec](../../docs/tasks/14-3-mic-codec.md)·[Codex 지시서](../../docs/tasks/14-3-mic-codec.codex.md), 사양 [hardware.md](../../docs/hardware.md#inmp441-i2s-mems-마이크), 배선 [bringup.md](../../docs/bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `sound/soc/bcm/bcm2835-i2s.c`, `sound/soc/codecs/ics43432.c`, `sound/soc/generic/simple-card.c`
 
 ## 2. 구조
 
@@ -38,7 +38,7 @@
 | 장치 | INMP441 | SCK·WS를 받아 24비트 2의 보수 데이터를 SD로 출력. L/R=GND면 왼쪽 슬롯 |
 | DT | `inmp441` overlay | I2S 노드 활성화, 코덱 노드 추가, `/sound`를 simple-audio-card로 정의(형식 i2s, 이름, CPU·코덱 DAI 연결) |
 | 드라이버 | `bcm2835-i2s` (CPU DAI) | I2S 레지스터(마스터 모드·프레임·채널) 설정, DMA 등록, 시작·정지 |
-| 드라이버 | `ics43432` (코덱) | 레지스터 없음. 지원 형식·채널·레이트만 알림 |
+| 드라이버 | `ics43432` (코덱, B) / `inmp441_codec` (코덱, C 직접 작성) | 레지스터 없음. 지원 형식·채널·레이트만 알림 |
 | 드라이버 | `simple-audio-card` (machine) | DT대로 CPU DAI와 코덱을 묶어 ALSA 카드 등록 |
 | 프레임워크 | ALSA PCM 코어 | hw_params 협상, ring buffer·period, xrun 감지, `/dev/snd` 장치 |
 | 사용자 공간 | `arecord`(alsa-lib) | 형식·레이트·채널 요청, 읽어서 WAV 저장 |
@@ -75,6 +75,22 @@ Pi I2S 수신은 2채널 고정이다(`channels_min = 2`, L804). I2S 한 프레�
 
 overlay에는 기존 rpi overlay를 따라 `bitclock-slave`·`frame-slave`를 적었지만, 대상 커널은 이 속성을 읽지 않는다. `snd_soc_daifmt_parse_clock_provider_raw()`(`soc-core.c` L3433)는 `*-master`만 보고, master 속성이 없으면 코덱이 두 클럭을 받는 쪽(CBC_CFC)으로 정해진다. 결과적으로 Pi가 BCLK·WS를 공급한다(Codex 구현 보고에서 지적, 소스로 확인).
 
+### 코덱 드라이버를 직접 쓰면 무엇이 바뀌는가 (C단계)
+
+코덱 드라이버의 일은 `struct snd_soc_dai_driver`의 `.capture`에 채널·레이트·형식을 적어 등록하는 것이 전부다([inmp441_codec.c#L11](../mic_codec/inmp441_codec.c#L11)). 소리 데이터는 I2S 컨트롤러 → DMA → ALSA ring buffer로 가고 코덱 드라이버를 지나지 않는다. 그래서 바뀌는 것은 협상 범위뿐이다. `rate_max`를 INMP441 데이터시트 값 50000으로 두자 `--dump-hw-params`가 `RATE: [8000 50000]`으로 바뀌었고(B단계 52800), `arecord -r 52000`은 거절되지 않고 `set_rate_near`로 50000Hz에 맞춰졌다.
+
+### 카드는 모든 component가 모여야 만들어진다 (probe 지연)
+
+simple-audio-card는 DT의 cpu·codec 노드에 등록된 component를 찾는다. 코덱 모듈이 없으면 `snd_soc_get_dlc()`가 `-EPROBE_DEFER`를 돌려주고(`soc-core.c` L3535) 카드는 `/sys/kernel/debug/devices_deferred`에 `asoc-simple-card: parse error`로 남는다. 오류가 아니라 대기이고, 나중에 코덱이 등록되면 커널이 다시 probe해 카드를 만든다. MPU6050처럼 드라이버가 하나인 장치는 드라이버가 없어도 장치가 그냥 비어 있을 뿐이라 이런 대기가 보이지 않는다.
+
+### 카드가 코덱 모듈을 잡는다 (rmmod 순서)
+
+카드가 만들어질 때 ASoC가 각 component 모듈의 참조를 잡는다(`soc-core.c` L1628 `snd_soc_component_module_get_when_probe` → `soc-component.c` L310 `try_module_get`). 그래서 카드가 있는 동안 `rmmod inmp441_codec`은 `in use`로 실패한다. `asoc-simple-card/unbind`로 카드를 먼저 내리면 사용 수가 0이 되어 뺄 수 있다.
+
+### 외부 모듈은 왜 자동 적재되지 않았는가
+
+부팅 때 DT 노드가 생기면 uevent의 `MODALIAS=of:N...Cnakta,inmp441`을 udev가 받아 `modprobe`하고, `modprobe`는 `/lib/modules/<버전>/modules.alias`에서 모듈을 찾는다. mainline 드라이버는 이 표에 있지만 `~/bsp/modules`의 외부 모듈은 없어서 매 부팅 `insmod`가 필요했다. `extra/`에 설치하고 `depmod -a`로 표를 다시 만들자 6.5초에 자동 적재되어 대기 없이 카드가 만들어졌다.
+
 ## 4. 구현 흐름
 
 1. **firmware가 DT를 합친다:** `config.txt`의 `dtoverlay=inmp441`로 [inmp441-overlay.dts](inmp441-overlay.dts)가 기본 DTB에 적용된다.
@@ -85,6 +101,12 @@ overlay에는 기존 rpi overlay를 따라 `bitclock-slave`·`frame-slave`를 �
 2. **커널이 compatible로 드라이버를 붙인다:** `snd_soc_bcm2835_i2s`, `snd_soc_ics43432`, `snd_soc_simple_card`가 자동 적재된다. A단계와 비교하면 코덱 모듈만 `snd_soc_adau7002` → `snd_soc_ics43432`로 바뀌었다.
 3. **machine이 카드를 등록한다:** simple-card가 DT의 cpu·codec DAI를 찾아 dai link를 만들고 카드 `inmp441`을 등록한다. 장치 이름 `bcm2835-i2s-ics43432-hifi`가 CPU DAI와 코덱 DAI의 결합을 보여 준다.
 4. **녹음:** `arecord -f S32_LE -r 48000 -c 2`가 hw_params를 협상하면 `bcm2835-i2s`가 마스터 모드로 BCLK(48kHz × 64 = 3.072MHz)·WS를 내보내고 DMA가 수신 데이터를 ring buffer에 채운다. 클럭이 시작되면 마이크가 깨어나므로 녹음 앞부분에 짧은 과도 구간이 생긴다.
+
+5. **C단계: 코덱만 직접 작성한 드라이버로 바꾼다:** [inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)는 B단계 overlay에서 코덱 `compatible = "nakta,inmp441"`([L19](../mic_codec/inmp441-study-overlay.dts#L19))과 카드 이름 `inmp441study`([L30](../mic_codec/inmp441-study-overlay.dts#L30)) 두 줄만 다르다.
+   - [L44](../mic_codec/inmp441_codec.c#L44) `of_device_id`의 `nakta,inmp441`이 overlay 코덱 노드와 매칭되어 probe가 불린다.
+   - [L31](../mic_codec/inmp441_codec.c#L31) probe는 `devm_snd_soc_register_component()` 한 번이다. 이 등록이 끝나야 대기하던 simple-card가 카드를 만든다. 실패는 `dev_err_probe()`로 돌려줘 `-EPROBE_DEFER`도 조용히 전달된다.
+   - remove가 없다. devm이 해제 때 component 등록을 풀어 준다(`soc-devres.c`).
+   - component 드라이버는 비어 있다. `ics43432`의 `endianness`를 넣으면 BE 형식까지 광고되고(`soc-core.c` L2889), `use_pmdown_time`은 재생 스트림에만 쓰여 넣지 않았다(Codex 구현 보고).
 
 ## 5. 재현
 
@@ -130,6 +152,45 @@ sudo reboot
 | 조용히 (`q1`) 0~50ms → 150ms 이후 | 약 49만 → 수천 | 0 | 시작 과도 구간 후 가라앉음 |
 | 조용히 (`q1`) 1초 이후 | 약 2.2만 | 0 | 주변 소음 |
 
+**C단계 (직접 작성한 코덱 드라이버)** — 전체 단계는 [14-3 작업 노트](../../docs/tasks/14-3-mic-codec.md).
+
+```bash
+# [WSL] ~/bspworkspace/bsp-study/examples/mic_codec — 모듈·overlay 빌드·전송
+make
+make deploy                       # inmp441_codec.ko → pi:bsp/modules/, inmp441-study.dtbo → pi:bsp/overlays/
+```
+
+```bash
+# [Pi] 백업 후 overlay 적용 → 재부팅 → 대기 확인 → 모듈 적재
+sudo cp /boot/firmware/config.txt /boot/firmware/config.txt.bak-14-3
+sudo cp ~/bsp/overlays/inmp441-study.dtbo /boot/firmware/overlays-bsp-study01/
+echo 'dtoverlay=inmp441-study' | sudo tee -a /boot/firmware/config.txt
+sudo reboot
+# 재부팅 후
+sudo cat /sys/kernel/debug/devices_deferred                # soc:sound  asoc-simple-card: parse error
+sudo insmod ~/bsp/modules/inmp441_codec.ko
+arecord -l                                                 # card N: inmp441study
+arecord -D hw:CARD=inmp441study,DEV=0 --dump-hw-params -d 1 /dev/null 2>&1 | grep RATE   # [8000 50000]
+```
+
+```bash
+# [Pi] 해제: 카드를 먼저 내리고 rmmod
+sudo sh -c 'echo soc:sound > /sys/bus/platform/drivers/asoc-simple-card/unbind'
+sudo rmmod inmp441_codec
+```
+
+```bash
+# [Pi] 선택: 설치해서 부팅 때 자동 적재
+sudo install -D -m 644 ~/bsp/modules/inmp441_codec.ko /lib/modules/$(uname -r)/extra/inmp441_codec.ko
+sudo depmod -a
+sudo reboot
+# 원복: 설치 파일 삭제 → 별칭 표 재생성 → config 원복
+sudo rm /lib/modules/$(uname -r)/extra/inmp441_codec.ko
+sudo depmod -a
+sudo cp /boot/firmware/config.txt.bak-14-3 /boot/firmware/config.txt
+sudo reboot
+```
+
 ## 6. 트러블슈팅과 한계
 
 | 증상 | 원인 | 해결 |
@@ -139,8 +200,13 @@ sudo reboot
 | dmesg `supply IOVDD not found, using dummy regulator`(A단계) | overlay에 코덱 전원 노드가 없음 | 조치 없음. 마이크는 3.3V 핀에서 직접 전원 |
 | `--dump-hw-params` 레이트 상한이 52800 | `ics43432` 코덱이 데이터시트 범위를 알림 | 정상. 48kHz 이하 사용 |
 | 원복 명령 직후 `arecord -l`에 카드가 남아 보임 | 재부팅이 끝나기 전에 실행된 출력 | 재접속 후 다시 확인 |
+| C: 재부팅 후 카드 없음, `devices_deferred`에 `parse error` | 외부 코덱 모듈이 `/lib/modules`에 없어 자동 적재 안 됨 | `insmod`하거나 `extra/`에 설치 후 `depmod -a` |
+| C: `rmmod: Module inmp441_codec is in use` | 카드가 코덱 모듈 참조를 잡고 있음 | `asoc-simple-card/unbind` 후 `rmmod` |
+| C: 코덱 없이 `asoc-simple-card/bind`가 `I/O error` | probe가 `-EPROBE_DEFER`로 끝나 bind 쓰기가 오류를 돌려준 것으로 봄 | 코덱 적재 후 자동으로 다시 probe됨 |
+| C: `insmod` 직후 `arecord -l`이 비어 있음 | 코덱 등록 뒤 카드 재probe까지 짧은 시간차로 봄 | 잠시 뒤 다시 확인(이어진 녹음은 성공) |
+| 녹음 소리가 작음 | MEMS 감도 −26 dBFS(94 dB SPL)라 말소리가 최대치의 수 %이고, 경로에 증폭 단계가 없음 | 소프트웨어 이득(14-4 앱)이나 ALSA softvol |
 
 **한 번 나온 이상:** 재부팅 직후 첫 녹음(`a-quiet`, A단계)에서 0~50ms는 0이었다가 이후 끝까지 ch0·ch1 모두 최대치(8,388,608)였고 "뿌직" 소리로 들렸다. ch1까지 최대치라 마이크 소리가 아니라 데이터가 잘못 읽힌 것이다. 이어서 녹음한 `a-loud`·`q1`·`q2`와 B단계 녹음은 정상이라 재현되지 않았다. 재부팅 직후 첫 캡처의 프레임 어긋남이나 순간 접촉 불량을 의심하지만 원인은 확인하지 않았다.
 
-- **미검증:** `a-quiet` 이상의 원인과 재현 여부, B단계 녹음(`b-loud`)의 채널별 진폭 수치(녹음은 완료, 수치 미확인), 실행 중 `dtoverlay` 적용·제거, 레이트별(16k·44.1k) 녹음, alsa-lib 앱으로 period·buffer 크기와 xrun 관찰.
+- **미검증:** `a-quiet` 이상의 원인과 재현 여부, B단계 `b-loud`·C단계 `c-loud`의 채널별 진폭 수치(녹음·청취는 완료, 수치 미확인), C단계 코덱 없이 bind한 뒤의 대기 목록, 실행 중 `dtoverlay` 적용·제거, 레이트별(16k·44.1k) 녹음, alsa-lib 앱으로 period·buffer 크기와 xrun 관찰.
 - **한계:** GPIO18~21을 I2S가 점유하므로 17단계 모터 PWM은 GPIO12/13으로 옮겨야 한다([bringup.md](../../docs/bringup.md#40핀-한눈에-보기)). 오른쪽 슬롯은 비어 있어 마이크 하나는 모노다.

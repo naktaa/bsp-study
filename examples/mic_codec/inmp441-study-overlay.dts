@@ -1,0 +1,49 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2s_clk_producer>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			inmp441_codec: inmp441-codec {
+				#sound-dai-cells = <0>;
+				compatible = "nakta,inmp441";
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&sound>;
+		sound_overlay: __overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,name = "inmp441study";
+			/* INMP441은 클럭을 받기만 하므로 Pi가 BCLK와 WS를 공급한다. */
+			simple-audio-card,bitclock-slave = <&dailink0_slave>;
+			simple-audio-card,frame-slave = <&dailink0_slave>;
+			status = "okay";
+
+			simple-audio-card,cpu {
+				sound-dai = <&i2s_clk_producer>;
+			};
+
+			dailink0_slave: simple-audio-card,codec {
+				sound-dai = <&inmp441_codec>;
+			};
+		};
+	};
+
+	__overrides__ {
+		card-name = <&sound_overlay>, "simple-audio-card,name";
+	};
+};

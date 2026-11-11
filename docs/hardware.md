@@ -12,7 +12,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | --- | --- | --- | --- | --- |
 | 완료 | GY-521 / MPU-6050 IMU | I2C1 `0x68` + INT(GPIO17) | 직접 작성: `examples/mpu6050`, `examples/mpu6050_iio` (mainline: `drivers/iio/imu/inv_mpu6050`) | 확정 |
 | 완료(13) | 카메라 IMX219 | MIPI CSI-2 + I2C(카메라 전용 `i2c-10` `0x10`) | `imx219` + Raspberry Pi unicam(`bcm2835_unicam_legacy`), `imx219` overlay | 센서 확정(실측), 모듈 제품 확인 필요 |
-| 완료(14) | INMP441 I2S MEMS 마이크 | I2S(PCM) 수신 | `bcm2835-i2s` + 코덱 `ics43432` + `simple-audio-card`, overlay `examples/mic/inmp441-overlay.dts` | 확정 |
+| 진행(14) | INMP441 I2S MEMS 마이크 | I2S(PCM) 수신 | `bcm2835-i2s` + 코덱 `ics43432` + `simple-audio-card`, overlay `examples/mic/inmp441-overlay.dts` | 확정 |
 | 15 | PCA9685 + SG90 ×2 (팬·틸트) | I2C1 `0x40` | `pwm-pca9685`, `i2c-pwm-pca9685a` overlay | 확정(VEDA 설정 `i2c_address=64`) |
 | 16 | 초음파 HC-SR04 계열 | GPIO Trig + GPIO Echo(IRQ) | IIO `srf04` (`devantech,srf04`) | 확인 필요 |
 | 17 | DC 모터 + 모터 드라이버 | 하드웨어 PWM(EN) + GPIO(IN1/IN2) ×2 | `pwm-bcm2835`, `pwm-2chan` overlay | 드라이버 칩 확인 필요 |
@@ -61,7 +61,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 - **Pi가 I2S 마스터**로 BCLK·LRCLK를 공급하고 마이크는 SD로 데이터만 보낸다. 모듈 핀: VDD, GND, SCK→BCLK, WS→LRCLK, SD→DIN, L/R.
 - Pi 4 I2S(PCM) 핀은 GPIO18(BCLK), GPIO19(LRCLK), GPIO20(DIN), GPIO21(DOUT)이다. **아래 모터 핀 충돌 참고.**
 - 24bit 데이터가 32bit 슬롯에 들어가므로 ALSA 캡처는 보통 `S32_LE`로 받는다.
-- 커널 대응(14단계 확정): 코덱 `sound/soc/codecs/ics43432.c`(레이트 7190~52800Hz, S24_LE·S32) + simple-audio-card, 직접 작성한 overlay `examples/mic/inmp441-overlay.dts`. 기존 `adau7002-simple`로도 동작 확인. INMP441 전용 드라이버는 없음 → [마이크 문서](../examples/mic/mic.md)
+- 커널 대응: 14-1 기존 overlay `adau7002-simple`로 동작 확인, 14-2 mainline 코덱 `sound/soc/codecs/ics43432.c`(레이트 7190~52800Hz, S24_LE·S32) + simple-audio-card를 직접 작성한 overlay `examples/mic/inmp441-overlay.dts`로 연결(완료). 14-3 직접 작성한 코덱 `nakta,inmp441`(레이트 7800~50000Hz, S24_LE·S32_LE, `examples/mic_codec/`, 완료). INMP441 전용 mainline 드라이버는 없음 → [마이크 문서](../examples/mic/mic.md)
 - [INMP441 제품 페이지 (TDK InvenSense)](https://invensense.tdk.com/?p=582)
 - [INMP441 데이터시트 (미러)](https://microcontroller-course.web.cern.ch/Project_Material/resources/INMP441.pdf)
 
