@@ -56,6 +56,8 @@
 
 | 카메라 모듈 (IMX219) | VEDA Final에서 쓴 모듈을 그대로 사용 | `rpicam-hello --list-cameras`에서 `imx219 [3280x2464 10-bit RGGB]` 인식 확인. 판매 모델명(Camera Module v2 정품 여부)은 미확인 |
 
+| INMP441 I2S 마이크 모듈 | VDD·GND·SCK·WS·SD·L/R 6핀 모듈 | 14단계 배선 연결, `inmp441` 카드 녹음 확인. 배선은 아래 40핀 표(●) |
+
 ### 카메라 연결
 
 | 연결 | Pi 쪽 | 버스·주소 | 상태 |
@@ -92,6 +94,39 @@ GY-521의 물리 핀 1·3·5·6 연결을 사용자 보고로 확인했다. 물�
 | 6 | GND | GY-521 GND | 공통 접지 |
 | 9 | GND | AD0 LOW 고정 시 선택 | 현재 사용 확정 아님 |
 | 11 | GPIO17 | MPU6050 INT 연결 후보 | Data Ready IRQ 동작 확인. 다른 모듈에 중복 할당하지 않음 |
+
+### 40핀 한눈에 보기
+
+● 연결됨(사용자 확인) · ○ 계획(해당 단계에서 실물 확인 후 확정) · 빈칸은 미사용. 카메라는 CSI 커넥터라 40핀을 쓰지 않는다.
+
+| 용도 | 기능 | 핀 | 핀 | 기능 | 용도 |
+| --- | --- | :-: | :-: | --- | --- |
+| ● IMU VCC | 3.3V | 1 | 2 | 5V | ○ 초음파 VCC |
+| ● IMU SDA · ○ PCA9685 SDA | GPIO2 SDA1 | 3 | 4 | 5V | (여유 5V) |
+| ● IMU SCL · ○ PCA9685 SCL | GPIO3 SCL1 | 5 | 6 | GND | ● IMU GND |
+|  | GPIO4 | 7 | 8 | GPIO14 TXD |  |
+| (AD0 LOW 선택) | GND | 9 | 10 | GPIO15 RXD |  |
+| ● IMU INT | GPIO17 | 11 | 12 | GPIO18 PCM_CLK | ● 마이크 SCK |
+|  | GPIO27 | 13 | 14 | GND | ○ 초음파 GND |
+|  | GPIO22 | 15 | 16 | GPIO23 | ○ 초음파 Trig |
+| ● 마이크 VDD · ○ PCA9685 VCC | 3.3V | 17 | 18 | GPIO24 | ○ 초음파 Echo(분압) |
+|  | GPIO10 MOSI | 19 | 20 | GND | ○ PCA9685 GND |
+|  | GPIO9 MISO | 21 | 22 | GPIO25 |  |
+|  | GPIO11 SCLK | 23 | 24 | GPIO8 CE0 |  |
+| ○ 모터 GND(공통) | GND | 25 | 26 | GPIO7 CE1 |  |
+| (HAT EEPROM, 사용 금지) | GPIO0 | 27 | 28 | GPIO1 | (HAT EEPROM, 사용 금지) |
+| ○ 모터 L_IN1 | GPIO5 | 29 | 30 | GND |  |
+| ○ 모터 L_IN2 | GPIO6 | 31 | 32 | GPIO12 PWM0 | ○ 모터 L_EN |
+| ○ 모터 R_EN | GPIO13 PWM1 | 33 | 34 | GND | ● 마이크 L/R |
+| ● 마이크 WS | GPIO19 PCM_FS | 35 | 36 | GPIO16 | ○ 모터 R_IN1 |
+| ○ 모터 R_IN2 | GPIO26 | 37 | 38 | GPIO20 PCM_DIN | ● 마이크 SD |
+| ● 마이크 GND | GND | 39 | 40 | GPIO21 PCM_DOUT | (I2S pinctrl이 점유, 다른 용도 금지) |
+
+**겹침·주의**
+- I2C1(물리 3·5)은 IMU `0x68`과 PCA9685 `0x40`(All Call `0x70`)이 공유한다. PCA9685 VCC(로직)는 반드시 3.3V로 둔다. 5V에 꽂으면 모듈 풀업 때문에 SDA/SCL이 5V가 된다.
+- 마이크 I2S(GPIO18~20)와 VEDA 모터 배선이 겹치므로 모터는 PWM을 GPIO12/13(`pwm-2chan` ALT0)으로, 방향 핀을 GPIO5·6·16·26으로 옮긴 배치다. 온보드 아날로그 오디오도 PWM 두 채널을 쓰므로 17단계에서 충돌을 확인한다.
+- 초음파 Echo는 5V 출력이라 분압 후 연결한다. 서보 V+·모터 전원은 Pi 5V가 아닌 외부 전원을 쓰고 GND만 공통으로 둔다.
+- 3.3V는 물리 1·17 두 핀뿐이다. IMU·마이크·PCA9685 로직만 연결한다.
 
 새 모듈은 위 형식으로 모듈별 연결표와 Pi 핀 현황에 반영한다. 임의 GPIO를 중복 할당하지 않고 전원·GND 공유와 I2C 버스 공유를 구분한다. 사용하지 않은 핀도 자동으로 여유 핀이라 가정하지 말고 overlay·다른 기능의 점유를 확인한다.
 

@@ -34,6 +34,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 - [MPU6050 IIO 채널·scale·IRQ 버퍼·mainline 비교](examples/mpu6050_iio/iio-direct.md)
 - [U-Boot 경유 커스텀 커널 부팅](boot/uboot/uboot-boot.md)
 - [카메라 IMX219 센서·CSI 수신 드라이버](examples/camera/camera.md)
+- [I2S 마이크 INMP441·ASoC](examples/mic/mic.md)
 
 실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
 
