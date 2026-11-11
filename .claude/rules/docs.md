@@ -37,3 +37,4 @@ paths:
 - examples/mpu6050_iio/iio-direct.md: IIO 채널·버퍼·timestamp, mainline `inv_mpu6050` 비교
 - boot/uboot/uboot-boot.md: U-Boot 빌드·부트 스크립트, DT·bootargs 전달
 - examples/camera/camera.md: IMX219 센서·unicam 드라이버, 노출·타임스탬프 경로
+- examples/mic/mic.md: INMP441 I2S 마이크, ASoC CPU DAI·코덱·machine과 overlay
