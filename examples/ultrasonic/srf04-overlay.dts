@@ -1,0 +1,19 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			srf04: proximity {
+				compatible = "devantech,srf04";
+				/* GPIO 플래그 0은 GPIO_ACTIVE_HIGH이다. */
+				trig-gpios = <&gpio 23 0>;
+				echo-gpios = <&gpio 24 0>;
+				status = "okay";
+			};
+		};
+	};
+};

@@ -14,7 +14,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | 완료(13) | 카메라 IMX219 | MIPI CSI-2 + I2C(카메라 전용 `i2c-10` `0x10`) | `imx219` + Raspberry Pi unicam(`bcm2835_unicam_legacy`), `imx219` overlay | 센서 확정(실측), 모듈 제품 확인 필요 |
 | 완료(14) | INMP441 I2S MEMS 마이크 | I2S(PCM) 수신 | `bcm2835-i2s` + 코덱 `ics43432` + `simple-audio-card`, overlay `examples/mic/inmp441-overlay.dts` | 확정 |
 | 15 | PCA9685 + SG90 ×2 (팬·틸트) | I2C1 `0x40` | `pwm-pca9685`, `i2c-pwm-pca9685a` overlay | 확정(VEDA 설정 `i2c_address=64`) |
-| 16 | 초음파 HC-SR04 계열 | GPIO Trig + GPIO Echo(IRQ) | IIO `srf04` (`devantech,srf04`) | 확인 필요 |
+| 완료(16) | 초음파 HC-SR04 계열 | GPIO Trig(GPIO23) + GPIO Echo(GPIO24, IRQ) | IIO `srf04` (`devantech,srf04`, `CONFIG_SRF04=m`), overlay `examples/ultrasonic/srf04-overlay.dts` | VEDA 기록상 HC-SR04, 실물 표기 확인 필요 |
 | 17 | DC 모터 + 모터 드라이버 | 하드웨어 PWM(EN) + GPIO(IN1/IN2) ×2 | `pwm-bcm2835`, `pwm-2chan` overlay | 드라이버 칩 확인 필요 |
 
 ## GY-521 / MPU-6050
@@ -101,7 +101,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | **주의** | **Echo 출력이 5V 레벨이다. Pi GPIO는 5V tolerant가 아니므로 분압이나 레벨 변환 후 연결한다.** Trig는 3.3V로 구동 가능한지 실물로 확인 |
 
 - 커널: IIO `drivers/iio/proximity/srf04.c`, DT binding `devantech,srf04`. 필수 속성 `trig-gpios`(출력), `echo-gpios`(IRQ 가능 입력). 드라이버가 Echo의 상승·하강 IRQ 사이 시간을 재서 거리를 계산한다.
-- HC-SR04 전용 compatible은 mainline에 없다(2026-07 RFC 패치 제안 단계). 타이밍이 같아 `devantech,srf04`로 동작하는지 16단계에서 확인.
+- HC-SR04 전용 compatible은 mainline에 없다(2026-07 RFC 패치 제안 단계). 16단계에서 `devantech,srf04`로 동작 확인(자동 적재, 거리 변화, 읽기당 Echo IRQ 2회) → [초음파 문서](../examples/ultrasonic/ultrasonic.md)
 - 확인 필요: 실물 모델(HC-SR04, 3.3V 동작형 HC-SR04P 등). 3.3V 동작형이면 레벨 변환 조건이 달라진다.
 - [HC-SR04 사용자 매뉴얼 (ElecFreaks, 미러)](https://www-users.york.ac.uk/~mjf5/roach/Datasheets/HCSR04_Manual.pdf)
 - [devantech-srf04 DT binding](https://grok.openbmc.org/xref/openbmc/linux/Documentation/devicetree/bindings/iio/proximity/devantech-srf04.yaml?r=52f171ab)

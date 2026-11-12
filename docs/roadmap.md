@@ -112,7 +112,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 13 | 카메라 IMX219 | 기존 카드 | 완료 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
 | 14 | I2S 마이크 | 기존 카드 | 완료 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
 | 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | PWM 채널로 서보 위치 제어 |
-| 16 | 초음파 IIO srf04 | 기존 카드 | 예정 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
+| 16 | 초음파 IIO srf04 | 기존 카드 | 완료 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
 | 17 | 모터 PWM | 기존 카드 | 예정 | 하드웨어 PWM·방향 GPIO로 정·역·정지 제어, 별도 전원 확인 |
 | 18 | 통합 | 새 카드 | 예정 | 모든 장치와 IMU를 `meta-bsp-study`에 추가, 핀·주소 충돌 확인, Yocto 이미지에서 장치별 재검증 |
 
@@ -152,6 +152,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - PWM 서브시스템(pwmchip·채널·주기·duty)을 해설하고 sysfs로 서보 위치를 제어한다.
 
 ## 16. 초음파 IIO srf04
+- 작업 노트: [16-ultrasonic](tasks/16-ultrasonic.md). 2026-11-12 완료(15단계보다 먼저 진행): config fragment `configs/bsp-study.config`로 `CONFIG_SRF04=m`, 커널 이미지 재빌드 없이 `srf04.ko` 증분 빌드·설치, overlay로 자동 적재·IIO 등록, 거리 변화와 읽기당 IRQ 2회 확인, 원복([초음파 문서](../examples/ultrasonic/ultrasonic.md)).
 - 확인함: `drivers/iio/proximity/srf04.c`, binding `devantech-srf04.yaml`. 현재 설정은 `# CONFIG_SRF04 is not set`이고 rpi overlay는 없다. 따라서 config fragment 추가와 사용자 커널(모듈) 재빌드, Codex의 overlay 작성이 필요하다.
 - 실물 모듈 모델은 확인 필요. HC-SR04 계열이면 Echo가 5V이므로 분압·레벨 변환을 배선 전에 확인한다.
 - GPIO 펄스 폭 측정을 IIO 채널로 노출하는 구조를 1~10단계의 IIO 구현과 비교한다.
