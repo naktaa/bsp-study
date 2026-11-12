@@ -8,7 +8,7 @@
 
 ## 다음 작업
 - 15단계 PCA9685 팬·틸트(보류): I2C1을 IMU와 공유하고 VCC 3.3V·서보 외부 전원을 확인한 뒤 작업 노트를 만든다.
-- 12단계 Yocto 최소 이미지: 새 SD 카드가 오면 데스크톱에서 [T-B02 초안](tasks/T-B02-yocto-minimal.md)을 참고해 작업 노트를 만든다.
+- 12단계 Yocto 최소 이미지(진행): 데스크톱에서 [12-yocto-minimal](tasks/12-yocto-minimal.md) 인수인계부터 이어 간다(브랜치 `feat/yocto-minimal`).
 - 이후 17단계 모터를 진행하고 18단계에서 통합한다. 마이크 CPU DAI(I2S·DMA) 직접 작성은 선택 과제로 남긴다.
 
 ## 완료한 학습 문서

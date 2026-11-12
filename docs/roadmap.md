@@ -108,7 +108,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 단계 | 실습 | SD 카드 | 상태 | 완료 기준 |
 | --- | --- | --- | --- | --- |
 | 11 | U-Boot 부팅 | 기존 카드 | 완료 | 백업·복구 절차 확보 후 U-Boot 경유 부팅, firmware가 적용한 DTB·overlay가 커널까지 전달됨을 확인 |
-| 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 예정 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅 |
+| 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 진행 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅 |
 | 13 | 카메라 IMX219 | 기존 카드 | 완료 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
 | 14 | I2S 마이크 | 기존 카드 | 완료 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
 | 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | PWM 채널로 서보 위치 제어 |
@@ -130,7 +130,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - meta-raspberrypi와 저장소 내 `yocto/meta-bsp-study` 레이어로 최소 이미지를 만든다. Yocto 릴리스와 meta-raspberrypi 브랜치는 이 단계 계획에서 고정한다(확인 필요).
 - 커널을 현재 6.18.59 커밋(b3495ea)에 맞출지(linux-raspberrypi bbappend) meta-raspberrypi 기본 커널을 쓸지는 이 단계 계획에서 결정한다. 기본 커널을 쓰면 외부 모듈을 그 커널 버전에 맞춰 다시 빌드한다.
 - 11단계 U-Boot를 이미지 부팅 경로에 넣는 설정은 선택한 meta-raspberrypi 브랜치 문서로 확인한다.
-- 계획 초안: [T-B02](tasks/T-B02-yocto-minimal.md)(참고 자료). 새 카드 도착 후 데스크톱에서 진행한다.
+- 작업 노트: [12-yocto-minimal](tasks/12-yocto-minimal.md). scarthgap + meta-raspberrypi 기본 커널 `raspberrypi4-64`, 빌드·카드 쓰기는 데스크톱, SSH 확인은 노트북에서 한다. 초안 [T-B02](tasks/T-B02-yocto-minimal.md)는 참고 자료로 둔다.
 - 장시간 빌드와 SD 카드 기록은 사용자가 한다. Codex는 레시피·conf 작성과 정적 확인까지 한다.
 
 ## 13. 카메라 IMX219
