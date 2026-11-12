@@ -101,15 +101,15 @@ GY-521의 물리 핀 1·3·5·6 연결을 사용자 보고로 확인했다. 물�
 
 | 용도 | 기능 | 핀 | 핀 | 기능 | 용도 |
 | --- | --- | :-: | :-: | --- | --- |
-| ● IMU VCC | 3.3V | 1 | 2 | 5V | ○ 초음파 VCC |
+| ● IMU VCC | 3.3V | 1 | 2 | 5V | ● 초음파 VCC |
 | ● IMU SDA · ○ PCA9685 SDA | GPIO2 SDA1 | 3 | 4 | 5V | (여유 5V) |
 | ● IMU SCL · ○ PCA9685 SCL | GPIO3 SCL1 | 5 | 6 | GND | ● IMU GND |
 |  | GPIO4 | 7 | 8 | GPIO14 TXD |  |
 | (AD0 LOW 선택) | GND | 9 | 10 | GPIO15 RXD |  |
 | ● IMU INT | GPIO17 | 11 | 12 | GPIO18 PCM_CLK | ● 마이크 SCK |
-|  | GPIO27 | 13 | 14 | GND | ○ 초음파 GND |
-|  | GPIO22 | 15 | 16 | GPIO23 | ○ 초음파 Trig |
-| ● 마이크 VDD · ○ PCA9685 VCC | 3.3V | 17 | 18 | GPIO24 | ○ 초음파 Echo(분압) |
+|  | GPIO27 | 13 | 14 | GND | ● 초음파 GND |
+|  | GPIO22 | 15 | 16 | GPIO23 | ● 초음파 Trig |
+| ● 마이크 VDD · ○ PCA9685 VCC | 3.3V | 17 | 18 | GPIO24 | ● 초음파 Echo(분압) |
 |  | GPIO10 MOSI | 19 | 20 | GND | ○ PCA9685 GND |
 |  | GPIO9 MISO | 21 | 22 | GPIO25 |  |
 |  | GPIO11 SCLK | 23 | 24 | GPIO8 CE0 |  |
