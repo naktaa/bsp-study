@@ -9,8 +9,10 @@
   - 릴리스 scarthgap(5.0 LTS). poky + meta-raspberrypi(scarthgap) + `yocto/meta-bsp-study`. meta-openembedded는 쓰지 않음
   - `MACHINE = "raspberrypi4-64"`, 커널은 meta-raspberrypi 기본 `linux-raspberrypi`(버전은 3단계에서 확인)
   - 이미지는 `bsp-study-image`(`core-image-minimal` + dropbear SSH, 비밀번호 없는 root 로그인). U-Boot·Wi-Fi·센서 레시피는 넣지 않음. 센서는 18단계
-  - 빌드 설정은 레이어 템플릿(`TEMPLATECONF`)으로 만듦. 빌드 디렉터리는 저장소 밖 `~/yocto`
-  - 보드 접속은 Pi를 공유기에 랜선으로 연결하고 노트북에서 `ssh root@<IP>`
+  - 빌드 설정은 레이어 템플릿(`TEMPLATECONF`)으로 만듦. 경로는 `${TOPDIR}`·`##OEROOT##` 기준 상대 경로이고 홈 절대 경로를 쓰지 않음. 빌드 디렉터리는 저장소 밖 `~/yocto`
+  - 병렬도는 템플릿에 넣지 않고 bitbake 기본값(코어 수)을 씀. 메모리가 부족할 때만 `~/yocto/build/conf/local.conf`에서 낮춤
+  - `ENABLE_UART = "1"`로 시리얼 콘솔을 켜 둠(접속 대비책)
+  - 보드 접속은 Pi를 공유기에 랜선으로 연결하고 노트북에서 `ssh root@<IP>`. 대비책은 HDMI·키보드, USB-시리얼(3.3V) 콘솔
 - 다음 할 일: 데스크톱에서 저장소를 받고 `feat/yocto-minimal`로 전환 → 1·2단계 → Codex 지시서 실행 → 3단계부터
 - 노트북에서는 같은 시기에 다른 장치 작업(PWM)을 별도 브랜치로 진행함. 이 브랜치와 파일이 겹치지 않게 함
 - 참고: 초안 [T-B02](T-B02-yocto-minimal.md)(내용은 이 노트로 옮김), VEDA `../VEDA/임베디드리눅스/강의자료/임베디드리눅스2.pdf`(kirkstone·raspberrypi5·`runqemu` 흐름)
@@ -44,7 +46,7 @@ ssh -V
 확인: **[붙여 주세요]**
 - Ubuntu 22.04 또는 24.04: scarthgap 지원 여부는 2단계 후 poky `meta-poky/conf/distro/poky.conf`의 `SANITY_TESTED_DISTROS`로 확인
 - `~` 여유 100GB 이상. 빌드는 리눅스 홈에 두고 `/mnt/c`에는 두지 않음
-- 병렬도: `BB_NUMBER_THREADS`·`PARALLEL_MAKE`는 `min(nproc, 메모리GB/2)`를 기준으로 정함. 결과 섹션에 적으면 Codex가 이 값을 씀
+- 병렬도: 템플릿에 넣지 않음. bitbake 기본값은 `nproc`. 4단계에서 메모리 부족(컴파일러 `Killed`, OOM)이 나면 `build/conf/local.conf`에 `BB_NUMBER_THREADS`·`PARALLEL_MAKE`를 `메모리GB/2` 정도로 넣고 다시 실행함. WSL 메모리 한도는 Windows `%UserProfile%\.wslconfig`로 정함
 
 호스트 패키지(scarthgap Quick Build 목록, 설치 전 공식 문서와 대조):
 
@@ -149,7 +151,10 @@ ip -br addr
 확인: **[붙여 주세요]** 위 출력 전체
 - 3단계 커널 `PV`와 `uname -r`이 같은지, model이 Raspberry Pi 4인지, os-release가 Poky scarthgap인지
 - `df -h /`는 카드 전체가 아니라 이미지 크기만큼임(파티션을 늘리지 않음, 정상)
-- IP가 안 보이면: HDMI·키보드로 root 로그인 → `ip addr`로 유선 DHCP 여부 확인 후 붙임. HDMI·키보드도 없으면 8단계로 원복하고 멈춤
+- IP가 안 보이면 아래 중 가능한 방법으로 root 로그인 → `ip addr`로 유선 DHCP 여부 확인 후 붙임. 둘 다 없으면 8단계로 원복하고 멈춤
+  - HDMI·키보드
+  - USB-시리얼(3.3V 레벨) 어댑터: 어댑터 RX ↔ 물리 8(GPIO14 TXD), TX ↔ 물리 10(GPIO15 RXD), GND ↔ 물리 6. 노트북·데스크톱에서 115200 8N1로 접속(`ENABLE_UART = "1"`이 켜 둠). 어댑터 보유 여부는 확인 필요
+- `lsmod`가 비어 있어도 정상임. core-image-minimal은 모듈을 자동으로 많이 올리지 않음. 모듈 파일이 rootfs에 있는지는 `ls /lib/modules` 결과로만 기록함
 
 ### 8. 원복
 ```bash
@@ -172,6 +177,7 @@ ssh pi uname -r
 - [ ] `bitbake bsp-study-image` 성공, `.wic.bz2` 크기·빌드 시간 기록
 - [ ] 산출물에 커널·DTB·firmware·`config.txt` 존재
 - [ ] 새 카드에서 SSH 접속, `uname -r` = 3단계 커널 버전, model Pi 4, os-release Poky
+- [ ] `bootfiles/config.txt`에 `enable_uart=1`(5단계). core-image-minimal 기반이라 `lsmod`가 비어 있어도 정상으로 봄
 - [ ] 64GB 카드로 바꾸면 `6.18.59-v8-bsp-study01` 정상 부팅
 
 ## 결과

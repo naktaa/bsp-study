@@ -16,7 +16,9 @@
 - 요구사항 — `local.conf.sample`:
   - `MACHINE = "raspberrypi4-64"`, `DISTRO = "poky"`
   - `DL_DIR`·`SSTATE_DIR`는 `${TOPDIR}/../downloads`, `${TOPDIR}/../sstate-cache`(빌드 디렉터리 `~/yocto/build` 기준)
-  - `BB_NUMBER_THREADS`·`PARALLEL_MAKE`는 작업 노트 '결과' 1단계에 적힌 값. 비어 있으면 멈추고 보고한다
+  - `ENABLE_UART = "1"`(meta-raspberrypi `rpi-config`가 `config.txt`에 `enable_uart=1`을 쓰는지 확인하고 근거를 구현 보고에 적는다)
+  - `BB_NUMBER_THREADS`·`PARALLEL_MAKE`는 넣지 않는다(bitbake 기본값 사용, 메모리 부족 시 사용자가 빌드 디렉터리 `local.conf`에서 조정)
+  - `~`·`$HOME`·`/home/...` 절대 경로를 쓰지 않는다
   - `CONF_VERSION`은 poky `meta-poky/conf/templates/default/local.conf.sample`의 값과 같게
   - `LICENSE_FLAGS_ACCEPTED`는 raspberrypi4-64 기본 패키지(Wi-Fi·BT 펌웨어 등)가 요구할 때만 넣고, 어떤 레시피가 요구하는지 근거를 구현 보고에 적는다
   - poky 기본 sample 전체를 복사하지 않는다. 위 항목과 동작에 필요한 최소 줄만 둔다
@@ -39,6 +41,7 @@ find yocto/meta-bsp-study -type f | sort
 git -C ~/yocto/poky log -1 --format=%h
 git -C ~/yocto/meta-raspberrypi log -1 --format=%h
 grep -n 'LAYERSERIES_COMPAT' ~/yocto/meta-raspberrypi/conf/layer.conf
+grep -rnE '/home|~/|\$HOME|BB_NUMBER_THREADS|PARALLEL_MAKE' yocto/meta-bsp-study || echo none
 git diff --check
 ```
 
