@@ -1,6 +1,6 @@
 # 12 Yocto 최소 이미지
 
-상태: 계획 · 브랜치: `feat/yocto-minimal` · Codex 지시서: [12-yocto-minimal.codex.md](12-yocto-minimal.codex.md)
+상태: 완료(8단계 원복 확인은 생략) · 브랜치: `feat/yocto-minimal` · Codex 지시서: [12-yocto-minimal.codex.md](12-yocto-minimal.codex.md)
 진행 장소: **데스크톱** WSL(빌드·Codex)과 데스크톱 Windows(카드 쓰기) → 노트북(Pi SSH 확인)
 
 ## 인수인계 (2026-11-13, 노트북 세션에서 작성)
@@ -17,7 +17,7 @@
   - Wi-Fi(2차): 이미지에 `kernel-modules`·`linux-firmware-rpidistro-bcm43455`(`LICENSE_FLAGS_ACCEPTED = "synaptics-killswitch"`)·`wireless-regdb-static`·`wpa-supplicant`·`iw`와 wlan0 대기 스크립트를 넣음. SSID·비밀번호는 저장소 밖 `~/yocto/wifi-secret.conf`(`WIFI_SSID`·`WIFI_PSK`)를 `local.conf`에서 `include`하고, 이미지 후처리에서 `/etc/wpa_supplicant.conf`(권한 600)를 만듦. `interfaces`의 wlan0은 `nl80211`·`hostname`·`udhcpc` 재시도 옵션으로 바꿈(init-ifupdown bbappend). systemd·NetworkManager·connman·Bluetooth는 넣지 않음
   - 주의: 이미지에는 비밀번호 원문 대신 PBKDF2로 만든 `psk` 값이 들어가지만, 이 값만으로도 그 Wi-Fi에 접속할 수 있음. 카드·`.img`를 남에게 주지 않고, 카드에 쓴 뒤 `.img`는 지움. 원문은 `~/yocto/wifi-secret.conf`, `bitbake -e` 출력, `build/tmp` 기록에 남음(모두 저장소 밖). 비밀번호는 저장소 파일·커밋·노트 결과 칸에 적지 않음
   - 3·4단계(빌드 셸)는 Windows Terminal의 tmux 세션 `yocto`에서 실행함. tmux 없이 VSCode 통합 터미널에서 돌리면 VSCode를 닫을 때 빌드도 종료됨. WSL 창 하나는 빌드가 끝날 때까지 열어 둠(WSL 창이 모두 닫히면 WSL이 꺼져 tmux도 종료될 수 있음. WSL 3.0.5에서 실제 동작은 확인 필요)
-- 다음 할 일(2026-11-13 노트북에서 갱신): 2차(Wi-Fi) 이미지로 7단계 부팅·SSH·재부팅 자동 연결까지 확인함. 데스크톱에서 3·4·5단계 2차 출력과 결과 1~5를 채우고, 8단계 원복을 확인하면 마무리
+- 다음 할 일: 1~7단계 완료, 8단계 원복 확인은 생략(64GB 카드는 이 단계에서 건드리지 않음). 남은 것은 학습 문서 작성, main 머지 후 worklog·roadmap 갱신
 - 노트북에서는 같은 시기에 다른 장치 작업(PWM)을 별도 브랜치로 진행함. 이 브랜치와 파일이 겹치지 않게 함
 - 참고: 초안 [T-B02](T-B02-yocto-minimal.md)(내용은 이 노트로 옮김), VEDA `../VEDA/임베디드리눅스/강의자료/임베디드리눅스2.pdf`(kirkstone·raspberrypi5·`runqemu` 흐름)
 
@@ -350,14 +350,14 @@ ssh pi uname -r
 확인: **[붙여 주세요]** `6.18.59-v8-bsp-study01`
 
 ## 완료 기준
-- [ ] 데스크톱 환경(Ubuntu·nproc·메모리·디스크)과 poky·meta-raspberrypi 커밋 기록, 지원 호스트 확인
-- [ ] `bitbake-layers show-layers`에 `bsp-study` 레이어, `MACHINE="raspberrypi4-64"`
-- [ ] `bitbake bsp-study-image` 성공, `.wic.bz2` 크기·빌드 시간 기록
-- [ ] 산출물에 커널·DTB·firmware·`config.txt` 존재
+- [x] 데스크톱 환경(Ubuntu·nproc·메모리·디스크)과 poky·meta-raspberrypi 커밋 기록, 지원 호스트 확인
+- [x] `bitbake-layers show-layers`에 `bsp-study` 레이어, `MACHINE="raspberrypi4-64"`
+- [x] `bitbake bsp-study-image` 성공, `.wic.bz2` 크기·빌드 시간 기록
+- [x] 산출물에 커널·DTB·firmware·`config.txt` 존재
 - [x] 새 카드에서 랜선 없이 Wi-Fi SSH 접속, `uname -r` = 3단계 커널 버전, model Pi 4, `/etc/issue` Poky
-- [ ] rootfs에 Wi-Fi firmware·`brcmfmac` 모듈·`wpa_supplicant.conf`(600) 존재(5단계), 재부팅 후에도 자동 연결
-- [ ] `bootfiles/config.txt`에 `enable_uart=1`(5단계)
-- [ ] 64GB 카드로 바꾸면 `6.18.59-v8-bsp-study01` 정상 부팅
+- [x] rootfs에 Wi-Fi firmware·`brcmfmac` 모듈·`wpa_supplicant.conf`(600) 존재(5단계), 재부팅 후에도 자동 연결
+- [x] `bootfiles/config.txt`에 `enable_uart=1`(5단계)
+- [ ] 64GB 카드로 바꾸면 `6.18.59-v8-bsp-study01` 정상 부팅(확인 생략)
 
 ## 결과
 대표 출력 몇 줄과 판단만 적는다. 원문 로그는 쌓지 않는다.
@@ -370,5 +370,5 @@ ssh pi uname -r
 - 7 부팅: 1회차(2차 이미지) wlan0은 생기고 firmware(BCM4345/6)·`brcmfmac`·대기 스크립트·`wpa_supplicant`·`udhcpc` 모두 동작했으나 Not connected(`udhcpc` discover 반복). `iw dev wlan0 scan`의 SSID와 설정 SSID를 비교해 `wifi-secret.conf`의 SSID 대소문자 오류를 찾음 → 수정 후 재빌드·카드 다시 쓰기. `p2p-dev-wlan0` 생성 실패 메시지는 Wi-Fi Direct 관련이라 무시함
   - 2회차(SSID 수정 후 재빌드): `uname -r` `6.6.63-v8`(3단계 `PV` 6.6.63+git과 같음), Raspberry Pi 4 Model B Rev 1.5, Poky 5.0.21, `/dev/root` 135.5M(이미지 크기 그대로). `brcmfmac`·`cfg80211` 로드, `iw` Connected(5GHz, 5220), wlan0 `inet` IPv4 받음 → 노트북에서 랜선 없이 `ssh root@<IP>` 접속 성공
   - 재부팅 후에도 자동 연결·SSH 접속 확인(사용자 확인)
-- 8 원복:
-- 미검증:
+- 8 원복: 확인 생략(사용자 판단). 64GB 카드는 이 단계에서 쓰거나 고치지 않음
+- 미검증: HDMI 콘솔 수동 연결 절차(`wpa_passphrase` → 저장·재부팅)와 Pi에서 SSID hex를 글자로 바꾸는 `printf` 명령, USB-시리얼 콘솔, 공유기 DHCP 목록에 `raspberrypi4-64` 이름이 뜨는지, 대기 스크립트의 IPv4 재시도 경로(1회차는 SSID 오류라 재시도가 돌았을 것이나 로그는 보지 않음), WSL 창을 모두 닫았을 때 tmux 빌드가 유지되는지
