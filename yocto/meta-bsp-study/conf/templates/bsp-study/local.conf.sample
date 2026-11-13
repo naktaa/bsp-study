@@ -1,0 +1,14 @@
+MACHINE = "raspberrypi4-64"
+DISTRO = "poky"
+
+DL_DIR = "${TOPDIR}/../downloads"
+SSTATE_DIR = "${TOPDIR}/../sstate-cache"
+
+ENABLE_UART = "1"
+
+# Wi-Fi 펌웨어 레시피의 라이선스 플래그를 허용한다.
+LICENSE_FLAGS_ACCEPTED = "synaptics-killswitch"
+# 저장소 밖의 Wi-Fi 설정을 선택적으로 읽는다.
+include ${TOPDIR}/../wifi-secret.conf
+
+CONF_VERSION = "2"
