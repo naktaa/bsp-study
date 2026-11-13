@@ -10,10 +10,10 @@
 ## 1. 한눈에 보기
 
 - **목적:** 일반 임베디드 SoC처럼 부트로더 단계를 직접 구성해, 부팅 시 커널이 무엇을 어떻게 받는지 계층별로 설명할 수 있게 한다. 12단계 Yocto 부팅 경로의 기반이다.
-- **기능:** Pi 4 firmware가 커널 대신 U-Boot(`u-boot.bin`)를 실행하게 하고, U-Boot가 [boot.cmd](boot.cmd)로 만든 `boot.scr`에 따라 기존 커스텀 커널 `6.18.59-v8-bsp-study01`과 initramfs를 올린다. firmware가 `config.txt`의 `dtparam`·`dtoverlay`를 적용해 만든 DT를 U-Boot가 **바꾸지 않고** 커널에 넘긴다.
+- **기능:** Pi 4 firmware가 커널 대신 U-Boot(`u-boot.bin`)를 실행하게 하고, U-Boot가 [boot.cmd](../../boot/uboot/boot.cmd)로 만든 `boot.scr`에 따라 기존 커스텀 커널 `6.18.59-v8-bsp-study01`과 initramfs를 올린다. firmware가 `config.txt`의 `dtparam`·`dtoverlay`를 적용해 만든 DT를 U-Boot가 **바꾸지 않고** 커널에 넘긴다.
 - **결과:** U-Boot 경유 부팅, `/chosen/u-boot,version` = `2026.10`, cmdline 동일, overlay 노드 전달, 원복을 보드에서 확인했다([6장](#6-트러블슈팅과-한계)).
 - **범위:** U-Boot `v2026.10`, `rpi_arm64_defconfig`, 소스 수정 없음, `saveenv` 없음(SD 카드에 환경을 쓰지 않음). 부트 파티션에 `u-boot.bin`·`boot.scr`를 추가하고 `config.txt`의 `kernel=` 한 줄만 바꾼다. 네트워크 부팅·부팅 메뉴·시리얼 콘솔은 하지 않았다.
-- **관련 파일:** [boot.cmd](boot.cmd), [Makefile](Makefile), 진행 기록 [T-B01](../../docs/tasks/T-B01-uboot-boot.md). U-Boot 소스는 `external/u-boot`(Git 대상 아님)
+- **관련 파일:** [boot.cmd](../../boot/uboot/boot.cmd), [Makefile](../../boot/uboot/Makefile), 진행 기록 [T-B01](../tasks/T-B01-uboot-boot.md). U-Boot 소스는 `external/u-boot`(Git 대상 아님)
 
 ## 2. 구조
 
@@ -86,7 +86,7 @@ firmware는 `kernel=`로 지정한 이미지를 실행하면서 DT 주소를 레
 
 ### 4-3. 부트 스크립트
 
-[boot.cmd](boot.cmd)는 다섯 줄이다.
+[boot.cmd](../../boot/uboot/boot.cmd)는 다섯 줄이다.
 
 ```text
 fdt addr ${fdt_addr}
@@ -96,10 +96,10 @@ load ${devtype} ${devnum}:${distro_bootpart} ${ramdisk_addr_r} initramfs8-bsp-st
 booti ${kernel_addr_r} ${ramdisk_addr_r}:${filesize} ${fdt_addr}
 ```
 
-- [L2](boot.cmd#L2) `fdt addr ${fdt_addr}`: firmware가 넘긴 DT를 작업 대상으로 정한다. DTB 파일을 다시 읽지 않는다.
-- [L5](boot.cmd#L5) `fdt get value bootargs ...`: firmware가 `cmdline.txt`로 만든 `/chosen/bootargs`를 env `bootargs`에 복사한다. env가 비어 있으면 이 줄이 없어도 결과는 같다. 커널이 받는 인자의 출처를 스크립트에서 드러내려고 넣었다.
-- [L7](boot.cmd#L7)·[L8](boot.cmd#L8) `load`: 커널 Image와 initramfs를 메모리로 읽는다. 읽기만 하고 SD 카드에 쓰지 않는다. `load`는 마지막에 읽은 파일 크기를 `filesize`에 남기므로 initramfs를 나중에 읽는다.
-- [L11](boot.cmd#L11) `booti`: 비압축 arm64 Image용 부팅 명령이다(`kernel8-bsp-study01.img`는 `file` 결과 `Linux kernel ARM64 boot executable Image`). initrd는 `주소:크기`로 넘긴다. 세 번째 인자로 같은 DT 주소를 넘긴다.
+- [L2](../../boot/uboot/boot.cmd#L2) `fdt addr ${fdt_addr}`: firmware가 넘긴 DT를 작업 대상으로 정한다. DTB 파일을 다시 읽지 않는다.
+- [L5](../../boot/uboot/boot.cmd#L5) `fdt get value bootargs ...`: firmware가 `cmdline.txt`로 만든 `/chosen/bootargs`를 env `bootargs`에 복사한다. env가 비어 있으면 이 줄이 없어도 결과는 같다. 커널이 받는 인자의 출처를 스크립트에서 드러내려고 넣었다.
+- [L7](../../boot/uboot/boot.cmd#L7)·[L8](../../boot/uboot/boot.cmd#L8) `load`: 커널 Image와 initramfs를 메모리로 읽는다. 읽기만 하고 SD 카드에 쓰지 않는다. `load`는 마지막에 읽은 파일 크기를 `filesize`에 남기므로 initramfs를 나중에 읽는다.
+- [L11](../../boot/uboot/boot.cmd#L11) `booti`: 비압축 arm64 Image용 부팅 명령이다(`kernel8-bsp-study01.img`는 `file` 결과 `Linux kernel ARM64 boot executable Image`). initrd는 `주소:크기`로 넘긴다. 세 번째 인자로 같은 DT 주소를 넘긴다.
 
 ### 4-4. 메모리 배치
 
@@ -125,7 +125,7 @@ firmware DT는 firmware가 정한 위치(RAM 상단 쪽)에 있고 `fdt_addr`로
 | U-Boot 소스 | `~/bspworkspace/bsp-study/external/u-boot`, 태그 `v2026.10`(커밋 `5508406`). Git 대상 아님 |
 | 빌드 출력 | `out/uboot-rpi4/` (`u-boot.bin`, `boot.scr`, `tools/mkimage`) |
 | WSL 패키지 | `aarch64-linux-gnu-gcc`, `bison`, `flex`, `libssl-dev`, `libgnutls28-dev`, `bc`, `device-tree-compiler` |
-| 보드 | Pi 4, 커스텀 커널 부팅 파일(`kernel8-bsp-study01.img`, `initramfs8-bsp-study01`, DTB, `overlays-bsp-study01/`)이 있는 카드 ([커널 구축](../../docs/kernel-build.md)) |
+| 보드 | Pi 4, 커스텀 커널 부팅 파일(`kernel8-bsp-study01.img`, `initramfs8-bsp-study01`, DTB, `overlays-bsp-study01/`)이 있는 카드 ([커널 구축](07-kernel-build.md)) |
 | 화면 | HDMI 모니터. USB 키보드는 U-Boot 프롬프트 입력용(부팅 시 `usb start` 한 번만 하므로 미리 꽂아 둠) |
 | 복구 | PC SD 리더 |
 
@@ -145,9 +145,9 @@ ls -l ../../out/uboot-rpi4/u-boot.bin ../../out/uboot-rpi4/boot.scr
 ../../out/uboot-rpi4/tools/dumpimage -l ../../out/uboot-rpi4/boot.scr
 ```
 
-- [Makefile#L13](Makefile#L13): `.config`가 없을 때만 `rpi_arm64_defconfig`를 적용한다. `O=`로 빌드해 소스 폴더에 산출물을 만들지 않는다.
-- [Makefile#L16](Makefile#L16): U-Boot 본체 빌드. 이 과정에서 `tools/mkimage`도 만들어진다.
-- [Makefile#L20](Makefile#L20): `mkimage -T script`로 `boot.cmd`에 헤더를 붙여 `boot.scr`를 만든다. mkimage가 먼저 있어야 하므로 `uboot`를 order-only 의존성으로 둔다.
+- [Makefile#L13](../../boot/uboot/Makefile#L13): `.config`가 없을 때만 `rpi_arm64_defconfig`를 적용한다. `O=`로 빌드해 소스 폴더에 산출물을 만들지 않는다.
+- [Makefile#L16](../../boot/uboot/Makefile#L16): U-Boot 본체 빌드. 이 과정에서 `tools/mkimage`도 만들어진다.
+- [Makefile#L20](../../boot/uboot/Makefile#L20): `mkimage -T script`로 `boot.cmd`에 헤더를 붙여 `boot.scr`를 만든다. mkimage가 먼저 있어야 하므로 `uboot`를 order-only 의존성으로 둔다.
 
 **확인 포인트:** 종료 코드 0, `u-boot.bin` 약 944 KB, `dumpimage` 결과 `AArch64 Linux Script (uncompressed)`.
 
@@ -255,7 +255,7 @@ diff ~/bsp/cmdline-before-tb01.txt /proc/cmdline && echo same
 
 **원인:** `config.txt`의 `auto_initramfs=1`은 `kernel=` 파일 이름에 대응하는 initramfs를 firmware가 찾아 함께 올리게 한다. `kernel8-bsp-study01.img`일 때는 `initramfs8-bsp-study01`이 짝이었지만, `u-boot.bin`에는 짝이 되는 이름이 없다.
 
-**조치:** 없음. 이 구성에서는 U-Boot가 [boot.cmd#L8](boot.cmd#L8)로 initramfs를 직접 올린다. 원복하면 firmware가 다시 짝을 찾는다.
+**조치:** 없음. 이 구성에서는 U-Boot가 [boot.cmd#L8](../../boot/uboot/boot.cmd#L8)로 initramfs를 직접 올린다. 원복하면 firmware가 다시 짝을 찾는다.
 
 ### 6-2. 실측과 미검증
 

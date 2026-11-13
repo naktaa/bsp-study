@@ -1,6 +1,6 @@
 # 현재 개발 환경
 
-2026-11-05까지의 사용자 명령 출력·모듈 설명과 WSL 파일 읽기 확인 기준. 재현 명령은 [커널 문서](kernel-build.md)와 [모듈 문서](../examples/hello_module/kernel-module.md)에 둔다.
+2026-11-05까지의 사용자 명령 출력·모듈 설명과 WSL 파일 읽기 확인 기준. 재현 명령은 [커널 문서](learning/07-kernel-build.md)와 [모듈 문서](learning/02-kernel-module.md)에 둔다.
 
 ## WSL 호스트
 
@@ -25,9 +25,9 @@
 | 기존 배포판 커널 | **6.18.50+rpt-rpi-v8**, 초기 환경. 기존 모듈 디렉터리와 kernel8.img·initramfs8 보존 |
 | SSH | 현재 사용자 지정 별칭 `pi`로 접속 (`ssh pi`). 기존 확인 주소는 `nakta@192.168.45.224`, hostname=nakta. 별칭의 실제 설정·고정 IP 여부는 별도 확인하지 않음 |
 | 루트 / 부트 | `/dev/mmcblk0p2` ext4 `/`, `/dev/mmcblk0p1` FAT `/boot/firmware` |
-| 부팅 설정 | 실제 파일 `/boot/firmware/config.txt`. `/boot/config.txt`는 이동 안내. 2026-11-04 사용자 제공 전문 확인 ([활성 설정](kernel-build.md#7-부팅-선택검증)) |
+| 부팅 설정 | 실제 파일 `/boot/firmware/config.txt`. `/boot/config.txt`는 이동 안내. 2026-11-04 사용자 제공 전문 확인 ([활성 설정](learning/07-kernel-build.md#7-부팅-선택검증)) |
 | 새 부팅 파일 | kernel8-bsp-study01.img, bcm2711-rpi-4-b-bsp-study01.dtb, overlays-bsp-study01/, initramfs8-bsp-study01 존재 확인 |
-| 화면 / overlay 매핑 | 매핑 누락으로 미출력 발생 후 기존 overlays의 overlay_map.dtb 복사·재부팅으로 사용자가 정상 출력 확인. 현재 매핑은 이 복구 파일이며 같은 소스 빌드 결과로 정상 재배포하는 절차는 아직 미실행 ([상세](kernel-build.md#ssh는-되지만-커스텀-커널-화면이-나오지-않음)) |
+| 화면 / overlay 매핑 | 매핑 누락으로 미출력 발생 후 기존 overlays의 overlay_map.dtb 복사·재부팅으로 사용자가 정상 출력 확인. 현재 매핑은 이 복구 파일이며 같은 소스 빌드 결과로 정상 재배포하는 절차는 아직 미실행 ([상세](learning/07-kernel-build.md#ssh는-되지만-커스텀-커널-화면이-나오지-않음)) |
 | libc / 로더 | glibc 2.41, `/lib/ld-linux-aarch64.so.1` 경로 확인 및 hello 실행 성공 |
 | 복구 수단 | SD카드 리더기와 최초 부팅 백업 보유. 화면 장애 복구는 확인했으며 기존 커널로 되돌리는 시험은 미수행 |
 
@@ -138,7 +138,7 @@ MPU-6050의 AD0가 LOW면 7비트 주소 0x68, HIGH면 0x69다. **외부 선을 
 
 ### 현재 버스·후속 계획
 
-커스텀 커널에서 i2c-1과 컨트롤러 fe804000.i2c의 연결은 sysfs 출력으로 확인했다. 사용자가 `/dev/i2c-1`과 i2ctransfer 설치를 확인했다. `1-0068/driver`·`1-0069/driver` 링크가 없는 상태에서 `sudo i2ctransfer -y 1 w1@0x68 0x75 r1`을 실행해 `0x68`을 받았다. 주소 0x68에서 WHO_AM_I 응답을 확인했다. 이후 새 학습 드라이버에서도 식별값 0x68·바인딩·overlay 제거와 모듈 해제를 사용자 출력으로 확인했다. 이후 raw 한 샘플과 misc 문자 인터페이스를 통한 앱 20회 폴링·재실행·g/deg/s 단위 출력·정상 종료도 사용자 로그로 확인했다. INT는 GPIO17(물리11) 경로의 Data Ready IRQ 증가·해제를 사용자 출력으로 확인했으며 측정 정확도·실제 수집률 검증은 남아 있다. [실습·재현](../examples/mpu6050/mpu6050.md).
+커스텀 커널에서 i2c-1과 컨트롤러 fe804000.i2c의 연결은 sysfs 출력으로 확인했다. 사용자가 `/dev/i2c-1`과 i2ctransfer 설치를 확인했다. `1-0068/driver`·`1-0069/driver` 링크가 없는 상태에서 `sudo i2ctransfer -y 1 w1@0x68 0x75 r1`을 실행해 `0x68`을 받았다. 주소 0x68에서 WHO_AM_I 응답을 확인했다. 이후 새 학습 드라이버에서도 식별값 0x68·바인딩·overlay 제거와 모듈 해제를 사용자 출력으로 확인했다. 이후 raw 한 샘플과 misc 문자 인터페이스를 통한 앱 20회 폴링·재실행·g/deg/s 단위 출력·정상 종료도 사용자 로그로 확인했다. INT는 GPIO17(물리11) 경로의 Data Ready IRQ 증가·해제를 사용자 출력으로 확인했으며 측정 정확도·실제 수집률 검증은 남아 있다. [실습·재현](learning/06-mpu6050.md).
 
 기존 프로젝트의 I2C bus 1·주소 0x68·GPIO line offset 17·FIFO·500Hz 목표는 비교 기준이다. GPIO17을 현재 INT 배선으로 확정하거나 500Hz가 실제 측정됐다고 기록하지 않는다. IRQ 핀·전원/I/O 전압·AD0 상태·센서 식별값은 해당 단계에서 실물과 함께 확인한다.
 

@@ -9,12 +9,12 @@
 - Codex 구현: 캡처 앱 C 파일, 파형 스크립트, Makefile
 - 사용자 준비: WSL에 ARM64 alsa-lib 개발 패키지 설치(multiarch, 0단계)
 - 하지 않는 것: 드라이버·overlay 수정, mmap·poll 기반 구조, 재생, 필터·FFT
-- 마무리 때 [mic.md](../../examples/mic/mic.md)에 14-4 절을 추가한다.
+- 마무리 때 [mic.md](../learning/14-mic.md)에 14-4 절을 추가한다.
 
 ## 알아둘 개념
 1. **period·buffer와 블로킹 읽기:** ring buffer(buffer)는 period 여러 개로 나뉘고, DMA가 period 하나를 채울 때마다 인터럽트 → `snd_pcm_period_elapsed()`로 앱을 깨운다. `snd_pcm_readi()`는 요청한 프레임이 모일 때까지 잠든다. STM32 DMA circular의 half/full 콜백이 period 2개짜리 buffer에 해당한다. 48kHz에서 period 1024프레임 = 21.3ms 주기.
 2. **xrun:** 앱이 period를 제때 꺼내지 않아 buffer가 가득 차면 캡처가 넘친다(overrun). `snd_pcm_readi()`가 `-EPIPE`를 돌려주고, `snd_pcm_recover()`(내부적으로 `snd_pcm_prepare`)로 다시 시작한다. 그 사이 샘플은 잃는다. buffer가 클수록 앱이 잠깐 늦어도 버티지만 지연이 커지고, 앱이 계속 느리면 buffer 크기와 관계없이 결국 넘친다.
-3. **24비트 값과 이득:** S32_LE 프레임의 ch0에서 `>> 8`(산술 시프트)로 24비트 값을 얻는다(하위 8비트는 tri-state 잡음, [mic.md](../../examples/mic/mic.md#24비트는-32비트-슬롯-어디에-있는가)). 소리가 작으면 이 값에 정수 배율을 곱하고 ±8,388,607로 자른다(클리핑). 배율이 크면 잡음도 같이 커진다.
+3. **24비트 값과 이득:** S32_LE 프레임의 ch0에서 `>> 8`(산술 시프트)로 24비트 값을 얻는다(하위 8비트는 tri-state 잡음, [mic.md](../learning/14-mic.md#24비트는-32비트-슬롯-어디에-있는가)). 소리가 작으면 이 값에 정수 배율을 곱하고 ±8,388,607로 자른다(클리핑). 배율이 크면 잡음도 같이 커진다.
 
 ## 진행 순서
 보드 단계 출력은 **[붙여 주세요]**만 채팅에 붙인다.

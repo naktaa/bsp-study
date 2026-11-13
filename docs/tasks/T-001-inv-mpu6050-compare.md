@@ -353,7 +353,7 @@ ls: cannot access '/sys/bus/i2c/devices/1-0068': No such file or directory
   3. 부분 충족: 버퍼 5샘플 평균 ax/ay/az = -5.766/-2.108/-6.630 m/s², 기준선과의 차이 +0.005/+0.065/-0.015. \|g\|의 1% 이내지만 ay는 60초 σ(0.017)의 약 4배. 자세 재현과 50/100Hz 필터 차이를 분리하지 못함
   4. 충족: 3차 실행(부팅 시 적용)에서 6축+timestamp 5샘플, IRQ 0 → 5, `buffer/enable` 0으로 복귀
   5. 부분 충족: 1차 `dtoverlay -r`에서 `1-0068`·`iio:device0` 제거 확인(이때는 IRQ 행이 처음부터 없음). 원복 재부팅 뒤 `1-0068` 부재·모듈 미적재만 확인
-  6. 충족: [IIO 문서 2-4](../../examples/mpu6050_iio/iio-direct.md#2-4-mainline-inv_mpu6050와의-차이)에 실측과 읽기 확인을 구분해 작성
+  6. 충족: [IIO 문서 2-4](../learning/09-iio-direct.md#2-4-mainline-inv_mpu6050와의-차이)에 실측과 읽기 확인을 구분해 작성
 - 마감 해석:
   - timestamp 간격은 20.000~20.019 ms로 50Hz와 맞는다. 값 1794243198 s는 2026-11-10 01:53 KST이므로 CLOCK_REALTIME(IIO 기본값)이다. 학습용은 CLOCK_MONOTONIC
   - 실행 중 적용의 buffer 부재 원인: `interrupt-parent`가 미해결(`ff ff ff ff`)이라 IRQ가 없었다. mainline은 `irq > 0`일 때만 triggered buffer를 만든다(`inv_mpu_core.c` L2086, 읽기 확인)

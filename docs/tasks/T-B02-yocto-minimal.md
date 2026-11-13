@@ -24,7 +24,7 @@ meta-raspberrypi와 저장소의 `yocto/meta-bsp-study` 레이어로 Pi 4용 최
 | meta-raspberrypi 브랜치 | 릴리스와 같은 이름의 브랜치 | 릴리스와 맞춤 | meta-raspberrypi 저장소 브랜치 |
 | 커널 | (a) meta-raspberrypi 기본 `linux-raspberrypi` / (b) bbappend로 현재 커널 커밋 `b3495ea`(6.18.59)에 고정 | (a)로 먼저 부팅 확인. (b)는 IMU 레시피 TASK에서 필요하면 검토 | 선택한 브랜치의 기본 커널 버전 |
 | 이미지 | `core-image-minimal` / `core-image-base` | `core-image-minimal` + SSH(`dropbear` 또는 `openssh`) | 원격 확인용 SSH 필요 |
-| U-Boot | 포함 / 미포함 | 미포함으로 먼저 부팅 확인. 포함은 별도 확인 항목 | T-B01 결과([U-Boot 문서](../../boot/uboot/uboot-boot.md)) |
+| U-Boot | 포함 / 미포함 | 미포함으로 먼저 부팅 확인. 포함은 별도 확인 항목 | T-B01 결과([U-Boot 문서](../learning/11-uboot-boot.md)) |
 | 빌드 관리 | 수동 `oe-init-build-env` + conf / kas | 수동(학습 목적, 강의와 같은 흐름) | — |
 | 병렬도 | `BB_NUMBER_THREADS`·`PARALLEL_MAKE` | 메모리에 맞춰 설정(노트북 7GB 기준이면 4) | 데스크톱 코어·메모리 |
 

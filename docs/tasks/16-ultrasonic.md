@@ -8,7 +8,7 @@ VEDA Final에서 쓰던 HC-SR04 초음파 센서를 mainline IIO 드라이버 `s
 - 드라이버: mainline 그대로. `CONFIG_SRF04`가 꺼져 있어 `configs/bsp-study.config`에 `=m`을 추가하고 `srf04.ko`만 빌드한다
 - Codex 구현: config fragment, overlay, Makefile
 - 하지 않는 것: 드라이버 수정, 사용자 앱(셸로 sysfs 읽기), `power-gpios`, 커널 이미지 재빌드, 다른 장치와 동시 사용
-- 마무리 때 학습 문서 `examples/ultrasonic/ultrasonic.md`를 만든다.
+- 마무리 때 학습 문서 `docs/learning/16-ultrasonic.md`를 만든다.
 
 ## 알아둘 개념
 1. **읽을 때마다 측정하는 IIO:** buffer 없이 `in_distance_raw`를 읽을 때마다 `srf04_read()`(`drivers/iio/proximity/srf04.c` L96)가 Trig에 10µs 펄스를 내고, Echo 상승을 최대 20ms(`HZ/50`), 하강을 최대 50ms(`HZ/20`) 기다린 뒤 시간차를 mm로 바꾼다(343.5m/s 가정, L185). 40.4ms(6.45m)를 넘으면 `-EIO`. MPU6050의 IIO buffer·trigger 방식과 달리 측정이 sysfs 읽기에 묶여 있다.

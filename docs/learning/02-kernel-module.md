@@ -1,6 +1,6 @@
 # hello 커널 모듈 — 코드·Kbuild·로드와 해제
 
-현재 [hello.c](hello.c)와 [Makefile](Makefile)을 기준으로 커널 모듈의 수명과 빌드·실행 경계를 설명한다. 과거 이름 bsp_hello의 실측은 [검증 현황](#검증-현황)에 분리했다.
+현재 [hello.c](../../examples/hello_module/hello.c)와 [Makefile](../../examples/hello_module/Makefile)을 기준으로 커널 모듈의 수명과 빌드·실행 경계를 설명한다. 과거 이름 bsp_hello의 실측은 [검증 현황](#검증-현황)에 분리했다.
 
 목차:
 
@@ -13,7 +13,7 @@
 
 ## 1. 구현 기능과 범위
 
-hello 모듈은 로드 시 loaded, 해제 시 unloaded 로그를 출력한다. 하드웨어·문자 장치 번호·`/dev` 노드를 등록하지 않고 read/write도 제공하지 않는다. 작은 예제로 Kbuild가 만든 .ko가 Pi 커널에 연결되는 과정을 익힌다. [사용자 프로그램 hello](../hello/cross-compile.md)의 main 실행과 구분한다.
+hello 모듈은 로드 시 loaded, 해제 시 unloaded 로그를 출력한다. 하드웨어·문자 장치 번호·`/dev` 노드를 등록하지 않고 read/write도 제공하지 않는다. 작은 예제로 Kbuild가 만든 .ko가 Pi 커널에 연결되는 과정을 익힌다. [사용자 프로그램 hello](01-cross-compile.md)의 main 실행과 구분한다.
 
 ## 2. 전체 실행 흐름
 
@@ -176,7 +176,7 @@ lsmod의 크기는 파일 크기와 같은 의미가 아닌 모듈 메모리 크
 
 ### 선행 조건
 
-WSL에 [커널 구축 문서](../../docs/kernel-build.md)의 전체 빌드 출력이 남아 있어야 한다. 소스 커밋은 `b3495ea401d709af0701a85babcba5e3d788a602`, 설정은 bcm2711_defconfig·LOCALVERSION=-v8-bsp-study01·LOCALVERSION_AUTO=n이며 명령의 LOCALVERSION=을 유지한다. GCC 11.4.0 ARM64 크로스 도구·Make·file·modinfo(kmod)·ssh·scp가 필요하다.
+WSL에 [커널 구축 문서](07-kernel-build.md)의 전체 빌드 출력이 남아 있어야 한다. 소스 커밋은 `b3495ea401d709af0701a85babcba5e3d788a602`, 설정은 bcm2711_defconfig·LOCALVERSION=-v8-bsp-study01·LOCALVERSION_AUTO=n이며 명령의 LOCALVERSION=을 유지한다. GCC 11.4.0 ARM64 크로스 도구·Make·file·modinfo(kmod)·ssh·scp가 필요하다.
 
 Pi는 `6.18.59-v8-bsp-study01`로 부팅하고 SSH 별칭 pi와 sudo·kmod·dmesg를 사용할 수 있어야 한다. 현재 배포 기준에 따라 모듈은 `~/bsp/modules/`에 둔다.
 

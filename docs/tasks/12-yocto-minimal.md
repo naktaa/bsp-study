@@ -1,6 +1,6 @@
 # 12 Yocto 최소 이미지
 
-상태: 완료(8단계 원복 확인은 생략) · 브랜치: `feat/yocto-minimal` · Codex 지시서: [12-yocto-minimal.codex.md](12-yocto-minimal.codex.md) · 학습 문서: [Yocto 최소 이미지](../../yocto/yocto-minimal.md)
+상태: 완료(8단계 원복 확인은 생략) · 브랜치: `feat/yocto-minimal` · Codex 지시서: [12-yocto-minimal.codex.md](12-yocto-minimal.codex.md) · 학습 문서: [Yocto 최소 이미지](../learning/12-yocto-minimal.md)
 진행 장소: **데스크톱** WSL(빌드·Codex)과 데스크톱 Windows(카드 쓰기) → 노트북(Pi SSH 확인)
 
 ## 인수인계 (2026-11-13, 노트북 세션에서 작성)

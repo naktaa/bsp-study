@@ -13,7 +13,7 @@
 - **기능:** 코드 작성 없이 `imx219` 센서 드라이버와 Raspberry Pi 커널의 unicam CSI-2 수신 드라이버를 rpi `imx219` overlay로 연결하고, `rpicam-apps`(libcamera)로 사진·영상을 받는다.
 - **결과(사용자 보드 실행):** `10-0010`이 `imx219`에 바인딩, media 그래프 `imx219 10-0010` → `unicam-image`(`/dev/video0`), 모델 `imx219 [3280x2464 10-bit RGGB]` 확정, 노출 요청값 적용(12000 → 11984µs), 640x480·20fps 영상의 프레임 간격 평균 49.985ms, firmware 자동 감지와 명시 overlay 모두 같은 결과.
 - **범위:** 커널 config 변경·재빌드, 드라이버 작성, libcamera 앱 개발, 다른 장치와 동시 사용은 하지 않았다.
-- **관련 파일:** 작업 노트 [13-camera](../../docs/tasks/13-camera.md). 커널 소스는 `external/linux`(Git 대상 아님): `drivers/media/i2c/imx219.c`, `drivers/media/platform/bcm2835/bcm2835-unicam.c`, `arch/arm/boot/dts/overlays/imx219-overlay.dts`. VEDA 비교: `../VEDA_Final_Project/tank/src/libcamera_capture.cpp`
+- **관련 파일:** 작업 노트 [13-camera](../tasks/13-camera.md). 커널 소스는 `external/linux`(Git 대상 아님): `drivers/media/i2c/imx219.c`, `drivers/media/platform/bcm2835/bcm2835-unicam.c`, `arch/arm/boot/dts/overlays/imx219-overlay.dts`. VEDA 비교: `../VEDA_Final_Project/tank/src/libcamera_capture.cpp`
 
 ## 2. 구조
 
@@ -77,7 +77,7 @@ unicam이 프레임 시작 인터럽트(`UNICAM_FSI`)에서 `ktime_get_ns()`를 
 
 ## 5. 재현
 
-전체 단계와 확인할 출력은 [작업 노트](../../docs/tasks/13-camera.md)의 진행 순서에 있다. 핵심 명령만 모은다.
+전체 단계와 확인할 출력은 [작업 노트](../tasks/13-camera.md)의 진행 순서에 있다. 핵심 명령만 모은다.
 
 ```bash
 # [Pi] 연결(전원 분리 상태에서 리본 케이블) 후 부팅. camera_auto_detect=1 기본 설정

@@ -19,23 +19,26 @@ VEDA Final 프로젝트에서 사용한 모듈·센서(IMU, 카메라, I2S 마�
 
 WSL에서 ARM64 프로그램·커널·외부 모듈을 크로스 빌드하고 Pi 4의 커널 `6.18.59-v8-bsp-study01`에서 실행했다. 커널 부팅·화면 장애 복구, 문자 디바이스·Device Tree/platform 실습을 확인했다.
 
-MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](examples/mpu6050_iio/iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 IIO 문서 6장에 구분한다.
+MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](docs/learning/09-iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 IIO 문서 6장에 구분한다.
 
-2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](boot/uboot/uboot-boot.md)). 이어서 scarthgap poky·meta-raspberrypi 위에 직접 만든 `meta-bsp-study` 레이어로 Pi 4 최소 이미지를 빌드하고, 새 카드에서 랜선 없이 Wi-Fi SSH 접속과 재부팅 후 자동 연결을 확인했다([Yocto 문서](yocto/yocto-minimal.md)). 이 이미지의 커널은 meta-raspberrypi 기본 6.6.63이다.
+2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](docs/learning/11-uboot-boot.md)). 이어서 scarthgap poky·meta-raspberrypi 위에 직접 만든 `meta-bsp-study` 레이어로 Pi 4 최소 이미지를 빌드하고, 새 카드에서 랜선 없이 Wi-Fi SSH 접속과 재부팅 후 자동 연결을 확인했다([Yocto 문서](docs/learning/12-yocto-minimal.md)). 이 이미지의 커널은 meta-raspberrypi 기본 6.6.63이다.
 
 ## 복습·재현
 
-- [첫 사용자 프로그램](examples/hello/cross-compile.md)
-- [커널 소스·설정·빌드·백업·설치·부팅·복구](docs/kernel-build.md)
-- [모듈 코드·Makefile·빌드·로드·해제](examples/hello_module/kernel-module.md)
-- [문자 디바이스 코드·데이터 왕복·ioctl](examples/char_device/char-device.md)
-- [Device Tree·platform 드라이버](examples/platform_device/platform-device.md)
-- [MPU6050 I2C 매칭·식별값 읽기](examples/mpu6050/mpu6050.md)
-- [MPU6050 IIO 채널·scale·IRQ 버퍼·mainline 비교](examples/mpu6050_iio/iio-direct.md)
-- [U-Boot 경유 커스텀 커널 부팅](boot/uboot/uboot-boot.md)
-- [카메라 IMX219 센서·CSI 수신 드라이버](examples/camera/camera.md)
-- [I2S 마이크 INMP441·ASoC](examples/mic/mic.md)
-- [Yocto 최소 이미지·meta-bsp-study 레이어·Wi-Fi](yocto/yocto-minimal.md)
+학습 문서는 [docs/learning/](docs/learning/)에 roadmap 단계 번호 순으로 모았다.
+
+- 01 [첫 사용자 프로그램 크로스 빌드](docs/learning/01-cross-compile.md)
+- 02 [모듈 코드·Makefile·빌드·로드·해제](docs/learning/02-kernel-module.md)
+- 03 [문자 디바이스 코드·데이터 왕복·ioctl](docs/learning/03-char-device.md)
+- 05 [Device Tree·platform 드라이버](docs/learning/05-platform-device.md)
+- 06 [MPU6050 I2C·IRQ·FIFO(4·6·8단계)](docs/learning/06-mpu6050.md)
+- 07 [커널 소스·설정·빌드·백업·설치·부팅·복구](docs/learning/07-kernel-build.md)
+- 09 [MPU6050 IIO 채널·scale·IRQ 버퍼·mainline 비교](docs/learning/09-iio-direct.md)
+- 11 [U-Boot 경유 커스텀 커널 부팅](docs/learning/11-uboot-boot.md)
+- 12 [Yocto 최소 이미지·meta-bsp-study 레이어·Wi-Fi](docs/learning/12-yocto-minimal.md)
+- 13 [카메라 IMX219 센서·CSI 수신 드라이버](docs/learning/13-camera.md)
+- 14 [I2S 마이크 INMP441·ASoC](docs/learning/14-mic.md)
+- 16 [초음파 HC-SR04·IIO srf04](docs/learning/16-ultrasonic.md)
 
 실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
 
@@ -62,7 +65,7 @@ NN은 roadmap 단계 번호다. skill(`plan`·`review`·`wrap-up`)은 대화로 
 
 ## 문서
 - [공통 에이전트 지침](AGENTS.md) · [Claude Code 지침](CLAUDE.md) · [문서 규칙](.claude/rules/docs.md)
-- [작업 노트](docs/tasks/) · [학습 문서 템플릿](docs/learning-template.md)
+- [작업 노트](docs/tasks/) · [학습 문서 템플릿](docs/learning/_template.md)
 - [학습 순서와 완료 기준](docs/roadmap.md)
 - [환경·배선·참고 자료](docs/bringup.md)
 - [다음 작업과 열린 브랜치](docs/worklog.md)
