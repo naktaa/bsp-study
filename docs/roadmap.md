@@ -116,9 +116,9 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 예정 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅 |
 | 13 | 카메라 IMX219 | 기존 카드 | 완료 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
 | 14 | I2S 마이크 | 기존 카드 | 완료 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
-| 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | PWM 채널로 서보 위치 제어 |
+| 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | 업스트림 확인 + provider 직접 작성, 레지스터 값 일치. 서보 실구동 미검증 |
 | 16 | 초음파 IIO srf04 | 기존 카드 | 완료 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
-| 17 | 모터 PWM | 기존 카드 | 예정 | 하드웨어 PWM·방향 GPIO로 정·역·정지 제어, 별도 전원 확인 |
+| 17 | 모터 PWM | 기존 카드 | 예정 | 내장 PWM 신호 확인만, 직접 작성 없음. 모터 실구동 미검증 |
 | 18 | 통합 | 새 카드 | 예정 | 모든 장치와 IMU를 `meta-bsp-study`에 추가, 핀·주소 충돌 확인, Yocto 이미지에서 장치별 재검증 |
 
 - 13~17단계는 장치마다 작업 노트 1개로 WSL 크로스 빌드 경로와 기존 6.18.59 커널 카드에서 실측한다.
@@ -152,7 +152,11 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 15. PCA9685 팬·틸트
 - 확인함: `drivers/pwm/pwm-pca9685.c`(`CONFIG_PWM_PCA9685=m`), `overlays/i2c-pwm-pca9685a-overlay.dts`.
 - I2C1 버스를 MPU6050(0x68)과 공유한다. PCA9685 실제 주소와 서보 전원 조건은 실물로 확인하고, IMU와의 공존은 18단계에서 확인한다.
-- PWM 서브시스템(pwmchip·채널·주기·duty)을 해설하고 sysfs로 서보 위치를 제어한다.
+- PWM 서브시스템(pwmchip·채널·주기·duty)을 해설한다. 두 단계로 진행한다.
+  - 15-A: mainline `pwm-pca9685` + `i2c-pwm-pca9685a`(런타임 `dtoverlay`)로 probe, sysfs 설정, 레지스터 값(`i2cget -f` 읽기)을 확인해 비교 기준으로 남긴다.
+  - 15-B: 같은 칩의 PWM provider 드라이버를 데이터시트 기준으로 직접 작성(Codex 구현)하고, 같은 DT 노드(`nxp,pca9685-pwm`)에 드라이버만 바꿔 붙여 같은 sysfs 설정에서 레지스터 값이 같은지 비교한다.
+- 범위: 외부 전원 없이 신호까지만 확인한다. 서보 V+는 연결하지 않는다. 제어 값은 VEDA 기준(0x40, 50Hz, pan = ch0, tilt = ch1, 500~2500µs = 0~180°).
+- 완료 표기는 "포팅·신호 검증 완료, 실구동 미검증"으로 구분한다.
 
 ## 16. 초음파 IIO srf04
 - 작업 노트: [16-ultrasonic](tasks/16-ultrasonic.md) · 학습 문서: [초음파 문서](../examples/ultrasonic/ultrasonic.md)
@@ -161,10 +165,11 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - GPIO 펄스 폭 측정을 IIO 채널로 노출하는 구조를 1~10단계의 IIO 구현과 비교한다.
 
 ## 17. 모터 PWM
-- 전류·전원 위험과 다른 장치 영향이 커서 마지막에 둔다. 모터 전원은 Pi와 분리하고 GND만 공통으로 둔다.
 - VEDA Final `tank/src/tank_drive.cpp`는 EN/IN1/IN2와 wiringPi `pwmWrite`로 제어한다. 모터 드라이버 칩 모델은 확인 필요.
-- 확인함: `drivers/pwm/pwm-bcm2835.c`(`=m`), `pwm-gpio`(`=m`), `overlays/pwm-overlay.dts`·`pwm-2chan-overlay.dts`. pwm-2chan 기본 핀은 GPIO18/19로 I2S와 겹치므로 핀 선택은 14단계 배선과 함께 정한다.
-- 속도는 PWM sysfs, 방향은 libgpiod로 제어하고 정지·종료 시 출력이 꺼지는지 확인한다.
+- 확인함: `drivers/pwm/pwm-bcm2835.c`(`=m`), `pwm-gpio`(`=m`), `overlays/pwm-overlay.dts`·`pwm-2chan-overlay.dts`. pwm-2chan 기본 핀은 GPIO18/19로 I2S와 겹치므로 `pin=12 func=4 pin2=13 func2=4`(ALT0)로 GPIO12/13을 쓴다. 방향 핀은 GPIO5·6·16·26([bringup](bringup.md#40핀-한눈에-보기) 배치).
+- 범위: 업스트림 `pwm-bcm2835`만 쓰고 직접 작성·consumer 드라이버는 없다. overlay 적용 → sysfs 설정 → `/sys/kernel/debug/pwm`, 핀 기능(ALT0) 상태, 방향 GPIO 출력 값, disable·종료 뒤 출력 상태 확인까지. 모터 드라이버 보드와 모터 전원은 연결하지 않는다.
+- 온보드 아날로그 오디오도 PWM 두 채널을 쓰므로 `config.txt`의 `dtparam=audio` 상태와 충돌을 확인한다(확인 필요).
+- 완료 표기는 "포팅·신호 검증 완료, 실구동 미검증"으로 구분한다.
 
 ## 18. 통합
 - 12단계 최소 이미지에 IMU(IIO 모듈·overlay·수집 앱)와 13~17단계 장치의 모듈·overlay·설정·검증 도구를 `meta-bsp-study` 레시피로 한 번에 추가한다.
