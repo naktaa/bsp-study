@@ -1,6 +1,6 @@
 # 학습 순서
 
-BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표로 한다. 커널·모듈·문자 디바이스·Device Tree와 MPU6050 I2C·IRQ·FIFO 실습을 거쳐 IIO IRQ 타임스탬프·기본 수신·정상 해제까지 확인했다. 장기 주기 안정성·측정 기준선과 오류/경쟁 경로는 후속 범위다. 단계별 상태와 검증 근거는 [worklog](worklog.md)와 연결된 학습 문서에서 관리한다. 필수 과정 이후 [2부](#2부-부팅-체계와-장치-확장)에서 U-Boot·Yocto 부팅 체계를 먼저 갖추고 VEDA Final 장치를 하나씩 추가한다.
+BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표로 한다. 커널·모듈·문자 디바이스·Device Tree와 MPU6050 I2C·IRQ·FIFO 실습을 거쳐 IIO IRQ 타임스탬프·기본 수신·정상 해제까지 확인했다. 장기 주기 안정성·측정 기준선과 오류/경쟁 경로는 후속 범위다. 완료 상태는 아래 표(머지된 단계만), 진행 중 상태는 각 작업 노트의 `상태:` 줄, 검증 근거는 단계마다 연결한 학습 문서에 둔다. 다음 작업은 [worklog](worklog.md)에 있다. 필수 과정 이후 [2부](#2부-부팅-체계와-장치-확장)에서 U-Boot·Yocto 부팅 체계를 먼저 갖추고 VEDA Final 장치를 하나씩 추가한다.
 구현·수정 전 목적·개념·파일과 범위·검증 방법을 설명하고, 결과를 사용자와 함께 해석한다.
 각 단계는 동작 근거와 함께 코드·설정의 역할, 실패 시 확인할 계층을 설명할 수 있을 때 완료한다. 실습 코드·설정은 Codex가 Codex 지시서 범위 안에서 작성하고 외부 모듈·DTBO 빌드까지 확인한다. 전체 커널·Yocto 이미지 빌드, SD 카드 작업과 보드 배포·실측은 사용자가 하고, Claude Code는 계획·리뷰·문서를 맡는다. 모든 수정은 사용자 승인 후 진행한다([AGENTS.md 역할](../AGENTS.md#역할)).
 
@@ -49,6 +49,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - 작은 문자 디바이스로 open/read/write/release, 사용자 포인터와 커널 메모리의 차이를 익힌다.
 - 사용자 복사, 반환값·길이·오프셋·잘못된 입력 처리와 자원 정리를 작은 범위에서 실습한다.
 - 센서와 무관한 단순 데이터부터 전달한다. 이 실습용 인터페이스를 최종 센서 ABI로 고정하지 않는다.
+- 학습 문서: [문자 디바이스](../examples/char_device/char-device.md)
 
 ## 4. I2C 레지스터와 기준선
 - 데이터시트의 주소·식별값·전원/리셋·샘플링·측정 범위·데이터 형식을 확인한다.
@@ -62,6 +63,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - compatible, reg와 실제 버스·주소의 관계를 확인하고 필요한 최소 노드를 구성한다.
 - 장치 등록 → 드라이버 매칭 → probe/remove를 sysfs·로그와 대조한다.
 - 학습용 드라이버와 기존 드라이버의 바인딩 전환을 명시한다. 기존 compatible을 임의로 가로채거나 가짜 식별자를 운영 설정으로 남기지 않는다.
+- 학습 문서: [Device Tree·platform 드라이버](../examples/platform_device/platform-device.md)
 
 ## 6. 최소 I2C 센서 드라이버
 - 센서 식별값 읽기 → 초기화 → 한 샘플 읽기를 순서대로 구현한다. 전체 드라이버를 한 번에 작성하지 않는다.
@@ -69,6 +71,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - 3단계에서 익힌 작은 인터페이스로 값을 전달하고 4단계의 조건과 맞춰 비교한다. 인터페이스는 9단계에서 IIO로 정리한다.
 - 전송 실패·식별 불일치·부분 초기화 실패에 대한 반환과 해제 경로를 검토한다. 보드에서 안전하게 재현 가능한 실패부터 검증한다.
 - 반복 로드·해제와 앱 종료를 확인한다. 센서가 없는 상황을 성공값으로 숨기지 않는다.
+- 학습 문서: [MPU6050 I2C·IRQ·FIFO](../examples/mpu6050/mpu6050.md)
 
 ## 7. 커널 빌드와 부팅
 - 완료 근거와 재현: [커널 빌드·설치 문서](kernel-build.md). 부팅·모듈 동작·화면 장애 복구 확인. 기존 커널 복귀 절차는 준비했으나 복귀 시험은 미수행.
@@ -86,13 +89,15 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - DT IRQ 설정과 핸들러를 연결하고 인터럽트 문맥과 sleep 가능한 작업의 차이를 설명한다.
 - 폴링부터 비교한 뒤 IRQ 기반 읽기와 FIFO 처리로 확장한다. 부분 데이터·overflow·수집 중단을 다룬다.
 - IRQ 카운트·수집 로그·오류를 함께 관측한다. 해제 시 IRQ·작업·버퍼 수명과 경쟁 가능성을 확인한다.
+- 학습 문서: [MPU6050 I2C·IRQ·FIFO](../examples/mpu6050/mpu6050.md)
 
 ## 9. IIO와 버퍼
 - 대상 커널의 기존 센서 드라이버에서 채널·scale·트리거·버퍼·타임스탬프 경로를 추적한다.
 - 직접 작성한 드라이버에 필요한 최소 IIO 채널과 단일 값 읽기를 추가한 뒤 버퍼 수집으로 확장한다. 기존 드라이버 전체 기능 복제는 목표가 아니다.
 - [IIO 예제](../examples/mpu6050_iio/iio-direct.md)는 6축 raw → scale → GPIO17 트리거 버퍼 → IRQ 타임스탬프 순서로 확장했다. 현재 24바이트 scan 20개 수신·시각 증가·약10ms 간격·앱 종료0·버퍼 중지 후 raw 재개·정상 해제를 확인했다. 기존 FIFO·misc 예제는 비교 기준으로 보존하며 IIO 센서 FIFO 재연결은 현재 범위에서 제외한다. 장기 기준선 등 남은 검증은 10단계에서 다룬다.
 - scan_elements의 index/type과 활성 채널을 기준으로 크기·엔디언·정렬·시간을 해석하는 작은 수집 앱을 만든다. 앱이 여러 파일로 커지면 CMake의 add_executable, 타깃별 옵션·의존성과 별도 빌드 디렉터리를 함께 실습한다. 커널 모듈 빌드는 Kbuild를 사용한다.
-- 학습용 드라이버와 기존 드라이버를 번갈아 검증하고 설정·출력 차이를 설명한다. 2026-11-10 같은 센서를 mainline `inv_mpu6050`(rpi `i2c-sensor` overlay, 부팅 시 적용)에 연결해 바인딩·sysfs·scan 배치·GPIO17 Edge IRQ·`iio_generic_buffer` 6축+timestamp 수신을 확인하고 차이를 정리했다([IIO 문서 2-2](../examples/mpu6050_iio/iio-direct.md#2-2-mainline-inv_mpu6050와의-차이)). 완료.
+- 학습용 드라이버와 기존 드라이버를 번갈아 검증하고 설정·출력 차이를 설명한다.
+- 작업 노트: [T-001](tasks/T-001-inv-mpu6050-compare.md) · 학습 문서: [IIO 문서](../examples/mpu6050_iio/iio-direct.md)([mainline 비교 2-2](../examples/mpu6050_iio/iio-direct.md#2-2-mainline-inv_mpu6050와의-차이))
 
 ## 10. 측정과 문제 분석
 - 정지 상태 60초 수집부터 시작하고 목표 주기는 장치 지원값 확인 후 정한다. 2026-11-10 학습용 IIO 드라이버(100Hz)로 60초 정지 기준선을 확보했다([IIO 문서 6장](../examples/mpu6050_iio/iio-direct.md#6-트러블슈팅과-한계)). 축별 회전 검증과 문제 분석 정리는 남아 있다.
@@ -123,7 +128,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 11. U-Boot 부팅
 - 부팅용 SD 카드를 쓴다(T-B01은 카드가 한 장이라 기존 카드에서 진행). 변경 전에 부트 파티션 백업과 복구 절차(SD 리더기로 `config.txt`·부팅 파일 되돌리기)를 먼저 확인한다.
 - Pi firmware가 `config.txt`에 따라 U-Boot를 읽고, 기본 DTB에 `dtoverlay`를 적용한 DT를 U-Boot에 넘긴다. U-Boot가 이 DT를 커널에 그대로 넘기는지 커널의 `/proc/device-tree`에서 overlay 노드로 대조한다.
-- 2026-11-10 완료(T-B01): U-Boot `v2026.10`(`rpi_arm64_defconfig`)과 `boot.scr`로 커스텀 커널을 부팅하고, firmware DT(`fdt_addr`)를 그대로 넘겨 overlay 노드·`interrupt-parent`가 커널에 남는 것과 원복을 확인했다([U-Boot 문서](../boot/uboot/uboot-boot.md)). 시리얼 콘솔과 PC SD 리더 복구는 미검증이다.
+- 작업 노트: [T-B01](tasks/T-B01-uboot-boot.md) · 학습 문서: [U-Boot 문서](../boot/uboot/uboot-boot.md)
 - 확인할 계층: firmware → U-Boot → 커널 → rootfs. 실패 시 어느 단계에서 멈췄는지 시리얼·화면 출력으로 구분한다(시리얼 콘솔 준비 여부 확인 필요).
 
 ## 12. Yocto 최소 이미지
@@ -136,13 +141,11 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 13. 카메라 IMX219
 - 확인함: `drivers/media/i2c/imx219.c`(`CONFIG_VIDEO_IMX219=m`), `CONFIG_VIDEO_BCM2835_UNICAM=m`, `overlays/imx219-overlay.dts`. VEDA Final 문서에 IMX219 언급이 있다. 실물 모듈 모델은 확인 필요.
 - 센서 드라이버(I2C 제어)와 CSI 수신 드라이버(unicam)의 역할, media controller 그래프를 해설한다.
-- 작업 노트: [13-camera](tasks/13-camera.md). 2026-11-11 완료: `imx219`·unicam 바인딩, media 그래프, 사진·노출 메타데이터, 20fps 프레임 간격 49.985ms, 자동 감지·명시 overlay 확인([카메라 문서](../examples/camera/camera.md)).
+- 작업 노트: [13-camera](tasks/13-camera.md) · 학습 문서: [카메라 문서](../examples/camera/camera.md)
 
 ## 14. I2S 마이크
 - 단계: 1) 기존 overlay로 배선·녹음 확인 2) simple-audio-card + `ics43432` overlay 직접 작성 3) `ics43432`를 직접 작성한 `inmp441` 코덱 드라이버로 교체해 2와 비교 4) alsa-lib 캡처 앱 + 실시간 파형 그래프
-- 1·2 작업 노트: [14-mic](tasks/14-mic.md). 2026-11-11 완료: INMP441을 `adau7002-simple`(A)과 직접 작성한 `inmp441` overlay(`ics43432` 코덱, B)로 연결, 캡처 카드 등록·녹음·원복 확인([마이크 문서](../examples/mic/mic.md)).
-- 3 작업 노트: [14-3-mic-codec](tasks/14-3-mic-codec.md). 2026-11-11 완료: 직접 작성한 코덱 드라이버 `nakta,inmp441`로 교체, probe 지연·`insmod` 후 카드 등록, 레이트 8000~50000Hz 반영, unbind 후 `rmmod`, `/lib/modules` 설치 시 자동 적재, 원복 확인([마이크 문서](../examples/mic/mic.md)).
-- 4 작업 노트: [14-4-mic-app](tasks/14-4-mic-app.md). 2026-11-11 완료: alsa-lib 캡처 앱으로 협상 값 출력·이득 녹음, 소비 지연에 따른 xrun 횟수 확인(buffer는 넘치는 간격만 늘림), Pi 데스크톱 실시간 파형, 원복([마이크 문서](../examples/mic/mic.md)).
+- 작업 노트: [14-mic](tasks/14-mic.md)(1·2) · [14-3-mic-codec](tasks/14-3-mic-codec.md)(3) · [14-4-mic-app](tasks/14-4-mic-app.md)(4) · 학습 문서: [마이크 문서](../examples/mic/mic.md)
 - ASoC의 CPU DAI·codec·machine(card) 연결을 해설하고 `arecord`로 캡처를 확인한다.
 - I2S는 GPIO18~21을 쓴다. 17단계 PWM 기본 핀과의 충돌을 함께 확인한다.
 
@@ -152,7 +155,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - PWM 서브시스템(pwmchip·채널·주기·duty)을 해설하고 sysfs로 서보 위치를 제어한다.
 
 ## 16. 초음파 IIO srf04
-- 작업 노트: [16-ultrasonic](tasks/16-ultrasonic.md). 2026-11-12 완료(15단계보다 먼저 진행): config fragment `configs/bsp-study.config`로 `CONFIG_SRF04=m`, 커널 이미지 재빌드 없이 `srf04.ko` 증분 빌드·설치, overlay로 자동 적재·IIO 등록, 거리 변화와 읽기당 IRQ 2회 확인, 원복([초음파 문서](../examples/ultrasonic/ultrasonic.md)).
+- 작업 노트: [16-ultrasonic](tasks/16-ultrasonic.md) · 학습 문서: [초음파 문서](../examples/ultrasonic/ultrasonic.md)
 - 확인함: `drivers/iio/proximity/srf04.c`, binding `devantech-srf04.yaml`. 현재 설정은 `# CONFIG_SRF04 is not set`이고 rpi overlay는 없다. 따라서 config fragment 추가와 사용자 커널(모듈) 재빌드, Codex의 overlay 작성이 필요하다.
 - 실물 모듈 모델은 확인 필요. HC-SR04 계열이면 Echo가 5V이므로 분압·레벨 변환을 배선 전에 확인한다.
 - GPIO 펄스 폭 측정을 IIO 채널로 노출하는 구조를 1~10단계의 IIO 구현과 비교한다.

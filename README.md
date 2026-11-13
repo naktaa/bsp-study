@@ -40,7 +40,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 
 ## 시작
 1. 이 저장소와 같은 상위 폴더의 `VEDA`, `VEDA_Final_Project`를 참고한다. 기존 clone이 있으면 그 위치를 사용한다.
-2. `AGENTS.md`(공통), `CLAUDE.md`(Claude Code), `docs/worklog.md`, `docs/roadmap.md`의 현재 단계를 확인한다.
+2. `AGENTS.md`(공통), `CLAUDE.md`(Claude Code)를 읽고, `docs/roadmap.md`(완료 상태)와 `docs/worklog.md`(다음 작업·열린 브랜치)를 확인한다. 진행 중인 작업은 해당 브랜치의 작업 노트 `상태:` 줄을 본다.
 3. 보드와 개발 PC의 실제 환경은 `docs/bringup.md`에서 관리한다.
 4. 작업 노트 단위로 진행한다.
 
@@ -50,8 +50,9 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 [Codex]         지시서 읽기 → 구현 계획 승인 → 구현·WSL 빌드 → 구현 보고
 [Claude]        리뷰 (review) → 수정 지시 또는 통과
 [사용자]        노트 진행 순서대로 보드 실행 → 대표 출력을 노트 '결과'에
-[Claude]        마무리 (wrap-up) → 학습 문서 작성·갱신 → worklog·roadmap 갱신 → 추천 커밋 메시지
+[Claude]        마무리 (wrap-up) → 브랜치에서 학습 문서 작성·갱신 → 추천 커밋 메시지·머지 후 반영 블록
 [사용자]        커밋·머지
+[Claude]        머지 후 main에서 worklog·roadmap 갱신 (Docs: NN 상태 반영)
 ```
 
 NN은 roadmap 단계 번호다. skill(`plan`·`review`·`wrap-up`)은 대화로 요청해도 적용된다. 브랜치·커밋 규칙은 [AGENTS.md 커밋·브랜치](AGENTS.md#커밋브랜치)에 있다.
@@ -63,7 +64,7 @@ NN은 roadmap 단계 번호다. skill(`plan`·`review`·`wrap-up`)은 대화로 
 - [작업 노트](docs/tasks/) · [학습 문서 템플릿](docs/learning-template.md)
 - [학습 순서와 완료 기준](docs/roadmap.md)
 - [환경·배선·참고 자료](docs/bringup.md)
-- [현재 상태와 진행 기록](docs/worklog.md)
+- [다음 작업과 열린 브랜치](docs/worklog.md)
 
 ## 참고 저장소
 - https://github.com/naktaa/VEDA — 교육 자료와 수업 코드

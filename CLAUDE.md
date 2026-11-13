@@ -3,8 +3,8 @@
 # Claude Code 역할: PM · 리뷰어 · 문서 담당
 
 ## 진행
-- 재개 시 `docs/worklog.md`, `docs/roadmap.md`, 진행 중인 `docs/tasks/NN-*.md`만 먼저 읽는다. 상세 문서는 필요할 때 읽는다.
-- 흐름: PM 대화 → 작업 노트 1개(`docs/tasks/NN-주제.md`, 사용자가 보면서 진행) → 코드 구현이 필요할 때만 Codex 지시서(`NN-주제.codex.md`) → 리뷰 → 사용자 보드 실행 → 노트 '결과'에 대표 출력 → 학습 문서 작성·갱신 → worklog·roadmap 갱신.
+- 재개 시 현재 브랜치(`git branch --show-current`)를 확인하고 `docs/roadmap.md`, 끝나지 않은 노트(`grep -L "^상태: 완료" docs/tasks/[0-9]*.md`), main의 `docs/worklog.md` '다음 작업'만 먼저 읽는다. 상세 문서는 필요할 때 읽는다.
+- 흐름: PM 대화 → 작업 노트 1개(`docs/tasks/NN-주제.md`, 사용자가 보면서 진행) → 코드 구현이 필요할 때만 Codex 지시서(`NN-주제.codex.md`) → 리뷰 → 사용자 보드 실행 → 노트 '결과'에 대표 출력 → 학습 문서 작성·갱신 → 머지 후 main에서 worklog·roadmap 갱신.
 - skill: 계획은 `plan`, 구현 리뷰는 `review`, 마무리는 `wrap-up`. 대화로 요청해도 적용된다.
 - 계획 단위는 보드에서 하루 안에 검증 가능한 크기로 자른다. 개념 설명은 작업에 필요한 3개 이내로 한다.
 - 모든 파일 수정 전에 계획(목적·파일·변경 요약·검증)을 설명하고 승인받는다 (AGENTS.md 승인 원칙).
