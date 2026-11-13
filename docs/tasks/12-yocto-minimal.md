@@ -190,7 +190,7 @@ bitbake -e bsp-study-image | grep -c '^WIFI_PSK=".\+"'   # 1이면 값 있음(�
 bitbake -e bsp-study-image | grep '^IMAGE_INSTALL=' | tr ' "' '\n\n' | grep -E '^(kernel-modules|linux-firmware-rpidistro-bcm43455|wireless-regdb-static|wpa-supplicant|iw|bsp-study-wifi)$'
 ```
 
-확인: **[붙여 주세요]** `show-appends`에 bsp-study의 `init-ifupdown_%.bbappend`, `LICENSE_FLAGS_ACCEPTED`, `WIFI_PSK` 개수 1, 패키지 6개. `WIFI_SSID` 줄과 비밀번호는 결과 칸에 붙이지 않음
+확인(2차): `local.conf` 끝에 병렬도 2줄 + 새 2줄이 한 번씩, `init-ifupdown_1.0.bb`에 bsp-study `init-ifupdown_%.bbappend`, `LICENSE_FLAGS_ACCEPTED="synaptics-killswitch"`, `WIFI_PSK` 개수 1, `IMAGE_INSTALL`에 패키지 6개 → 통과. `WIFI_SSID` 줄과 비밀번호는 결과 칸에 붙이지 않음
 
 ### 4. 빌드
 3단계와 같은 tmux 창에서 실행함. 새 창이면 3단계 PATH export와 `source`부터 다시 함. 빌드 전에 Windows 설정 → 전원에서 절전 모드가 "안 함"인지 확인함(화면 꺼짐은 상관없음. 절전에 들어가면 WSL도 멈춤).
@@ -202,7 +202,11 @@ time bitbake bsp-study-image
 
 확인(1차, 유선): 3776 태스크 모두 성공, `real 127m24s`(병렬도 3). 경고 3개는 원래 주소에서 받기 실패 후 미러에서 받은 것(ca-certificates·squashfs-tools·debianutils, `downloads`에 `.done` 있음). `tmp` 38G, `downloads` 7.3G, `sstate-cache` 3.4G
 
-확인(2차, Wi-Fi): **[붙여 주세요]** `Tasks Summary`와 `time` 결과. sstate가 있어 재빌드는 30분~1시간 예상(새 패키지 wpa-supplicant·libnl·dbus·iw 등). 실패하면 `ERROR:` 줄과 실패한 태스크 로그 경로를 붙임
+확인(2차, Wi-Fi): 4642 태스크 중 3748 재사용, 모두 성공, `real 12m59s`(예상 30분~1시간보다 짧음. 새로 빌드한 것은 wpa-supplicant·libnl·dbus·iw·firmware와 rootfs). `NATIVELSBSTRING="universal"`은 uninative 사용 표시
+
+확인(2차 재빌드, SSID 수정 후): 4642 중 4631 재사용, `real 2m27s`(`do_rootfs`·이미지 태스크만 다시 실행)
+
+재빌드가 실패하면 `ERROR:` 줄과 실패한 태스크 로그 경로를 붙임
 - 빠져나오기: `Ctrl-b`를 누르고 뗀 뒤 `d`(빌드는 계속됨). 다시 들어가기: `tmux attach -t yocto`
 - 메모리 보기(선택): `Ctrl-b`를 누르고 뗀 뒤 `%`로 창을 나누고 `free -h`
 - 콘솔 로그는 `~/yocto/build/tmp/log/cooker/raspberrypi4-64/`에 자동 저장됨(poky `bitbake.conf`의 `BB_CONSOLELOG`)
@@ -235,7 +239,9 @@ ls $R/etc/rc5.d/
 find tmp/work/cortexa72-poky-linux/wpa-supplicant -path '*wpa_supplicant/.config' -exec grep '^CONFIG_DRIVER_NL80211' {} +
 ```
 
-확인: **[붙여 주세요]** 패키지 7개, firmware(`brcmfmac43455-sdio.*`, `cyfmac43455-sdio.bin`), `regulatory.db`·`.p7s`, `brcmfmac.ko.xz`·`brcmfmac-cyw.ko.xz`·`cfg80211.ko.xz`, `600`과 `psk=` 1개, SSID가 공유기 이름과 글자·대소문자까지 같음(결과 칸에는 적지 않음), wlan0 항목(`nl80211`·`hostname`·`udhcpc_opts`), `S02bsp-study-wifi`가 `S10dropbear` 앞, `CONFIG_DRIVER_NL80211=y`
+확인(2차): 패키지 7개(`wpa-supplicant` 2.10, `iw` 6.7 등), firmware `brcmfmac43455-sdio.raspberrypi,4-model-b.*`·`cyfmac43455-sdio.bin`(→ minimal), `regulatory.db`·`.p7s`, `cfg80211`·`brcmfmac`·`brcmfmac-cyw` 모듈, ext 이미지 안 `wpa_supplicant.conf` 0600 root(`debugfs`), `psk=` 1개, wlan0 항목, rc5 `S01networking` → `S02bsp-study-wifi` → `S10dropbear`, `CONFIG_DRIVER_NL80211=y`, `.wic.bz2` 60M(풀면 295278592바이트, `kernel-modules`로 늘어남) → 통과. SSID 수정 후 다시 만든 이미지의 SSID가 공유기 이름과 대소문자까지 같음
+
+확인 항목: 패키지 7개, firmware(`brcmfmac43455-sdio.*`, `cyfmac43455-sdio.bin`), `regulatory.db`·`.p7s`, `brcmfmac.ko.xz`·`brcmfmac-cyw.ko.xz`·`cfg80211.ko.xz`, `600`과 `psk=` 1개, SSID가 공유기 이름과 글자·대소문자까지 같음(결과 칸에는 적지 않음), wlan0 항목(`nl80211`·`hostname`·`udhcpc_opts`), `S02bsp-study-wifi`가 `S10dropbear` 앞, `CONFIG_DRIVER_NL80211=y`
 
 ### 6. 카드 쓰기 (데스크톱 Windows)
 ```bash
@@ -356,11 +362,11 @@ ssh pi uname -r
 ## 결과
 대표 출력 몇 줄과 판단만 적는다. 원문 로그는 쌓지 않는다.
 
-- 1 환경:
-- 2 소스:
-- 3 설정:
-- 4 빌드:
-- 5 산출물:
+- 1 환경: 데스크톱 Ubuntu 22.04.5(WSL2), `nproc` 6, WSL 메모리 8GB·swap 8GB, `~` 여유 950G
+- 2 소스: poky `6b7c1066f7`, meta-raspberrypi `018d444`(scarthgap), 22.04는 지원 호스트
+- 3 설정: 레이어 4개, `MACHINE="raspberrypi4-64"`, 커널 `linux-raspberrypi` 6.6.63, 병렬도 3. 2차에 라이선스 플래그·`wifi-secret.conf` include 추가
+- 4 빌드: 1차(유선) 3776 태스크 `127m24s`, 2차(Wi-Fi) `12m59s`, SSID 수정 후 `2m27s`. 디스크 `tmp` 38G·`downloads` 7.3G·`sstate-cache` 3.4G(1차 기준)
+- 5 산출물: `.wic.bz2` 28M → 2차 60M(`kernel-modules` 포함). firmware·규정 DB·`brcmfmac` 모듈·`wpa_supplicant.conf`(0600 root)·rc5 순서 확인
 - 7 부팅: 1회차(2차 이미지) wlan0은 생기고 firmware(BCM4345/6)·`brcmfmac`·대기 스크립트·`wpa_supplicant`·`udhcpc` 모두 동작했으나 Not connected(`udhcpc` discover 반복). `iw dev wlan0 scan`의 SSID와 설정 SSID를 비교해 `wifi-secret.conf`의 SSID 대소문자 오류를 찾음 → 수정 후 재빌드·카드 다시 쓰기. `p2p-dev-wlan0` 생성 실패 메시지는 Wi-Fi Direct 관련이라 무시함
   - 2회차(SSID 수정 후 재빌드): `uname -r` `6.6.63-v8`(3단계 `PV` 6.6.63+git과 같음), Raspberry Pi 4 Model B Rev 1.5, Poky 5.0.21, `/dev/root` 135.5M(이미지 크기 그대로). `brcmfmac`·`cfg80211` 로드, `iw` Connected(5GHz, 5220), wlan0 `inet` IPv4 받음 → 노트북에서 랜선 없이 `ssh root@<IP>` 접속 성공
   - 재부팅 후에도 자동 연결·SSH 접속 확인(사용자 확인)
