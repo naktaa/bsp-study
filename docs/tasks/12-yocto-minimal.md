@@ -44,7 +44,7 @@ echo "$PATH" | tr ':' '\n' | grep -c ' '      # 공백 있는 경로 수(Windows
 ssh -V
 ```
 
-확인: **[붙여 주세요]**
+확인: Ubuntu 22.04.5, WSL 커널 6.18.58.1, `nproc` 6, `free -g` Mem 7·Swap 8(`.wslconfig` 8GB/8GB 적용), `~` 여유 950G, 공백 경로 15개(3단계에서 제거), OpenSSH 8.9p1, 호스트 패키지 모두 설치됨, `en_US.utf8` 있음 → 통과. 병렬도는 3(RAM 16GB)
 - Ubuntu 22.04 또는 24.04: scarthgap 지원 여부는 2단계 후 poky `meta-poky/conf/distro/poky.conf`의 `SANITY_TESTED_DISTROS`로 확인
 - `~` 여유 100GB 이상. 빌드는 리눅스 홈에 두고 `/mnt/c`에는 두지 않음
 - 공백 있는 경로 수는 3단계 PATH export 뒤 0이 되면 됨
@@ -109,7 +109,7 @@ git -C meta-raspberrypi log -1 --format='%h %cd' --date=short
 grep SANITY_TESTED_DISTROS -A8 poky/meta-poky/conf/distro/poky.conf
 ```
 
-확인: **[붙여 주세요]** 두 커밋, 지원 호스트 목록에 1단계 Ubuntu가 있는지
+확인: poky `6b7c1066f7`(2026-11-10), meta-raspberrypi `018d444`(2026-10-08), 둘 다 scarthgap. `SANITY_TESTED_DISTROS`에 `ubuntu-22.04` 있음, meta-raspberrypi `LAYERSERIES_COMPAT`에 scarthgap 있음 → 통과
 
 여기까지 끝나면 Codex에 [지시서](12-yocto-minimal.codex.md)를 실행함(`~/yocto` 소스를 읽어 확인하므로 2단계 뒤에 실행).
 
