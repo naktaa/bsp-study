@@ -1,6 +1,6 @@
 # 12 Yocto 최소 이미지
 
-상태: 완료(8단계 원복 확인은 생략) · 브랜치: `feat/yocto-minimal` · Codex 지시서: [12-yocto-minimal.codex.md](12-yocto-minimal.codex.md)
+상태: 완료(8단계 원복 확인은 생략) · 브랜치: `feat/yocto-minimal` · Codex 지시서: [12-yocto-minimal.codex.md](12-yocto-minimal.codex.md) · 학습 문서: [Yocto 최소 이미지](../../yocto/yocto-minimal.md)
 진행 장소: **데스크톱** WSL(빌드·Codex)과 데스크톱 Windows(카드 쓰기) → 노트북(Pi SSH 확인)
 
 ## 인수인계 (2026-11-13, 노트북 세션에서 작성)
@@ -17,7 +17,7 @@
   - Wi-Fi(2차): 이미지에 `kernel-modules`·`linux-firmware-rpidistro-bcm43455`(`LICENSE_FLAGS_ACCEPTED = "synaptics-killswitch"`)·`wireless-regdb-static`·`wpa-supplicant`·`iw`와 wlan0 대기 스크립트를 넣음. SSID·비밀번호는 저장소 밖 `~/yocto/wifi-secret.conf`(`WIFI_SSID`·`WIFI_PSK`)를 `local.conf`에서 `include`하고, 이미지 후처리에서 `/etc/wpa_supplicant.conf`(권한 600)를 만듦. `interfaces`의 wlan0은 `nl80211`·`hostname`·`udhcpc` 재시도 옵션으로 바꿈(init-ifupdown bbappend). systemd·NetworkManager·connman·Bluetooth는 넣지 않음
   - 주의: 이미지에는 비밀번호 원문 대신 PBKDF2로 만든 `psk` 값이 들어가지만, 이 값만으로도 그 Wi-Fi에 접속할 수 있음. 카드·`.img`를 남에게 주지 않고, 카드에 쓴 뒤 `.img`는 지움. 원문은 `~/yocto/wifi-secret.conf`, `bitbake -e` 출력, `build/tmp` 기록에 남음(모두 저장소 밖). 비밀번호는 저장소 파일·커밋·노트 결과 칸에 적지 않음
   - 3·4단계(빌드 셸)는 Windows Terminal의 tmux 세션 `yocto`에서 실행함. tmux 없이 VSCode 통합 터미널에서 돌리면 VSCode를 닫을 때 빌드도 종료됨. WSL 창 하나는 빌드가 끝날 때까지 열어 둠(WSL 창이 모두 닫히면 WSL이 꺼져 tmux도 종료될 수 있음. WSL 3.0.5에서 실제 동작은 확인 필요)
-- 다음 할 일: 1~7단계 완료, 8단계 원복 확인은 생략(64GB 카드는 이 단계에서 건드리지 않음). 남은 것은 학습 문서 작성, main 머지 후 worklog·roadmap 갱신
+- 다음 할 일: 1~7단계 완료, 8단계 원복 확인은 생략(64GB 카드는 이 단계에서 건드리지 않음). 학습 문서 작성, main 머지. 18단계는 Yocto 기본 커널(6.6.63)에 맞춰 드라이버·overlay를 레시피로 다시 빌드하는 방향
 - 노트북에서는 같은 시기에 다른 장치 작업(PWM)을 별도 브랜치로 진행함. 이 브랜치와 파일이 겹치지 않게 함
 - 참고: 초안 [T-B02](T-B02-yocto-minimal.md)(내용은 이 노트로 옮김), VEDA `../VEDA/임베디드리눅스/강의자료/임베디드리눅스2.pdf`(kirkstone·raspberrypi5·`runqemu` 흐름)
 
