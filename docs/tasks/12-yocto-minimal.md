@@ -10,7 +10,8 @@
   - `MACHINE = "raspberrypi4-64"`, 커널은 meta-raspberrypi 기본 `linux-raspberrypi`(버전은 3단계에서 확인)
   - 이미지는 `bsp-study-image`(`core-image-minimal` + dropbear SSH, 비밀번호 없는 root 로그인). U-Boot·Wi-Fi·센서 레시피는 넣지 않음. 센서는 18단계
   - 빌드 설정은 레이어 템플릿(`TEMPLATECONF`)으로 만듦. 경로는 `${TOPDIR}`·`##OEROOT##` 기준 상대 경로이고 홈 절대 경로를 쓰지 않음. 빌드 디렉터리는 저장소 밖 `~/yocto`
-  - 병렬도는 템플릿에 넣지 않고 bitbake 기본값(코어 수)을 씀. 메모리가 부족할 때만 `~/yocto/build/conf/local.conf`에서 낮춤
+  - 병렬도는 템플릿에 넣지 않음. 데스크톱(RAM 16GB)은 다른 작업을 같이 하므로 `.wslconfig`를 memory=8GB/swap=8GB로 두고 빌드 디렉터리 `local.conf`에 병렬도 3. RAM 32GB 이상 PC면 memory=24GB, 병렬도는 bitbake 기본값
+  - Windows PATH(`/mnt/...`)는 `wsl.conf`를 바꾸지 않고 빌드 셸에서만 export로 뺌(3단계)
   - `ENABLE_UART = "1"`로 시리얼 콘솔을 켜 둠(접속 대비책)
   - 보드 접속은 Pi를 공유기에 랜선으로 연결하고 노트북에서 `ssh root@<IP>`. 대비책은 HDMI·키보드, USB-시리얼(3.3V) 콘솔
 - 다음 할 일: 데스크톱에서 저장소를 받고 `feat/yocto-minimal`로 전환 → 1·2단계 → Codex 지시서 실행 → 3단계부터
@@ -46,7 +47,36 @@ ssh -V
 확인: **[붙여 주세요]**
 - Ubuntu 22.04 또는 24.04: scarthgap 지원 여부는 2단계 후 poky `meta-poky/conf/distro/poky.conf`의 `SANITY_TESTED_DISTROS`로 확인
 - `~` 여유 100GB 이상. 빌드는 리눅스 홈에 두고 `/mnt/c`에는 두지 않음
-- 병렬도: 템플릿에 넣지 않음. bitbake 기본값은 `nproc`. 4단계에서 메모리 부족(컴파일러 `Killed`, OOM)이 나면 `build/conf/local.conf`에 `BB_NUMBER_THREADS`·`PARALLEL_MAKE`를 `메모리GB/2` 정도로 넣고 다시 실행함. WSL 메모리 한도는 Windows `%UserProfile%\.wslconfig`로 정함
+- 공백 있는 경로 수는 3단계 PATH export 뒤 0이 되면 됨
+- 메모리: 빌드 전에 Windows RAM을 확인하고 `.wslconfig`를 먼저 적용함. 병렬도는 템플릿에 넣지 않고 3단계 끝에 빌드 디렉터리 `local.conf`에서 정함
+
+```powershell
+# [데스크톱 Windows PowerShell]
+(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB
+```
+
+| Windows RAM | `%UserProfile%\.wslconfig` `[wsl2]` | 병렬도(3단계 끝) |
+| --- | --- | --- |
+| 16GB | `memory=8GB`, `swap=8GB` | 3 |
+| 32GB 이상 | `memory=24GB` | bitbake 기본값(`nproc`) |
+
+```powershell
+# [데스크톱 Windows PowerShell] 16GB 예. 첫 줄에 기존 내용이 나오면 덮어쓰기 전에 합칠지 정함
+Get-Content $env:USERPROFILE\.wslconfig -ErrorAction SilentlyContinue
+Set-Content -Path $env:USERPROFILE\.wslconfig -Encoding ascii -Value "[wsl2]`nmemory=8GB`nswap=8GB"
+Get-Content $env:USERPROFILE\.wslconfig
+wsl --shutdown
+```
+
+메모장으로 만들면 `.wslconfig.txt`로 저장될 수 있어서 PowerShell로 만듦. `wsl --shutdown`은 열린 WSL 창을 모두 닫음.
+
+```bash
+# [데스크톱 WSL] ~ (새로 연 셸)
+cd ~
+free -g
+```
+
+16GB 기준 Mem total 7·Swap 8이면 적용됨(8GB 한도에서 커널 몫을 뺀 값). `memory`는 상한이라 WSL이 쉴 때는 Windows가 씀. 동시 컴파일 수는 최대 `BB_NUMBER_THREADS`×`PARALLEL_MAKE`(3×3=9)
 
 호스트 패키지(scarthgap Quick Build 목록, 설치 전 공식 문서와 대조):
 
@@ -85,7 +115,9 @@ grep SANITY_TESTED_DISTROS -A8 poky/meta-poky/conf/distro/poky.conf
 
 ### 3. 빌드 디렉터리 만들기와 설정 확인
 ```bash
-# [데스크톱 WSL] ~/yocto
+# [데스크톱 WSL] ~/yocto — 빌드 셸에서만 Windows PATH(/mnt/...)를 뺌
+export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd:)
+echo "$PATH" | tr ':' '\n' | grep -c ' '   # 0이면 됨
 cd ~/yocto
 TEMPLATECONF=$HOME/bspworkspace/bsp-study/yocto/meta-bsp-study/conf/templates/bsp-study \
   source poky/oe-init-build-env build
@@ -96,9 +128,22 @@ bitbake -e virtual/kernel | grep -E '^(PN|PV)='
 
 확인: **[붙여 주세요]** 레이어 4개(`core`·`yocto`·`raspberrypi`·`bsp-study`), `MACHINE="raspberrypi4-64"`, 커널 `PN`·`PV`
 - `build/conf`가 이미 있으면 템플릿이 다시 복사되지 않음. 템플릿을 고친 뒤에는 `build/conf`를 지우고 다시 실행함
-- 새 셸에서는 `cd ~/yocto && source poky/oe-init-build-env build`만 다시 실행함
+- 새 셸에서는 위 PATH export 후 `cd ~/yocto && source poky/oe-init-build-env build`만 다시 실행함
+
+병렬도(1단계 표에서 RAM 16GB일 때만):
+
+```bash
+# [데스크톱 WSL] ~/yocto/build (3단계 환경)
+cat >> conf/local.conf <<'EOF'
+BB_NUMBER_THREADS = "3"
+PARALLEL_MAKE = "-j 3"
+EOF
+bitbake -e bsp-study-image | grep -E '^(BB_NUMBER_THREADS|PARALLEL_MAKE)='
+```
 
 ### 4. 빌드
+3단계와 같은 셸에서 실행함. 새 셸이면 3단계 PATH export와 `source`부터 다시 함.
+
 ```bash
 # [데스크톱 WSL] ~/yocto/build (3단계 환경)
 time bitbake bsp-study-image
