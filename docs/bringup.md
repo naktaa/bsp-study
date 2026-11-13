@@ -41,7 +41,7 @@
 
 | 카드 | 용도 | 내용 | 상태 |
 | --- | --- | --- | --- |
-| 기존 카드 (64GB) | 11·13~17단계 | Debian 13 + 커스텀 커널 6.18.59-v8-bsp-study01, 위 표의 부팅 파일. 11단계 U-Boot 시험도 이 카드에서 함 | 사용 중. 최초 부팅 백업은 위 WSL 표, T-B01 직전 부트 파티션 백업은 WSL `out/boot-backup-tb01/`. `/boot/firmware`에 `u-boot.bin`·`boot.scr`·`config.txt.bak-tb01`이 남아 있으나 현재 `config.txt`는 직접 부팅(`kernel=kernel8-bsp-study01.img`) |
+| 기존 카드 (64GB) | 11·13~17단계 | Debian 13 + 커스텀 커널 6.18.59-v8-bsp-study01, 위 표의 부팅 파일. 11단계 U-Boot 시험도 이 카드에서 함 | 사용 중. 최초 부팅 백업은 위 WSL 표, T-B01 직전 부트 파티션 백업은 WSL `out/boot-backup-tb01/`. `/boot/firmware`에 `u-boot.bin`·`boot.scr`·`config.txt.bak-tb01`이 남아 있으나 현재 `config.txt`는 직접 부팅(`kernel=kernel8-bsp-study01.img`), `camera_auto_detect=1`, 마이크·초음파 overlay 없음(각 단계 원복 후) |
 | 새 카드 | 12·18단계 Yocto 이미지 | 아직 없음 | 구매함, 도착 전. 용량 확인 필요 |
 
 ## 모듈과 핀 연결표

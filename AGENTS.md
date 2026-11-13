@@ -68,5 +68,5 @@ Codex와 Claude Code가 함께 읽는 공통 규칙이다. Claude Code 전용 �
 - 브랜치 1개 = 작업 노트 1개. 이름은 `<타입>/<짧은-설명>`(소문자 kebab-case, 예: `feat/camera`)이고 타입 `feat`·`fix`·`docs`·`chore`·`refactor`는 커밋 접두사 `Feat:`·`Fix:`·`Docs:`·`Chore:`·`Refactor:`와 맞춘다. 하네스·규칙 수정은 사용자가 정하면 main에서 바로 한다.
 - 장치마다 별도 노트·브랜치로 진행하고, 여러 장치를 함께 켜는 확인은 roadmap 통합 단계에서 한다.
 - 기능 브랜치는 코드·overlay·레시피·config, 작업 노트, Codex 지시서, 학습 문서(배선이 바뀌면 bringup)만 고치고, worklog·roadmap·README는 머지 후 main에서만 갱신한다.
-- 커밋은 작업 단위로 코드·노트·학습 문서를 함께 묶는다. 커밋·`git merge --no-ff`·브랜치 삭제·큰 단계 태그(예: `v0.2-iio`)는 사용자가 한다.
-- 에이전트는 git add/commit/push와 브랜치 생성·전환·머지를 하지 않는다. 추천 커밋 메시지와 브랜치 이름만 주고, git 명령은 사용자가 요청할 때만 준다.
+- 커밋은 작업 단위로 코드·노트·학습 문서를 함께 묶는다. 커밋·`git merge --no-ff`·브랜치 삭제·큰 단계 태그(예: `v0.2-iio`)는 기본적으로 사용자가 한다.
+- 평소 에이전트는 유의미한 커밋 시점에 추천 커밋 메시지와 브랜치 이름만 준다. 사용자가 요청할 때만 git add/commit/push와 브랜치 생성·전환·머지를 직접 하고, git 명령도 요청할 때만 준다.
