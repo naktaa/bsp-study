@@ -21,7 +21,7 @@ WSL에서 ARM64 프로그램·커널·외부 모듈을 크로스 빌드하고 Pi
 
 MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](examples/mpu6050_iio/iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 IIO 문서 6장에 구분한다.
 
-2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](boot/uboot/uboot-boot.md)). Yocto 최소 이미지는 계획 초안 단계다.
+2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](boot/uboot/uboot-boot.md)). 이어서 scarthgap poky·meta-raspberrypi 위에 직접 만든 `meta-bsp-study` 레이어로 Pi 4 최소 이미지를 빌드하고, 새 카드에서 랜선 없이 Wi-Fi SSH 접속과 재부팅 후 자동 연결을 확인했다([Yocto 문서](yocto/yocto-minimal.md)). 이 이미지의 커널은 meta-raspberrypi 기본 6.6.63이다.
 
 ## 복습·재현
 
@@ -35,6 +35,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 - [U-Boot 경유 커스텀 커널 부팅](boot/uboot/uboot-boot.md)
 - [카메라 IMX219 센서·CSI 수신 드라이버](examples/camera/camera.md)
 - [I2S 마이크 INMP441·ASoC](examples/mic/mic.md)
+- [Yocto 최소 이미지·meta-bsp-study 레이어·Wi-Fi](yocto/yocto-minimal.md)
 
 실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
 

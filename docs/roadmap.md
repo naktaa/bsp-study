@@ -113,7 +113,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 단계 | 실습 | SD 카드 | 상태 | 완료 기준 |
 | --- | --- | --- | --- | --- |
 | 11 | U-Boot 부팅 | 기존 카드 | 완료 | 백업·복구 절차 확보 후 U-Boot 경유 부팅, firmware가 적용한 DTB·overlay가 커널까지 전달됨을 확인 |
-| 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 예정 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅 |
+| 12 | Yocto 최소 이미지 (센서 없음) | 새 카드 | 완료 | meta-raspberrypi + `yocto/meta-bsp-study` 최소 이미지 빌드·부팅, Wi-Fi SSH 접속 |
 | 13 | 카메라 IMX219 | 기존 카드 | 완료 | 드라이버 probe·미디어 장치 등록, 프레임 캡처 확인 |
 | 14 | I2S 마이크 | 기존 카드 | 완료 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
 | 15 | PCA9685 팬·틸트 | 기존 카드 | 예정 | 업스트림 확인 + provider 직접 작성, 레지스터 값 일치. 서보 실구동 미검증 |
@@ -132,11 +132,10 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - 확인할 계층: firmware → U-Boot → 커널 → rootfs. 실패 시 어느 단계에서 멈췄는지 시리얼·화면 출력으로 구분한다(시리얼 콘솔 준비 여부 확인 필요).
 
 ## 12. Yocto 최소 이미지
-- meta-raspberrypi와 저장소 내 `yocto/meta-bsp-study` 레이어로 최소 이미지를 만든다. Yocto 릴리스와 meta-raspberrypi 브랜치는 이 단계 계획에서 고정한다(확인 필요).
-- 커널을 현재 6.18.59 커밋(b3495ea)에 맞출지(linux-raspberrypi bbappend) meta-raspberrypi 기본 커널을 쓸지는 이 단계 계획에서 결정한다. 기본 커널을 쓰면 외부 모듈을 그 커널 버전에 맞춰 다시 빌드한다.
-- 11단계 U-Boot를 이미지 부팅 경로에 넣는 설정은 선택한 meta-raspberrypi 브랜치 문서로 확인한다.
-- 계획 초안: [T-B02](tasks/T-B02-yocto-minimal.md)(참고 자료). 새 카드 도착 후 데스크톱에서 진행한다.
-- 장시간 빌드와 SD 카드 기록은 사용자가 한다. Codex는 레시피·conf 작성과 정적 확인까지 한다.
+- 2026-11-13 완료. scarthgap(5.0) poky `6b7c1066f7` + meta-raspberrypi `018d444` + `yocto/meta-bsp-study`, `MACHINE = "raspberrypi4-64"`. 빌드 설정은 레이어 템플릿(`TEMPLATECONF`)으로 만들고 빌드 디렉터리는 저장소 밖 `~/yocto`에 둔다.
+- 커널은 meta-raspberrypi 기본 `linux-raspberrypi` 6.6.63을 쓴다(기존 카드 6.18.59와 다름). U-Boot는 넣지 않았다.
+- 이미지 `bsp-study-image`: core-image-minimal + dropbear(비밀번호 없는 root) + Wi-Fi(`kernel-modules`·bcm43455 firmware·`wpa_supplicant`·wlan0 대기 스크립트). 새 카드에서 Wi-Fi SSH와 재부팅 후 자동 연결을 확인했다. 64GB 카드 원복은 확인을 생략했다.
+- 작업 노트: [12-yocto-minimal](tasks/12-yocto-minimal.md) · 학습 문서: [Yocto 문서](../yocto/yocto-minimal.md) · 계획 초안: [T-B02](tasks/T-B02-yocto-minimal.md)(참고 자료)
 
 ## 13. 카메라 IMX219
 - 확인함: `drivers/media/i2c/imx219.c`(`CONFIG_VIDEO_IMX219=m`), `CONFIG_VIDEO_BCM2835_UNICAM=m`, `overlays/imx219-overlay.dts`. VEDA Final 문서에 IMX219 언급이 있다. 실물 모듈 모델은 확인 필요.
@@ -173,6 +172,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 
 ## 18. 통합
 - 12단계 최소 이미지에 IMU(IIO 모듈·overlay·수집 앱)와 13~17단계 장치의 모듈·overlay·설정·검증 도구를 `meta-bsp-study` 레시피로 한 번에 추가한다.
+- 커널은 12단계 이미지의 기본 `linux-raspberrypi` 6.6.63에 맞춘다(2026-11-13 결정). 6.18.59 카드에서 확인한 직접 작성 드라이버·overlay를 6.6에서 out-of-tree 모듈 레시피(`inherit module`)로 다시 빌드하고, 6.6과 6.18 사이 API·binding 차이는 이 단계 계획에서 소스로 확인한다.
 - 장치를 모두 켠 상태에서 핀(I2S GPIO18~21과 PWM, I2C1 공유)·I2C 주소·전원 충돌을 확인한다.
 - Yocto 이미지에서 장치별 확인 명령을 다시 실행해 기존 카드 결과와 비교한다. libcamera 등 사용자 공간 패키지 필요 여부는 이 단계에서 확인한다.
 

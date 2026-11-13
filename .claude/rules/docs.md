@@ -43,3 +43,4 @@ paths:
 - boot/uboot/uboot-boot.md: U-Boot 빌드·부트 스크립트, DT·bootargs 전달
 - examples/camera/camera.md: IMX219 센서·unicam 드라이버, 노출·타임스탬프 경로
 - examples/mic/mic.md: INMP441 I2S 마이크, ASoC CPU DAI·코덱·machine과 overlay
+- yocto/yocto-minimal.md: Yocto 레이어·템플릿·MACHINE·이미지 레시피, 최소 이미지 빌드·카드 부팅·Wi-Fi
