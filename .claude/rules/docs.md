@@ -44,4 +44,5 @@ paths:
 - docs/learning/12-yocto-minimal.md: Yocto 레이어·템플릿·MACHINE·이미지 레시피, 최소 이미지 빌드·카드 부팅·Wi-Fi
 - docs/learning/13-camera.md: IMX219 센서·unicam 드라이버, 노출·타임스탬프 경로
 - docs/learning/14-mic.md: INMP441 I2S 마이크, ASoC CPU DAI·코덱·machine과 overlay
+- docs/learning/15-pca9685.md: PCA9685 PWM, 업스트림 `pwm-pca9685`와 직접 작성 provider 비교
 - docs/learning/16-ultrasonic.md: HC-SR04 초음파, 업스트림 IIO `srf04`·overlay, 거리 값 확인
