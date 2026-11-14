@@ -1,0 +1,59 @@
+#!/bin/sh
+
+case "$1" in
+	start)
+		# wlan0 생성과 DHCP를 기다리는 동안 부팅이 멈추지 않게 한다.
+		(
+			logger -t bsp-study-wifi "wlan0 장치 대기"
+			elapsed=0
+			while [ ! -d /sys/class/net/wlan0 ] && [ "$elapsed" -lt 20 ]; do
+				sleep 1
+				elapsed=$((elapsed + 1))
+			done
+
+			if [ ! -d /sys/class/net/wlan0 ]; then
+				logger -t bsp-study-wifi "20초 안에 wlan0이 나타나지 않음"
+				exit 1
+			fi
+			logger -t bsp-study-wifi "wlan0 장치 확인"
+
+			for attempt in 1 2 3; do
+				if [ "$attempt" -gt 1 ]; then
+					# busybox ifup은 이미 올라간 인터페이스를 다시 올리지 않는다.
+					logger -t bsp-study-wifi "wlan0 연결 재시도 전 ifdown"
+					ifdown wlan0 || logger -t bsp-study-wifi "wlan0 ifdown 실패"
+				fi
+
+				logger -t bsp-study-wifi "wlan0 ifup 시도 $attempt/3"
+				ifup wlan0 || logger -t bsp-study-wifi "wlan0 ifup 실패"
+				logger -t bsp-study-wifi "wlan0 IPv4 대기"
+				elapsed=0
+				while [ "$elapsed" -lt 30 ]; do
+					if ip -4 addr show dev wlan0 | grep -q 'inet '; then
+						logger -t bsp-study-wifi "wlan0 IPv4 연결 확인"
+						exit 0
+					fi
+					sleep 1
+					elapsed=$((elapsed + 1))
+				done
+
+				if ip -4 addr show dev wlan0 | grep -q 'inet '; then
+					logger -t bsp-study-wifi "wlan0 IPv4 연결 확인"
+					exit 0
+				fi
+				logger -t bsp-study-wifi "wlan0 IPv4 대기 30초 초과: $attempt/3"
+			done
+
+			logger -t bsp-study-wifi "wlan0 연결 3회 실패"
+			exit 1
+		) &
+		;;
+	stop)
+		logger -t bsp-study-wifi "wlan0 연결 종료"
+		ifdown wlan0
+		;;
+	*)
+		echo "Usage: $0 {start|stop}" >&2
+		exit 1
+		;;
+esac

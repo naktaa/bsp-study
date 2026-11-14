@@ -7,7 +7,7 @@ VEDA Final에서 쓴 카메라 모듈을 커스텀 커널 6.18.59에서 대상 �
 
 - 보드에서 바뀌는 것: 카메라 연결, 8단계에서만 `config.txt`의 `camera_auto_detect` 값과 `dtoverlay=imx219` 한 줄(백업 후 원복)
 - 하지 않는 것: 커널 config 변경·재빌드, 드라이버 작성, libcamera 앱 개발, libcamera 없이 `v4l2-ctl`로 raw 프레임 받기, EIS, Yocto, 다른 장치와 동시 사용 확인(18단계)
-- 마무리 때 학습 문서 `examples/camera/camera.md`를 만든다.
+- 마무리 때 학습 문서 `docs/learning/13-camera.md`를 만든다.
 
 ## 알아둘 개념
 1. **센서와 수신기는 다른 드라이버:** `imx219`(`drivers/media/i2c/imx219.c`)는 카메라 I2C 버스로 센서 레지스터를 설정하는 V4L2 subdev임. 영상 데이터는 CSI-2 레인으로 SoC의 Unicam에 들어가고 Raspberry Pi 커널의 unicam 드라이버(`drivers/media/platform/bcm2835/bcm2835-unicam.c`, 모듈 `bcm2835_unicam_legacy`)가 메모리 버퍼(`/dev/video0`)에 씀. 기본 DT의 `brcm,bcm2835-unicam`(`bcm283x.dtsi` L458)에 이 드라이버가 매칭되고, 같은 이름의 upstream 드라이버(`drivers/media/platform/broadcom/`)는 `brcm,bcm2835-unicam-upstream`에만 매칭되어 쓰이지 않음. 두 드라이버는 DT의 `port`/`endpoint`로 연결되고 media controller 그래프로 보임. 근거: `arch/arm/boot/dts/overlays/imx219-overlay.dts` fragment@100·@101.
@@ -206,4 +206,4 @@ rpicam-hello --list-cameras
 - `config.txt` `diff`·원복 후 `grep` 출력은 미전달
 
 - 미검증: subdev 컨트롤 값이 `--shutter`에 따라 바뀌는지(메타데이터로 대신 판단), 사진 방향·초점 상태(사용자 확인 내용 미기록), 8단계 `config.txt` diff 출력
-- 마무리: 학습 문서 [camera.md](../../examples/camera/camera.md), bringup 카메라 연결, worklog·roadmap 갱신
+- 마무리: 학습 문서 [camera.md](../learning/13-camera.md), bringup 카메라 연결, worklog·roadmap 갱신

@@ -1,6 +1,6 @@
 # 문자 디바이스 — 등록·데이터 왕복·ioctl
 
-이 문서는 현재 [char_drv.c](char_drv.c), [char_app.c](char_app.c), [char_ioctl.h](char_ioctl.h), [Makefile](Makefile)을 함께 읽기 위한 해설이다. 개념은 등록 → 파일 연산 연결 → 데이터 전달 → 제어 요청 순서로 설명한다. 실행 결과와 확인 범위는 [검증 현황](#검증-현황)에 모았다.
+이 문서는 현재 [char_drv.c](../../examples/char_device/char_drv.c), [char_app.c](../../examples/char_device/char_app.c), [char_ioctl.h](../../examples/char_device/char_ioctl.h), [Makefile](../../examples/char_device/Makefile)을 함께 읽기 위한 해설이다. 개념은 등록 → 파일 연산 연결 → 데이터 전달 → 제어 요청 순서로 설명한다. 실행 결과와 확인 범위는 [검증 현황](#검증-현황)에 모았다.
 
 목차:
 
@@ -141,7 +141,7 @@ MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 ```
 
-`module_init()`·`module_exit()`는 커널이 로드·해제 때 호출할 함수를 연결한다. 이 줄에서 함수를 즉시 호출하는 것은 아니다. `__init`·`__exit`의 섹션 의미, `MODULE_*`, 로그 수준은 [hello 모듈 해설](../hello_module/kernel-module.md#c-코드의-핵심)에 설명했다. `pr_info()`는 INFO이고 `printk(KERN_INFO ...)`에 대응한다. NOTICE 수준의 짧은 표현은 `pr_notice()`다.
+`module_init()`·`module_exit()`는 커널이 로드·해제 때 호출할 함수를 연결한다. 이 줄에서 함수를 즉시 호출하는 것은 아니다. `__init`·`__exit`의 섹션 의미, `MODULE_*`, 로그 수준은 [hello 모듈 해설](02-kernel-module.md#c-코드의-핵심)에 설명했다. `pr_info()`는 INFO이고 `printk(KERN_INFO ...)`에 대응한다. NOTICE 수준의 짧은 표현은 `pr_notice()`다.
 
 등록 인자를 구분해서 읽는다.
 
@@ -526,7 +526,7 @@ endif
 
 `:=`는 읽는 시점에 값을 계산해 저장하고 `?=`는 정의되지 않은 변수의 기본값을 준다. 빈 값으로 이미 정의된 변수도 ?=가 덮어쓰지 않는다. 일반적으로 명령줄 변수는 Makefile의 보통 := 대입보다 우선한다. 레시피는 탭으로 시작한다. all과 수업의 default는 모두 일반 타깃 이름이며 첫 일반 타깃이 기본 선택되는 원리다. WSL의 uname -r은 Pi 커널이 아니므로 KDIR 계산에 쓰지 않는다.
 
-더 자세한 Kbuild 분기·산출물·clean·증분 빌드는 [hello 모듈의 Makefile 해설](../hello_module/kernel-module.md#makefile의-핵심)과 [증분 빌드 설명](../hello_module/kernel-module.md#2-산출물과-증분-빌드)을 참고한다.
+더 자세한 Kbuild 분기·산출물·clean·증분 빌드는 [hello 모듈의 Makefile 해설](02-kernel-module.md#makefile의-핵심)과 [증분 빌드 설명](02-kernel-module.md#2-산출물과-증분-빌드)을 참고한다.
 
 ## 4. 헷갈리기 쉬운 개념과 질문
 
@@ -619,9 +619,9 @@ out은 예약어가 아닌 C 레이블이고 goto out은 같은 함수의 그 �
 
 - WSL: Ubuntu 22.04.5, ARM64 GCC 11.4.0·Make·file·modinfo(kmod)·ssh·scp. 저장소는 `~/bspworkspace/bsp-study`이며 SSH 별칭 pi가 설정돼 있어야 한다.
 - 커널: 소스 `external/linux`, Raspberry Pi 커밋 `b3495ea401d709af0701a85babcba5e3d788a602`. `bcm2711_defconfig`, `CONFIG_LOCALVERSION="-v8-bsp-study01"`, `CONFIG_LOCALVERSION_AUTO=n`. 전체 빌드 출력 `out/kernel-rpi4`의 .config·생성 헤더·Module.symvers가 필요하다. 각 Kbuild 호출의 `LOCALVERSION=`을 유지한다.
-- Pi: aarch64, 실행 커널 `6.18.59-v8-bsp-study01`, sudo 사용 가능. `.ko`는 `~/bsp/modules/`, 앱은 `~/bsp/apps/`로 보낸다. libc·로더는 앱 실행에 사용되며 [크로스 컴파일 실습](../hello/cross-compile.md)에 배경을 설명했다.
+- Pi: aarch64, 실행 커널 `6.18.59-v8-bsp-study01`, sudo 사용 가능. `.ko`는 `~/bsp/modules/`, 앱은 `~/bsp/apps/`로 보낸다. libc·로더는 앱 실행에 사용되며 [크로스 컴파일 실습](01-cross-compile.md)에 배경을 설명했다.
 
-커널 자체의 준비·빌드는 [커널 구축 문서](../../docs/kernel-build.md)를 따른다. 버전 문자열뿐 아니라 같은 소스·설정·심볼 정보로 만든 모듈을 사용한다. 아래는 현재 코드용 재현 절차이며 예상 출력과 과거 결과는 뒤에서 구분한다.
+커널 자체의 준비·빌드는 [커널 구축 문서](07-kernel-build.md)를 따른다. 버전 문자열뿐 아니라 같은 소스·설정·심볼 정보로 만든 모듈을 사용한다. 아래는 현재 코드용 재현 절차이며 예상 출력과 과거 결과는 뒤에서 구분한다.
 
 ### 1) WSL에서 빌드와 산출물 확인
 

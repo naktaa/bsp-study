@@ -1,6 +1,6 @@
 # Device Tree와 platform 드라이버 — 등록과 장치 매칭
 
-센서 도착 전에도 확인할 수 있는 Device Tree·커널 장치·드라이버 연결을 학습한다. 기존 Pi I2C 컨트롤러의 연결을 읽은 뒤, [platform_drv.c](platform_drv.c)로 실습용 드라이버를 등록한다. 기존 [문자 디바이스](../char_device/char-device.md)의 등록 방식은 유지한다.
+센서 도착 전에도 확인할 수 있는 Device Tree·커널 장치·드라이버 연결을 학습한다. 기존 Pi I2C 컨트롤러의 연결을 읽은 뒤, [platform_drv.c](../../examples/platform_device/platform_drv.c)로 실습용 드라이버를 등록한다. 기존 [문자 디바이스](03-char-device.md)의 등록 방식은 유지한다.
 
 목차:
 
@@ -13,7 +13,7 @@
 
 ## 1. 구현 범위와 목적
 
-현재 파일은 platform 드라이버, [platform-overlay.dts](platform-overlay.dts), 모듈·overlay 빌드·전송 Makefile이다. 하드웨어 레지스터·GPIO·IRQ·I2C 전송은 하지 않는다. probe는 DT 문자열·정수를 장치별 상태로 보관하고 읽기 전용 sysfs 속성 label·study_value를 공개한다. remove는 해제 로그를 남기며 관리 자원은 devm 경로에서 정리된다. 실습용 compatible은 `nakta,platform-demo`, 드라이버 이름은 `platform-demo`, 모듈 파일은 `platform_drv.ko`다. 이 문자열은 독립적인 로컬 학습 장치를 위한 것으로 기존 컨트롤러의 식별자를 대신 사용하지 않는다.
+현재 파일은 platform 드라이버, [platform-overlay.dts](../../examples/platform_device/platform-overlay.dts), 모듈·overlay 빌드·전송 Makefile이다. 하드웨어 레지스터·GPIO·IRQ·I2C 전송은 하지 않는다. probe는 DT 문자열·정수를 장치별 상태로 보관하고 읽기 전용 sysfs 속성 label·study_value를 공개한다. remove는 해제 로그를 남기며 관리 자원은 devm 경로에서 정리된다. 실습용 compatible은 `nakta,platform-demo`, 드라이버 이름은 `platform-demo`, 모듈 파일은 `platform_drv.ko`다. 이 문자열은 독립적인 로컬 학습 장치를 위한 것으로 기존 컨트롤러의 식별자를 대신 사용하지 않는다.
 
 드라이버 자체는 장치를 만들지 않고 overlay 적용이 독립적인 DT 노드를 추가한다. `/dev` 문자 장치 노드는 만들지 않는다. 목표는 “드라이버 등록”과 “장치 생성 후 probe 호출”을 구분하는 것이다. 확인된 결과와 남은 범위는 마지막 검증 현황에 모았다.
 
@@ -256,7 +256,7 @@ clean:
 endif
 ```
 
-기존 모듈과 같은 KERNELRELEASE 분기·KDIR·ARM64 크로스 도구·LOCALVERSION= 조건이다. obj-m은 platform_drv.o로 지정해 platform_drv.ko를 만든다. 자세한 Make 문법은 [hello 모듈 Makefile 해설](../hello_module/kernel-module.md#makefile의-핵심)을 참고한다.
+기존 모듈과 같은 KERNELRELEASE 분기·KDIR·ARM64 크로스 도구·LOCALVERSION= 조건이다. obj-m은 platform_drv.o로 지정해 platform_drv.ko를 만든다. 자세한 Make 문법은 [hello 모듈 Makefile 해설](02-kernel-module.md#makefile의-핵심)을 참고한다.
 
 인자 없는 make는 modules와 overlay를 모두 만든다. make modules는 모듈만, make overlay는 overlay만 만든다. make deploy는 전송만 수행하며 빌드나 원격 디렉터리 생성을 자동 수행하지 않는다. clean은 Kbuild로 모듈 산출물을 정리하고 실습 dtbo도 삭제한다. dtbo는 .gitignore로 제외한다.
 

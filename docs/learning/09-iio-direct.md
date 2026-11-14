@@ -10,11 +10,11 @@
 ## 1. 한눈에 보기
 
 - **목적:** IIO의 뼈대(채널·scale·trigger·buffer·timestamp)를 직접 구현해 이해하고, 같은 센서를 mainline `inv_mpu6050`에 연결해 생략한 기능이 왜 필요한지 비교한다.
-- **기능:** 직접 작성한 I2C 드라이버 [mpu6050_iio.c](mpu6050_iio.c)를 IIO에 등록해 6축 raw·고정 scale을 sysfs로 조회하고, GPIO17 Data Ready IRQ마다 6축과 IRQ 시각을 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](mpu6050_iio_app.c)는 버퍼를 읽어 SI 단위 CSV를 기록한다.
+- **기능:** 직접 작성한 I2C 드라이버 [mpu6050_iio.c](../../examples/mpu6050_iio/mpu6050_iio.c)를 IIO에 등록해 6축 raw·고정 scale을 sysfs로 조회하고, GPIO17 Data Ready IRQ마다 6축과 IRQ 시각을 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](../../examples/mpu6050_iio/mpu6050_iio_app.c)는 버퍼를 읽어 SI 단위 CSV를 기록한다.
 - **결과:** 24바이트 scan 연속 수집·정상 해제, 60초 정지 기준선(5990샘플/59.98초), mainline 드라이버 바인딩·`iio_generic_buffer` 수신을 보드에서 확인했다. 수치와 미검증은 [6장](#6-트러블슈팅과-한계).
 - **범위:** 센서 설정은 100Hz·±2g·±250deg/s로 고정한다. 센서 FIFO·별도 커널 큐·범위 변경·자동 복구는 없다. IIO에 센서 FIFO를 다시 연결하는 작업과 EIS 보완은 제외한다.
-- **기존 예제와의 차이:** [FIFO 예제](../mpu6050/mpu6050.md)는 IRQ → 센서 FIFO → 자체 커널 큐 → misc read였다. 이번에는 사용자 인터페이스와 버퍼를 IIO에 맡긴다. 두 드라이버를 같은 센서에 동시에 연결하지 않는다.
-- **관련 파일:** [mpu6050_iio.c](mpu6050_iio.c), [mpu6050_iio_app.c](mpu6050_iio_app.c), [mpu6050-iio-overlay.dts](mpu6050-iio-overlay.dts), [Makefile](Makefile), [imu_plot.py](imu_plot.py), mainline 비교 기록 [T-001](../../docs/tasks/T-001-inv-mpu6050-compare.md)
+- **기존 예제와의 차이:** [FIFO 예제](06-mpu6050.md)는 IRQ → 센서 FIFO → 자체 커널 큐 → misc read였다. 이번에는 사용자 인터페이스와 버퍼를 IIO에 맡긴다. 두 드라이버를 같은 센서에 동시에 연결하지 않는다.
+- **관련 파일:** [mpu6050_iio.c](../../examples/mpu6050_iio/mpu6050_iio.c), [mpu6050_iio_app.c](../../examples/mpu6050_iio/mpu6050_iio_app.c), [mpu6050-iio-overlay.dts](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts), [Makefile](../../examples/mpu6050_iio/Makefile), [imu_plot.py](../../examples/mpu6050_iio/imu_plot.py), mainline 비교 기록 [T-001](../tasks/T-001-inv-mpu6050-compare.md)
 
 ## 2. 구조
 
@@ -26,14 +26,14 @@
 
 | 순서 | 드라이버가 하는 일 | IIO 코어가 해 주는 일 | 사용자 공간에서 보이는 것 |
 | --- | --- | --- | --- |
-| ① iio_dev 할당 [L310](mpu6050_iio.c#L310) | 상태 구조체 크기 지정 | iio_dev와 드라이버 상태 영역 할당 | 아직 없음 |
-| ② 채널 선언 [L64](mpu6050_iio.c#L64) | 타입·축·레지스터 주소·scan 형식 | 속성 이름 생성 | `in_*_raw`, `in_*_scale`, `scan_elements/*` |
-| ③ read_raw [L77](mpu6050_iio.c#L77) | 레지스터 읽기, 값 형식 반환 | 문자열 변환 | `cat in_accel_x_raw` |
-| ④ triggered buffer [L332](mpu6050_iio.c#L332) | 수집 콜백 지정 | kfifo·pollfunc 준비 | `buffer/`, `/dev/iio:deviceN` |
-| ⑤ 트리거와 ops [L336](mpu6050_iio.c#L336)·[L126](mpu6050_iio.c#L126) | IRQ 켜기·끄기 | 버퍼 enable/disable 때 호출 | `trigger/current_trigger`, `buffer/enable` |
-| ⑥ IRQ → poll_nested [L353](mpu6050_iio.c#L353)·[L181](mpu6050_iio.c#L181) | 시각 기록, 래치 해제 | 수집 콜백 실행 | `/proc/interrupts` |
-| ⑦ push_with_ts [L206](mpu6050_iio.c#L206) | 6축 scan 구성 | 시각 삽입, kfifo 저장 | `read()`로 24B |
-| ⑧ iio_device_register [L359](mpu6050_iio.c#L359) | 모든 준비 뒤 마지막에 호출 | sysfs·장치 파일 생성 | 위 항목 전부가 이 순간 나타남 |
+| ① iio_dev 할당 [L310](../../examples/mpu6050_iio/mpu6050_iio.c#L310) | 상태 구조체 크기 지정 | iio_dev와 드라이버 상태 영역 할당 | 아직 없음 |
+| ② 채널 선언 [L64](../../examples/mpu6050_iio/mpu6050_iio.c#L64) | 타입·축·레지스터 주소·scan 형식 | 속성 이름 생성 | `in_*_raw`, `in_*_scale`, `scan_elements/*` |
+| ③ read_raw [L77](../../examples/mpu6050_iio/mpu6050_iio.c#L77) | 레지스터 읽기, 값 형식 반환 | 문자열 변환 | `cat in_accel_x_raw` |
+| ④ triggered buffer [L332](../../examples/mpu6050_iio/mpu6050_iio.c#L332) | 수집 콜백 지정 | kfifo·pollfunc 준비 | `buffer/`, `/dev/iio:deviceN` |
+| ⑤ 트리거와 ops [L336](../../examples/mpu6050_iio/mpu6050_iio.c#L336)·[L126](../../examples/mpu6050_iio/mpu6050_iio.c#L126) | IRQ 켜기·끄기 | 버퍼 enable/disable 때 호출 | `trigger/current_trigger`, `buffer/enable` |
+| ⑥ IRQ → poll_nested [L353](../../examples/mpu6050_iio/mpu6050_iio.c#L353)·[L181](../../examples/mpu6050_iio/mpu6050_iio.c#L181) | 시각 기록, 래치 해제 | 수집 콜백 실행 | `/proc/interrupts` |
+| ⑦ push_with_ts [L206](../../examples/mpu6050_iio/mpu6050_iio.c#L206) | 6축 scan 구성 | 시각 삽입, kfifo 저장 | `read()`로 24B |
+| ⑧ iio_device_register [L359](../../examples/mpu6050_iio/mpu6050_iio.c#L359) | 모든 준비 뒤 마지막에 호출 | sysfs·장치 파일 생성 | 위 항목 전부가 이 순간 나타남 |
 
 ### 2-2. mainline `inv_mpu6050`와의 차이
 
@@ -49,9 +49,9 @@
 | scan index | accel 0~2, gyro 3~5, timestamp 6 | accel 0~2, temp 3, gyro 4~6, timestamp 7. 형식은 같다(`be:s16/16>>0`, `le:s64/64>>0`) | 실측 |
 | 초기 범위·scale | ±2 g `0.000598550`, ±250 deg/s `0.000133231` 고정 | ±2 g `0.000598`, **±2000 deg/s** `0.001064724`. `*_scale_available`로 변경 가능 | 실측 |
 | 주파수 | 공칭 100 Hz 고정 | `sampling_frequency` = 50, 10~500 Hz로 변경 가능 | 실측(50)·읽기 확인(범위, `inv_mpu_core.c` L1687) |
-| IRQ 종류 | 드라이버가 `IRQF_TRIGGER_HIGH` 지정, 칩 LATCH ([mpu6050_iio.c#L353](mpu6050_iio.c#L353)) | DT의 종류를 `irq_get_trigger_type()`으로 읽어 칩 INT_PIN_CFG를 맞춤. 이번 overlay는 falling → active-low, 비래치 | 실측(`/proc/interrupts` `17 Edge inv_mpu`)·읽기 확인(`inv_mpu_core.c` L1922) |
-| IRQ 없을 때 | `request_threaded_irq()` 실패 시 probe 실패로 정리 ([mpu6050_iio.c#L353](mpu6050_iio.c#L353)) | raw·scale은 동작하지만 **trigger·buffer를 만들지 않음** | 학습용은 읽기 확인(미실측). mainline은 실측([6-2](#6-2-실행-중-dtoverlay로-적용한-mainline-장치에-buffer가-없음))·읽기 확인(`inv_mpu_core.c` L2086) |
-| timestamp 출처 | hard IRQ의 `iio_get_time_ns()`, CLOCK_MONOTONIC 지정 ([mpu6050_iio.c#L324](mpu6050_iio.c#L324)) | IRQ 시각과 칩 클럭 주기로 `inv_sensors_timestamp`가 샘플별 시각을 계산. 시계 지정이 없어 IIO 기본값 CLOCK_REALTIME | 실측(값이 수집 시점의 epoch ns, 간격 20.00~20.02 ms)·읽기 확인 |
+| IRQ 종류 | 드라이버가 `IRQF_TRIGGER_HIGH` 지정, 칩 LATCH ([mpu6050_iio.c#L353](../../examples/mpu6050_iio/mpu6050_iio.c#L353)) | DT의 종류를 `irq_get_trigger_type()`으로 읽어 칩 INT_PIN_CFG를 맞춤. 이번 overlay는 falling → active-low, 비래치 | 실측(`/proc/interrupts` `17 Edge inv_mpu`)·읽기 확인(`inv_mpu_core.c` L1922) |
+| IRQ 없을 때 | `request_threaded_irq()` 실패 시 probe 실패로 정리 ([mpu6050_iio.c#L353](../../examples/mpu6050_iio/mpu6050_iio.c#L353)) | raw·scale은 동작하지만 **trigger·buffer를 만들지 않음** | 학습용은 읽기 확인(미실측). mainline은 실측([6-2](#6-2-실행-중-dtoverlay로-적용한-mainline-장치에-buffer가-없음))·읽기 확인(`inv_mpu_core.c` L2086) |
+| timestamp 출처 | hard IRQ의 `iio_get_time_ns()`, CLOCK_MONOTONIC 지정 ([mpu6050_iio.c#L324](../../examples/mpu6050_iio/mpu6050_iio.c#L324)) | IRQ 시각과 칩 클럭 주기로 `inv_sensors_timestamp`가 샘플별 시각을 계산. 시계 지정이 없어 IIO 기본값 CLOCK_REALTIME | 실측(값이 수집 시점의 epoch ns, 간격 20.00~20.02 ms)·읽기 확인 |
 | FIFO | 센서 FIFO 없음. IRQ 1번에 샘플 1개 | 센서 FIFO에서 완전한 샘플을 일괄로 읽고 overflow가 임박하면 FIFO 재설정 | 읽기 확인(`inv_mpu_ring.c`). 이번 실측은 IRQ 5번에 샘플 5개라 여러 샘플 일괄 읽기는 관찰하지 못함 |
 
 ## 3. 알아야 할 개념
@@ -62,15 +62,15 @@ FIFO 예제는 문자 장치(misc) 위에서 사용자 인터페이스를 전부
 
 | 필요한 기능 | misc 예제에서 직접 작성 | IIO가 제공 | IIO 예제의 드라이버가 하는 일 |
 | --- | --- | --- | --- |
-| 사용자 ABI | 자체 16B 구조체 [mpu6050_data.h#L7](../mpu6050/mpu6050_data.h#L7), misc 등록 [mpu6050_drv.c#L566](../mpu6050/mpu6050_drv.c#L566) | 표준 sysfs 이름(`in_accel_x_raw`)과 `scan_elements/*_type`으로 형식 공개 | 채널 선언 [mpu6050_iio.c#L64](mpu6050_iio.c#L64) |
-| 단위 변환 | 앱에 16384·131 상수를 직접 씀 [mpu6050_app.c#L12](../mpu6050/mpu6050_app.c#L12) | `in_*_scale` 규약 | scale 반환 [mpu6050_iio.c#L85](mpu6050_iio.c#L85) |
-| 샘플 큐 | 링 배열·head·queued·overrun 처리 [mpu6050_drv.c#L193](../mpu6050/mpu6050_drv.c#L193) | kfifo 버퍼, `buffer/length`·`watermark` | push 호출 [mpu6050_iio.c#L206](mpu6050_iio.c#L206) |
-| 대기·깨우기 | wait queue [mpu6050_drv.c#L366](../mpu6050/mpu6050_drv.c#L366)·[L468](../mpu6050/mpu6050_drv.c#L468). poll은 미구현 [mpu6050_drv.c#L390](../mpu6050/mpu6050_drv.c#L390) | 버퍼 read/poll | 없음(앱이 poll 사용 [mpu6050_iio_app.c#L151](mpu6050_iio_app.c#L151)) |
-| 수명·open 관리 | kref·단일 reader [mpu6050_drv.c#L288](../mpu6050/mpu6050_drv.c#L288)·[L281](../mpu6050/mpu6050_drv.c#L281) | 장치 파일·참조를 IIO 코어가 관리 | devm 할당 [mpu6050_iio.c#L310](mpu6050_iio.c#L310) |
-| 수집 시작·중지 | probe에서 IRQ를 켜고 중지 함수를 직접 작성 [mpu6050_drv.c#L472](../mpu6050/mpu6050_drv.c#L472) | `buffer/enable` 쓰기 → 트리거 ops 호출 | set_trigger_state [mpu6050_iio.c#L126](mpu6050_iio.c#L126) |
-| 타임스탬프 | 순번만 있고 시각 없음 [mpu6050_data.h#L8](../mpu6050/mpu6050_data.h#L8) | 소프트 타임스탬프 채널 + push_with_ts | [mpu6050_iio.c#L71](mpu6050_iio.c#L71)·[L166](mpu6050_iio.c#L166) |
-| 채널 선택 | 항상 6축 고정 구조체 | `scan_elements/*_en` | scan mask [mpu6050_iio.c#L75](mpu6050_iio.c#L75) |
-| 직접 읽기와 버퍼의 상호 배제 | 직접 읽기 경로 없음(mutex는 큐 보호용 [mpu6050_drv.c#L58](../mpu6050/mpu6050_drv.c#L58)) | `iio_device_claim_direct()` | [mpu6050_iio.c#L102](mpu6050_iio.c#L102) |
+| 사용자 ABI | 자체 16B 구조체 [mpu6050_data.h#L7](../../examples/mpu6050/mpu6050_data.h#L7), misc 등록 [mpu6050_drv.c#L566](../../examples/mpu6050/mpu6050_drv.c#L566) | 표준 sysfs 이름(`in_accel_x_raw`)과 `scan_elements/*_type`으로 형식 공개 | 채널 선언 [mpu6050_iio.c#L64](../../examples/mpu6050_iio/mpu6050_iio.c#L64) |
+| 단위 변환 | 앱에 16384·131 상수를 직접 씀 [mpu6050_app.c#L12](../../examples/mpu6050/mpu6050_app.c#L12) | `in_*_scale` 규약 | scale 반환 [mpu6050_iio.c#L85](../../examples/mpu6050_iio/mpu6050_iio.c#L85) |
+| 샘플 큐 | 링 배열·head·queued·overrun 처리 [mpu6050_drv.c#L193](../../examples/mpu6050/mpu6050_drv.c#L193) | kfifo 버퍼, `buffer/length`·`watermark` | push 호출 [mpu6050_iio.c#L206](../../examples/mpu6050_iio/mpu6050_iio.c#L206) |
+| 대기·깨우기 | wait queue [mpu6050_drv.c#L366](../../examples/mpu6050/mpu6050_drv.c#L366)·[L468](../../examples/mpu6050/mpu6050_drv.c#L468). poll은 미구현 [mpu6050_drv.c#L390](../../examples/mpu6050/mpu6050_drv.c#L390) | 버퍼 read/poll | 없음(앱이 poll 사용 [mpu6050_iio_app.c#L151](../../examples/mpu6050_iio/mpu6050_iio_app.c#L151)) |
+| 수명·open 관리 | kref·단일 reader [mpu6050_drv.c#L288](../../examples/mpu6050/mpu6050_drv.c#L288)·[L281](../../examples/mpu6050/mpu6050_drv.c#L281) | 장치 파일·참조를 IIO 코어가 관리 | devm 할당 [mpu6050_iio.c#L310](../../examples/mpu6050_iio/mpu6050_iio.c#L310) |
+| 수집 시작·중지 | probe에서 IRQ를 켜고 중지 함수를 직접 작성 [mpu6050_drv.c#L472](../../examples/mpu6050/mpu6050_drv.c#L472) | `buffer/enable` 쓰기 → 트리거 ops 호출 | set_trigger_state [mpu6050_iio.c#L126](../../examples/mpu6050_iio/mpu6050_iio.c#L126) |
+| 타임스탬프 | 순번만 있고 시각 없음 [mpu6050_data.h#L8](../../examples/mpu6050/mpu6050_data.h#L8) | 소프트 타임스탬프 채널 + push_with_ts | [mpu6050_iio.c#L71](../../examples/mpu6050_iio/mpu6050_iio.c#L71)·[L166](../../examples/mpu6050_iio/mpu6050_iio.c#L166) |
+| 채널 선택 | 항상 6축 고정 구조체 | `scan_elements/*_en` | scan mask [mpu6050_iio.c#L75](../../examples/mpu6050_iio/mpu6050_iio.c#L75) |
+| 직접 읽기와 버퍼의 상호 배제 | 직접 읽기 경로 없음(mutex는 큐 보호용 [mpu6050_drv.c#L58](../../examples/mpu6050/mpu6050_drv.c#L58)) | `iio_device_claim_direct()` | [mpu6050_iio.c#L102](../../examples/mpu6050_iio/mpu6050_iio.c#L102) |
 
 센서 FIFO 사용 여부는 IIO 전환과 별개의 차이다. 이번 예제는 FIFO 없이 Data Ready마다 측정 레지스터를 읽으며, IIO에 센서 FIFO를 붙이는 작업은 범위에서 제외했다.
 
@@ -131,7 +131,7 @@ probe가 [2-1](#2-1-드라이버가-채우는-것과-iio-코어가-해-주는-�
 }
 ```
 
-(가독성을 위해 줄을 합친 발췌. 원문 [L48](mpu6050_iio.c#L48))
+(가독성을 위해 줄을 합친 발췌. 원문 [L48](../../examples/mpu6050_iio/mpu6050_iio.c#L48))
 
 - `type` + `channel2`(X/Y/Z)로 IIO 코어가 `in_accel_x`, `in_anglvel_z` 같은 이름을 만든다.
 - `info_mask_separate`의 RAW는 축마다 `_raw` 속성을, `info_mask_shared_by_type`의 SCALE은 종류마다 `_scale` 하나를 만든다.
@@ -169,7 +169,7 @@ sysfs raw 조회와 버퍼 수집이 동시에 센서를 읽으면 I2C 전송이
 - **버퍼**(kfifo)는 샘플을 쌓아 두는 곳이다. `iio_triggered_buffer_setup()`이 kfifo와 함께 **pollfunc**를 만든다. pollfunc는 "트리거가 오면 실행할 수집 콜백(trigger_handler)과 그 샘플의 시각"을 담은 구조다.
 - **트리거**는 "지금 한 샘플을 수집하라"는 이벤트 출처다. 이 예제에서는 GPIO17 Data Ready IRQ가 트리거를 발생시킨다.
 - `buffer/enable`에 1을 쓰면 IIO 코어가 pollfunc를 현재 트리거에 연결하고 트리거 ops의 `set_trigger_state(true)`를 부른다. 그 뒤 IRQ thread가 `iio_trigger_poll_nested()`를 호출할 때마다 연결된 pollfunc의 수집 콜백이 실행된다.
-- 트리거를 `iio_trigger_set_immutable()`([L348](mpu6050_iio.c#L348))과 `validate_own_device`([L158](mpu6050_iio.c#L158))로 이 장치 전용으로 고정했다. `current_trigger`로 이름은 볼 수 있지만 다른 트리거로 바꿀 수 없다.
+- 트리거를 `iio_trigger_set_immutable()`([L348](../../examples/mpu6050_iio/mpu6050_iio.c#L348))과 `validate_own_device`([L158](../../examples/mpu6050_iio/mpu6050_iio.c#L158))로 이 장치 전용으로 고정했다. `current_trigger`로 이름은 볼 수 있지만 다른 트리거로 바꿀 수 없다.
 
 ### 4-5. IRQ에서 버퍼까지 한 샘플의 경로
 
@@ -227,7 +227,7 @@ iio_triggered_buffer_cleanup(indio_dev);
 mpu6050_sleep(client);
 ```
 
-순서를 바꾸면 IRQ가 이미 해제된 pollfunc나 트리거를 건드릴 수 있다. probe 실패 경로([L366](mpu6050_iio.c#L366))도 같은 역순이다. 트리거 참조가 남아 있으므로 overlay로 장치를 먼저 제거한 뒤 rmmod한다.
+순서를 바꾸면 IRQ가 이미 해제된 pollfunc나 트리거를 건드릴 수 있다. probe 실패 경로([L366](../../examples/mpu6050_iio/mpu6050_iio.c#L366))도 같은 역순이다. 트리거 참조가 남아 있으므로 overlay로 장치를 먼저 제거한 뒤 rmmod한다.
 
 ## 5. 재현
 
@@ -245,9 +245,9 @@ mpu6050_sleep(client);
 
 | 항목 | 값 |
 | --- | --- |
-| 보드·커널 | Pi 4, `6.18.59-v8-bsp-study01` (구축 과정: [커널 구축](../../docs/kernel-build.md)) |
-| WSL 커널 빌드 디렉터리 | `~/bspworkspace/bsp-study/out/kernel-rpi4` ([Makefile](Makefile)의 KDIR 기본값). `.config`에 `CONFIG_IIO=m` |
-| 배선 | [bringup.md 모듈과 핀 연결표](../../docs/bringup.md#모듈과-핀-연결표). SDA/SCL·전원과 INT → GPIO17(물리 11) |
+| 보드·커널 | Pi 4, `6.18.59-v8-bsp-study01` (구축 과정: [커널 구축](07-kernel-build.md)) |
+| WSL 커널 빌드 디렉터리 | `~/bspworkspace/bsp-study/out/kernel-rpi4` ([Makefile](../../examples/mpu6050_iio/Makefile)의 KDIR 기본값). `.config`에 `CONFIG_IIO=m` |
+| 배선 | [bringup.md 모듈과 핀 연결표](../bringup.md#모듈과-핀-연결표). SDA/SCL·전원과 INT → GPIO17(물리 11) |
 | 도구 | ARM64 크로스 GCC, SSH 별칭 `pi` |
 
 ```bash
@@ -279,9 +279,9 @@ modinfo -F depends ./mpu6050_iio.ko
 ```
 
 **관련 코드**
-- [Makefile#L1](Makefile#L1) — KERNELRELEASE 분기(Kbuild가 다시 읽을 때 obj-m만 본다)
-- [Makefile#L4](Makefile#L4) — KDIR·ARCH·CROSS_COMPILE·APP_CC·DTC 변수
-- [Makefile#L17](Makefile#L17) — all → modules / overlay / app 타깃
+- [Makefile#L1](../../examples/mpu6050_iio/Makefile#L1) — KERNELRELEASE 분기(Kbuild가 다시 읽을 때 obj-m만 본다)
+- [Makefile#L4](../../examples/mpu6050_iio/Makefile#L4) — KDIR·ARCH·CROSS_COMPILE·APP_CC·DTC 변수
+- [Makefile#L17](../../examples/mpu6050_iio/Makefile#L17) — all → modules / overlay / app 타깃
 
 **확인 포인트**
 - 두 파일 모두 `ELF 64-bit ... ARM aarch64`
@@ -300,8 +300,8 @@ make deploy
 ```
 
 **관련 코드**
-- [Makefile#L10](Makefile#L10) — 대상 호스트 `pi`와 Pi 쪽 디렉터리
-- [Makefile#L33](Makefile#L33) — ko·dtbo·앱·imu_plot.py를 scp
+- [Makefile#L10](../../examples/mpu6050_iio/Makefile#L10) — 대상 호스트 `pi`와 Pi 쪽 디렉터리
+- [Makefile#L33](../../examples/mpu6050_iio/Makefile#L33) — ko·dtbo·앱·imu_plot.py를 scp
 
 **확인 포인트:** scp 4건이 오류 없이 끝나고 `~/bsp/modules/mpu6050_iio.ko`, `~/bsp/overlays/mpu6050-iio-overlay.dtbo`, `~/bsp/apps/{mpu6050_iio_app,imu_plot.py}`가 있다.
 
@@ -328,15 +328,15 @@ grep -F 'mpu6050-iio-data-ready' /proc/interrupts
 ```
 
 **관련 코드**
-- [mpu6050-iio-overlay.dts#L7](mpu6050-iio-overlay.dts#L7) — GPIO17 pinctrl(입력, 풀다운)
-- [mpu6050-iio-overlay.dts#L29](mpu6050-iio-overlay.dts#L29) — client 노드: compatible·reg·pinctrl-0·`interrupts = <17 4>`
-- [mpu6050_iio.c#L391](mpu6050_iio.c#L391) — of_match(compatible)·i2c_driver 등록
-- [mpu6050_iio.c#L294](mpu6050_iio.c#L294) — probe 사전 검사: DT IRQ·I2C 기능·WHO_AM_I
-- [mpu6050_iio.c#L310](mpu6050_iio.c#L310) — iio_dev 할당·필드 설정·monotonic 클록
-- [mpu6050_iio.c#L233](mpu6050_iio.c#L233) — 센서 초기화(100Hz·±2g·±250deg/s·INT LATCH)
-- [mpu6050_iio.c#L332](mpu6050_iio.c#L332) — triggered buffer·트리거 할당/등록/immutable
-- [mpu6050_iio.c#L352](mpu6050_iio.c#L352) — request_threaded_irq(NO_AUTOEN)·iio_device_register·ready 로그
-- [mpu6050_iio.c#L366](mpu6050_iio.c#L366) — probe 실패 시 역순 정리
+- [mpu6050-iio-overlay.dts#L7](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts#L7) — GPIO17 pinctrl(입력, 풀다운)
+- [mpu6050-iio-overlay.dts#L29](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts#L29) — client 노드: compatible·reg·pinctrl-0·`interrupts = <17 4>`
+- [mpu6050_iio.c#L391](../../examples/mpu6050_iio/mpu6050_iio.c#L391) — of_match(compatible)·i2c_driver 등록
+- [mpu6050_iio.c#L294](../../examples/mpu6050_iio/mpu6050_iio.c#L294) — probe 사전 검사: DT IRQ·I2C 기능·WHO_AM_I
+- [mpu6050_iio.c#L310](../../examples/mpu6050_iio/mpu6050_iio.c#L310) — iio_dev 할당·필드 설정·monotonic 클록
+- [mpu6050_iio.c#L233](../../examples/mpu6050_iio/mpu6050_iio.c#L233) — 센서 초기화(100Hz·±2g·±250deg/s·INT LATCH)
+- [mpu6050_iio.c#L332](../../examples/mpu6050_iio/mpu6050_iio.c#L332) — triggered buffer·트리거 할당/등록/immutable
+- [mpu6050_iio.c#L352](../../examples/mpu6050_iio/mpu6050_iio.c#L352) — request_threaded_irq(NO_AUTOEN)·iio_device_register·ready 로그
+- [mpu6050_iio.c#L366](../../examples/mpu6050_iio/mpu6050_iio.c#L366) — probe 실패 시 역순 정리
 
 **확인 포인트**
 - driver 링크 = `/sys/bus/i2c/drivers/mpu6050-iio-study`
@@ -364,10 +364,10 @@ cat "$imu_iio_path/current_timestamp_clock" "$imu_iio_path/scan_elements/in_time
 ```
 
 **관련 코드**
-- [mpu6050_iio.c#L39](mpu6050_iio.c#L39) — scale nano 상수
-- [mpu6050_iio.c#L48](mpu6050_iio.c#L48) — 채널 매크로·6축+timestamp 배열
-- [mpu6050_iio.c#L85](mpu6050_iio.c#L85) — SCALE 분기(IIO_VAL_INT_PLUS_NANO)
-- [mpu6050_iio.c#L100](mpu6050_iio.c#L100) — RAW 분기: claim_direct → 2바이트 읽기 → release
+- [mpu6050_iio.c#L39](../../examples/mpu6050_iio/mpu6050_iio.c#L39) — scale nano 상수
+- [mpu6050_iio.c#L48](../../examples/mpu6050_iio/mpu6050_iio.c#L48) — 채널 매크로·6축+timestamp 배열
+- [mpu6050_iio.c#L85](../../examples/mpu6050_iio/mpu6050_iio.c#L85) — SCALE 분기(IIO_VAL_INT_PLUS_NANO)
+- [mpu6050_iio.c#L100](../../examples/mpu6050_iio/mpu6050_iio.c#L100) — RAW 분기: claim_direct → 2바이트 읽기 → release
 
 **확인 포인트**
 - 경로가 `/sys/bus/iio/devices/iio:deviceN`. 비어 있으면 5-3부터 확인
@@ -389,22 +389,22 @@ sudo dmesg | grep -F 'mpu6050-iio-study' | tail -2
 ```
 
 **관련 코드 — 앱이 버퍼를 켜기까지**
-- [mpu6050_iio_app.c#L124](mpu6050_iio_app.c#L124) — check_scan: index 0~6·type·clock 확인
-- [mpu6050_iio_app.c#L258](mpu6050_iio_app.c#L258) — 이미 켜진 버퍼면 건드리지 않고 종료
-- [mpu6050_iio_app.c#L110](mpu6050_iio_app.c#L110) — prepare_buffer: 7채널·length 128·watermark 1
-- [mpu6050_iio_app.c#L318](mpu6050_iio_app.c#L318) — buffer/enable=1
+- [mpu6050_iio_app.c#L124](../../examples/mpu6050_iio/mpu6050_iio_app.c#L124) — check_scan: index 0~6·type·clock 확인
+- [mpu6050_iio_app.c#L258](../../examples/mpu6050_iio/mpu6050_iio_app.c#L258) — 이미 켜진 버퍼면 건드리지 않고 종료
+- [mpu6050_iio_app.c#L110](../../examples/mpu6050_iio/mpu6050_iio_app.c#L110) — prepare_buffer: 7채널·length 128·watermark 1
+- [mpu6050_iio_app.c#L318](../../examples/mpu6050_iio/mpu6050_iio_app.c#L318) — buffer/enable=1
 
 **관련 코드 — 드라이버의 수집 경로**
-- [mpu6050_iio.c#L143](mpu6050_iio.c#L143) — set_trigger_state 켜기: INT_STATUS 정리 → INT_ENABLE → enable_irq
-- [mpu6050_iio.c#L161](mpu6050_iio.c#L161) — primary IRQ: 시각만 기록
-- [mpu6050_iio.c#L170](mpu6050_iio.c#L170) — IRQ thread: INT_STATUS 읽어 래치 해제 → poll_nested
-- [mpu6050_iio.c#L186](mpu6050_iio.c#L186) — trigger_handler: 14B 읽기 → 온도 제외 → push_with_ts → notify_done
-- [mpu6050_iio.c#L74](mpu6050_iio.c#L74) — available_scan_masks(하드웨어 수집은 항상 6축)
+- [mpu6050_iio.c#L143](../../examples/mpu6050_iio/mpu6050_iio.c#L143) — set_trigger_state 켜기: INT_STATUS 정리 → INT_ENABLE → enable_irq
+- [mpu6050_iio.c#L161](../../examples/mpu6050_iio/mpu6050_iio.c#L161) — primary IRQ: 시각만 기록
+- [mpu6050_iio.c#L170](../../examples/mpu6050_iio/mpu6050_iio.c#L170) — IRQ thread: INT_STATUS 읽어 래치 해제 → poll_nested
+- [mpu6050_iio.c#L186](../../examples/mpu6050_iio/mpu6050_iio.c#L186) — trigger_handler: 14B 읽기 → 온도 제외 → push_with_ts → notify_done
+- [mpu6050_iio.c#L74](../../examples/mpu6050_iio/mpu6050_iio.c#L74) — available_scan_masks(하드웨어 수집은 항상 6축)
 
 **관련 코드 — 앱이 scan을 해석**
-- [mpu6050_iio_app.c#L151](mpu6050_iio_app.c#L151) — read_sample: poll 최대 5초 → 24바이트 read
-- [mpu6050_iio_app.c#L187](mpu6050_iio_app.c#L187) — decode_axis: big-endian 2바이트 → int16
-- [mpu6050_iio_app.c#L342](mpu6050_iio_app.c#L342) — timestamp(오프셋 16) 복사·scale 곱
+- [mpu6050_iio_app.c#L151](../../examples/mpu6050_iio/mpu6050_iio_app.c#L151) — read_sample: poll 최대 5초 → 24바이트 read
+- [mpu6050_iio_app.c#L187](../../examples/mpu6050_iio/mpu6050_iio_app.c#L187) — decode_axis: big-endian 2바이트 → int16
+- [mpu6050_iio_app.c#L342](../../examples/mpu6050_iio/mpu6050_iio_app.c#L342) — timestamp(오프셋 16) 복사·scale 곱
 
 **확인 포인트**
 - `=== OPEN ===` 다음에 `device: /dev/iio:deviceN`, `CSV: /home/<사용자>/bsp/logs/YYYYMMDD-HHMMSS_mpu6050.csv`
@@ -457,10 +457,10 @@ lsmod | grep '^mpu6050_iio '                         # 출력 없음
 ```
 
 **관련 코드**
-- [mpu6050_iio_app.c#L383](mpu6050_iio_app.c#L383) — 앱 종료 경로의 buffer/enable=0
-- [mpu6050_iio.c#L133](mpu6050_iio.c#L133) — set_trigger_state 끄기: disable_irq → INT_ENABLE=0
-- [mpu6050_iio.c#L377](mpu6050_iio.c#L377) — remove: 등록의 역순 정리
-- [mpu6050_iio.c#L275](mpu6050_iio.c#L275) — 센서 슬립
+- [mpu6050_iio_app.c#L383](../../examples/mpu6050_iio/mpu6050_iio_app.c#L383) — 앱 종료 경로의 buffer/enable=0
+- [mpu6050_iio.c#L133](../../examples/mpu6050_iio/mpu6050_iio.c#L133) — set_trigger_state 끄기: disable_irq → INT_ENABLE=0
+- [mpu6050_iio.c#L377](../../examples/mpu6050_iio/mpu6050_iio.c#L377) — remove: 등록의 역순 정리
+- [mpu6050_iio.c#L275](../../examples/mpu6050_iio/mpu6050_iio.c#L275) — 센서 슬립
 
 **확인 포인트**
 - buffer/enable = `0`, raw는 정수
@@ -477,7 +477,7 @@ remove가 등록의 역순인 이유는 [4-6](#4-6-중지와-remove)에 있다.
 **선행 조건**
 - 5-6까지 정리되어 `1-0068`이 없다. 학습용 overlay와 mainline을 같은 0x68에 동시에 붙이지 않는다.
 - Pi에 `inv-mpu6050-i2c`·`inv-mpu6050` 모듈이 있다(`.config`의 `CONFIG_INV_MPU6050_I2C=m`, `CONFIG_INV_MPU6050_IIO=m`).
-- `/boot/firmware/overlays-bsp-study01/i2c-sensor.dtbo`가 있다. `config.txt`의 `overlay_prefix=overlays-bsp-study01/`이 이 폴더를 가리킨다([커널 구축](../../docs/kernel-build.md)).
+- `/boot/firmware/overlays-bsp-study01/i2c-sensor.dtbo`가 있다. `config.txt`의 `overlay_prefix=overlays-bsp-study01/`이 이 폴더를 가리킨다([커널 구축](07-kernel-build.md)).
 - overlay는 **부팅 시 `config.txt`로** 적용한다. 실행 중 `dtoverlay`로 적용하면 IRQ가 연결되지 않아 buffer가 생기지 않는다([6-2](#6-2-실행-중-dtoverlay로-적용한-mainline-장치에-buffer가-없음)).
 
 ```bash
@@ -570,11 +570,11 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 **확인한 계층**
 - 센서 FIFO: 이 드라이버는 사용하지 않는다.
 - I2C 읽기: 실패했다면 `sample read failed`가 나왔을 것이다.
-- IIO 버퍼 저장: `iio_push_to_buffers_with_ts()`의 실패 경고다([mpu6050_iio.c#L206](mpu6050_iio.c#L206)). 대상 커널의 kfifo 저장 함수(`iio_store_to_kfifo()`)는 한 샘플을 넣지 못하면 `-EBUSY`(-16)를 반환한다.
+- IIO 버퍼 저장: `iio_push_to_buffers_with_ts()`의 실패 경고다([mpu6050_iio.c#L206](../../examples/mpu6050_iio/mpu6050_iio.c#L206)). 대상 커널의 kfifo 저장 함수(`iio_store_to_kfifo()`)는 한 샘플을 넣지 못하면 `-EBUSY`(-16)를 반환한다.
 
 **원인:** IRQ 수집은 버퍼를 켜는 순간 시작되지만, 읽는 쪽이 없어 커널 IIO 버퍼(length 128, 100Hz 설정 기준 약 1.28초 분량)가 가득 찼다. 가득 찬 동안 새 샘플은 버려지고 기존 샘플을 최신 값으로 바꾸지 않는다. 로그는 빈도 제한이 걸려 있어 줄 수를 유실 개수로 해석하지 않는다.
 
-**조치:** 드라이버 수정·재부팅 없이 버퍼를 껐다가 다시 켠 직후 앱으로 읽고 바로 중지했다. 새 수집 구간(enabled 15926.582049 → disabled 15926.808754)에는 drop 로그가 없었다. 현재 앱은 읽기·기록 준비를 마친 뒤 버퍼를 켜고 종료 시 끈다([L318](mpu6050_iio_app.c#L318), [L383](mpu6050_iio_app.c#L383)). 따라서 5-5처럼 앱 하나로 실행하고, 읽는 쪽 없이 버퍼를 켜 두지 않는다.
+**조치:** 드라이버 수정·재부팅 없이 버퍼를 껐다가 다시 켠 직후 앱으로 읽고 바로 중지했다. 새 수집 구간(enabled 15926.582049 → disabled 15926.808754)에는 drop 로그가 없었다. 현재 앱은 읽기·기록 준비를 마친 뒤 버퍼를 켜고 종료 시 끈다([L318](../../examples/mpu6050_iio/mpu6050_iio_app.c#L318), [L383](../../examples/mpu6050_iio/mpu6050_iio_app.c#L383)). 따라서 5-5처럼 앱 하나로 실행하고, 읽는 쪽 없이 버퍼를 켜 두지 않는다.
 
 ### 6-2. 실행 중 dtoverlay로 적용한 mainline 장치에 buffer가 없음
 

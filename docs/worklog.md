@@ -1,27 +1,8 @@
-# 현재 진행 상태
+# 다음 작업
 
-## 현재 단계
-- 2부 진행 중이다. 11 U-Boot, 13 카메라, 14 I2S 마이크, 16 초음파를 완료했다.
-- 마이크는 기존 드라이버(`bcm2835-i2s`·`ics43432`·`simple-audio-card`)를 직접 작성한 overlay로 묶어 녹음까지 확인했고, 14-3에서 코덱을 직접 작성한 `inmp441_codec`으로 바꿔 probe 지연·모듈 해제·자동 적재를, 14-4에서 alsa-lib 캡처 앱으로 period·buffer와 xrun·실시간 파형을 확인했다([마이크 문서](../examples/mic/mic.md)).
-- 초음파는 config fragment(`configs/bsp-study.config`)로 mainline `srf04`를 켜고 커널 이미지 재빌드 없이 모듈만 추가해 확인했다([초음파 문서](../examples/ultrasonic/ultrasonic.md)).
-- 기존 카드 `config.txt`는 원복 상태(직접 부팅, `camera_auto_detect=1`, 마이크 overlay 없음)다. 40핀 배치 계획은 [bringup](bringup.md#40핀-한눈에-보기)에 있다.
+main에서만 갱신한다(머지할 때, 브랜치를 시작·대기로 돌릴 때). 완료 상태와 학습 문서는 [roadmap](roadmap.md), 진행 중 상태는 각 작업 노트의 `상태:` 줄, 환경·배선은 [bringup](bringup.md)에 둔다.
 
-## 다음 작업
-- 15단계 PCA9685 팬·틸트(보류): I2C1을 IMU와 공유하고 VCC 3.3V·서보 외부 전원을 확인한 뒤 작업 노트를 만든다.
-- 12단계 Yocto 최소 이미지: 새 SD 카드가 오면 데스크톱에서 [T-B02 초안](tasks/T-B02-yocto-minimal.md)을 참고해 작업 노트를 만든다.
-- 이후 17단계 모터를 진행하고 18단계에서 통합한다. 마이크 CPU DAI(I2S·DMA) 직접 작성은 선택 과제로 남긴다.
-
-## 완료한 학습 문서
-- [첫 사용자 프로그램](../examples/hello/cross-compile.md)
-- [커널 소스·설정·빌드·부팅·복구](kernel-build.md)
-- [모듈 기초](../examples/hello_module/kernel-module.md)
-- [문자 디바이스](../examples/char_device/char-device.md)
-- [Device Tree·platform 드라이버](../examples/platform_device/platform-device.md)
-- [MPU6050 I2C·IRQ·FIFO](../examples/mpu6050/mpu6050.md)
-- [MPU6050 IIO·버퍼·mainline 비교](../examples/mpu6050_iio/iio-direct.md)
-- [U-Boot 경유 부팅](../boot/uboot/uboot-boot.md)
-- [카메라 IMX219](../examples/camera/camera.md)
-- [I2S 마이크 INMP441](../examples/mic/mic.md)
-- [초음파 HC-SR04 srf04](../examples/ultrasonic/ultrasonic.md)
-
-환경·배선은 [bringup](bringup.md), 전체 순서와 단계 상태는 [roadmap](roadmap.md).
+- 12단계 Yocto 최소 이미지 완료(2026-11-13 main 머지): [Yocto 문서](learning/12-yocto-minimal.md). Wi-Fi SSH까지 확인, 커널 6.6.63. 64GB 카드 원복은 확인 생략.
+- 17단계 내장 PWM(계획, 노트북, 부품 불필요): 브랜치 `feat/motor-pwm`. 업스트림 `pwm-bcm2835` 신호 확인만 하고 직접 작성은 없다.
+- 15단계 PCA9685(대기, 보드 도착 후): 브랜치 `feat/pca9685`, 노트 `docs/tasks/15-pca9685.md`(브랜치에 있음). 15-A 업스트림 레지스터 확인 → 15-B provider 직접 작성·비교.
+- 이후 18단계에서 통합한다. 커널은 12단계 Yocto 기본 커널 6.6.63에 맞추고, 직접 작성한 드라이버·overlay를 모듈 레시피로 다시 빌드한다. 마이크 CPU DAI(I2S·DMA) 직접 작성은 선택 과제로 남긴다.

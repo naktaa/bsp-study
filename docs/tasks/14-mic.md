@@ -7,7 +7,7 @@ INMP441 I2S MEMS 마이크 모듈을 Pi 4의 I2S 입력에 연결하고 ALSA 캡
 
 - 보드에서 바뀌는 것: 배선, `config.txt`의 `dtoverlay` 한 줄(백업 후 원복), B단계 dtbo를 `/boot/firmware/overlays-bsp-study01/`에 추가
 - 하지 않는 것: 코덱 드라이버 작성, 커널 config 변경·재빌드, 재생(DAC), 다른 장치와 동시 사용 확인(18단계)
-- 마무리 때 학습 문서 `examples/mic/mic.md`를 만든다.
+- 마무리 때 학습 문서 `docs/learning/14-mic.md`를 만든다.
 
 ## 알아둘 개념
 1. **ASoC 세 부분:** CPU DAI `bcm2835-i2s`(`sound/soc/bcm/bcm2835-i2s.c`)가 I2S 레지스터와 DMA를 맡고, 코덱 드라이버는 마이크가 내는 형식만 알리며, machine `simple-audio-card`(`sound/soc/generic/simple-card.c`)가 DT에 적힌 대로 둘을 묶어 ALSA 카드를 만든다. INMP441 전용 드라이버는 없고 빠진 것은 DT 기술뿐이다.
@@ -193,4 +193,4 @@ arecord -l                                                  # 캡처 장치 없�
 - `config.txt.bak-14`로 원복, `grep -c` 결과 0. 재부팅 후 재접속해 `arecord -l`에 캡처 장치 없음(원복 명령 직후 보인 `inmp441` 카드는 재부팅 완료 전 출력)
 
 - 미검증: `b-loud` 채널별 진폭 수치(녹음 완료, 수치 미전달), `a-quiet` 이상 원인
-- 마무리: 학습 문서 [mic.md](../../examples/mic/mic.md), bringup·hardware·worklog·roadmap 갱신
+- 마무리: 학습 문서 [mic.md](../learning/14-mic.md), bringup·hardware·worklog·roadmap 갱신

@@ -10,10 +10,10 @@
 ## 1. 한눈에 보기
 
 - **목적:** INMP441 I2S MEMS 마이크를 커널의 기존 드라이버로 연결해 ALSA로 녹음하고, ASoC가 CPU DAI·코덱·machine 세 드라이버를 DT로 어떻게 묶는지 이해한다. STM32에서 I2S·DMA를 직접 다뤘던 일이 리눅스에서는 어디서 처리되는지 대응시킨다.
-- **기능:** A단계는 기존 rpi overlay `adau7002-simple`로 배선과 녹음을 확인했다. B단계는 같은 구조의 overlay [inmp441-overlay.dts](inmp441-overlay.dts)를 직접 써서 코덱을 `invensense,ics43432`로 바꾸고 카드 이름을 `inmp441`로 했다. C단계(14-3)는 `ics43432` 대신 INMP441 사양으로 직접 작성한 코덱 드라이버 [inmp441_codec.c](../mic_codec/inmp441_codec.c)(`nakta,inmp441`, 외부 모듈)를 overlay [inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)로 연결했다. D단계(14-4)는 B단계 구성에서 `arecord` 대신 직접 작성한 alsa-lib 앱 [mic_capture.c](../mic_app/mic_capture.c)로 녹음하고, [mic_plot.py](../mic_app/mic_plot.py)로 실시간 파형을 그렸다.
+- **기능:** A단계는 기존 rpi overlay `adau7002-simple`로 배선과 녹음을 확인했다. B단계는 같은 구조의 overlay [inmp441-overlay.dts](../../examples/mic/inmp441-overlay.dts)를 직접 써서 코덱을 `invensense,ics43432`로 바꾸고 카드 이름을 `inmp441`로 했다. C단계(14-3)는 `ics43432` 대신 INMP441 사양으로 직접 작성한 코덱 드라이버 [inmp441_codec.c](../../examples/mic_codec/inmp441_codec.c)(`nakta,inmp441`, 외부 모듈)를 overlay [inmp441-study-overlay.dts](../../examples/mic_codec/inmp441-study-overlay.dts)로 연결했다. D단계(14-4)는 B단계 구성에서 `arecord` 대신 직접 작성한 alsa-lib 앱 [mic_capture.c](../../examples/mic_app/mic_capture.c)로 녹음하고, [mic_plot.py](../../examples/mic_app/mic_plot.py)로 실시간 파형을 그렸다.
 - **결과(사용자 보드 실행):** 두 overlay 모두 DT만으로 세 모듈이 자동 적재되고 캡처 카드가 등록됐다. 48kHz·S32_LE·2채널 녹음에서 ch0(L/R=GND)에만 소리가 실리고 목소리를 귀로 확인했다. B단계 코덱은 레이트를 8000~52800Hz, 형식을 S24_LE·S32_LE로 좁혔다. 원복 후 캡처 장치가 없어졌다. C단계는 코덱 모듈을 넣기 전 카드가 대기(`parse error`)하다가 `insmod` 직후 카드 `inmp441study`가 만들어졌고, 레이트가 내 드라이버 값인 8000~50000Hz로 바뀌었다. 카드 unbind 후 `rmmod`, `/lib/modules` 설치 후 부팅 시 자동 적재까지 확인했다. D단계는 협상 값 출력, 이득 8 녹음, 소비 지연에 따른 xrun 횟수(계산과 일치), Pi 데스크톱 실시간 파형을 확인했다.
 - **범위:** 직접 작성한 것은 코덱 드라이버와 사용자 공간 캡처 앱·그래프다. CPU DAI(I2S)·DMA·machine 드라이버, mmap·poll 캡처, 재생(DAC), 다른 장치와 동시 사용은 하지 않았다.
-- **관련 파일:** [inmp441-overlay.dts](inmp441-overlay.dts), [Makefile](Makefile), C단계 [inmp441_codec.c](../mic_codec/inmp441_codec.c)·[inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)·[Makefile](../mic_codec/Makefile), D단계 [mic_capture.c](../mic_app/mic_capture.c)·[mic_plot.py](../mic_app/mic_plot.py)·[Makefile](../mic_app/Makefile), 작업 노트 [14-mic](../../docs/tasks/14-mic.md)·[Codex 지시서](../../docs/tasks/14-mic.codex.md), [14-3-mic-codec](../../docs/tasks/14-3-mic-codec.md)·[Codex 지시서](../../docs/tasks/14-3-mic-codec.codex.md), [14-4-mic-app](../../docs/tasks/14-4-mic-app.md)·[Codex 지시서](../../docs/tasks/14-4-mic-app.codex.md), 사양 [hardware.md](../../docs/hardware.md#inmp441-i2s-mems-마이크), 배선 [bringup.md](../../docs/bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `sound/soc/bcm/bcm2835-i2s.c`, `sound/soc/codecs/ics43432.c`, `sound/soc/generic/simple-card.c`
+- **관련 파일:** [inmp441-overlay.dts](../../examples/mic/inmp441-overlay.dts), [Makefile](../../examples/mic/Makefile), C단계 [inmp441_codec.c](../../examples/mic_codec/inmp441_codec.c)·[inmp441-study-overlay.dts](../../examples/mic_codec/inmp441-study-overlay.dts)·[Makefile](../../examples/mic_codec/Makefile), D단계 [mic_capture.c](../../examples/mic_app/mic_capture.c)·[mic_plot.py](../../examples/mic_app/mic_plot.py)·[Makefile](../../examples/mic_app/Makefile), 작업 노트 [14-mic](../tasks/14-mic.md)·[Codex 지시서](../tasks/14-mic.codex.md), [14-3-mic-codec](../tasks/14-3-mic-codec.md)·[Codex 지시서](../tasks/14-3-mic-codec.codex.md), [14-4-mic-app](../tasks/14-4-mic-app.md)·[Codex 지시서](../tasks/14-4-mic-app.codex.md), 사양 [hardware.md](../hardware.md#inmp441-i2s-mems-마이크), 배선 [bringup.md](../bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `sound/soc/bcm/bcm2835-i2s.c`, `sound/soc/codecs/ics43432.c`, `sound/soc/generic/simple-card.c`
 
 ## 2. 구조
 
@@ -77,7 +77,7 @@ overlay에는 기존 rpi overlay를 따라 `bitclock-slave`·`frame-slave`를 �
 
 ### 코덱 드라이버를 직접 쓰면 무엇이 바뀌는가 (C단계)
 
-코덱 드라이버의 일은 `struct snd_soc_dai_driver`의 `.capture`에 채널·레이트·형식을 적어 등록하는 것이 전부다([inmp441_codec.c#L11](../mic_codec/inmp441_codec.c#L11)). 소리 데이터는 I2S 컨트롤러 → DMA → ALSA ring buffer로 가고 코덱 드라이버를 지나지 않는다. 그래서 바뀌는 것은 협상 범위뿐이다. `rate_max`를 INMP441 데이터시트 값 50000으로 두자 `--dump-hw-params`가 `RATE: [8000 50000]`으로 바뀌었고(B단계 52800), `arecord -r 52000`은 거절되지 않고 `set_rate_near`로 50000Hz에 맞춰졌다.
+코덱 드라이버의 일은 `struct snd_soc_dai_driver`의 `.capture`에 채널·레이트·형식을 적어 등록하는 것이 전부다([inmp441_codec.c#L11](../../examples/mic_codec/inmp441_codec.c#L11)). 소리 데이터는 I2S 컨트롤러 → DMA → ALSA ring buffer로 가고 코덱 드라이버를 지나지 않는다. 그래서 바뀌는 것은 협상 범위뿐이다. `rate_max`를 INMP441 데이터시트 값 50000으로 두자 `--dump-hw-params`가 `RATE: [8000 50000]`으로 바뀌었고(B단계 52800), `arecord -r 52000`은 거절되지 않고 `set_rate_near`로 50000Hz에 맞춰졌다.
 
 ### 카드는 모든 component가 모여야 만들어진다 (probe 지연)
 
@@ -93,7 +93,7 @@ simple-audio-card는 DT의 cpu·codec 노드에 등록된 component를 찾는다
 
 ### period·buffer와 xrun: 앱에서 보는 DMA 버퍼 (D단계)
 
-앱은 레이트·period·buffer를 `snd_pcm_hw_params_set_*_near`로 **요청**하고, `snd_pcm_hw_params()` 뒤 실제 값을 다시 읽는다([mic_capture.c#L170](../mic_app/mic_capture.c#L170)). 레지스터·DMA 설정은 커널이 하고 앱은 협상 결과만 받는다. 이 점이 STM32와 다르다. `snd_pcm_readi()`는 period가 찰 때까지 잠들고, buffer가 넘치면 `-EPIPE`를 돌려준다. 그러면 `snd_pcm_recover()`로 다시 시작하고, 넘친 동안의 샘플은 잃는다([mic_capture.c#L312](../mic_app/mic_capture.c#L312)).
+앱은 레이트·period·buffer를 `snd_pcm_hw_params_set_*_near`로 **요청**하고, `snd_pcm_hw_params()` 뒤 실제 값을 다시 읽는다([mic_capture.c#L170](../../examples/mic_app/mic_capture.c#L170)). 레지스터·DMA 설정은 커널이 하고 앱은 협상 결과만 받는다. 이 점이 STM32와 다르다. `snd_pcm_readi()`는 period가 찰 때까지 잠들고, buffer가 넘치면 `-EPIPE`를 돌려준다. 그러면 `snd_pcm_recover()`로 다시 시작하고, 넘친 동안의 샘플은 잃는다([mic_capture.c#L312](../../examples/mic_app/mic_capture.c#L312)).
 
 48kHz, period 1024(21.3ms)에서 매 읽기 뒤 쉬는 시간(`-s`)을 바꾼 결과(5초):
 
@@ -107,29 +107,29 @@ buffer는 넘치는 간격만 늘리고, 계속 느린 소비는 막지 못한�
 
 ## 4. 구현 흐름
 
-1. **firmware가 DT를 합친다:** `config.txt`의 `dtoverlay=inmp441`로 [inmp441-overlay.dts](inmp441-overlay.dts)가 기본 DTB에 적용된다.
-   - [L7](inmp441-overlay.dts#L7) fragment@0: `i2s_clk_producer`(= `&i2s`)를 `okay`로. 핀 GPIO18~21 ALT0은 기본 DT의 `i2s_pins`(`bcm2711-rpi-ds.dtsi` L308)에 이미 있다.
-   - [L14](inmp441-overlay.dts#L14) fragment@1: 루트에 코덱 노드 `inmp441-codec`, `compatible = "invensense,ics43432"`([L19](inmp441-overlay.dts#L19)).
-   - [L25](inmp441-overlay.dts#L25) fragment@2: 꺼져 있던 `/sound`를 `simple-audio-card`로. 형식 i2s([L29](inmp441-overlay.dts#L29)), 이름 `inmp441`([L30](inmp441-overlay.dts#L30)), cpu는 `&i2s_clk_producer`([L37](inmp441-overlay.dts#L37)), codec은 `&inmp441_codec`([L41](inmp441-overlay.dts#L41)).
-   - [L46](inmp441-overlay.dts#L46) `__overrides__`: `dtoverlay=inmp441,card-name=...`으로 카드 이름을 바꿀 수 있다.
+1. **firmware가 DT를 합친다:** `config.txt`의 `dtoverlay=inmp441`로 [inmp441-overlay.dts](../../examples/mic/inmp441-overlay.dts)가 기본 DTB에 적용된다.
+   - [L7](../../examples/mic/inmp441-overlay.dts#L7) fragment@0: `i2s_clk_producer`(= `&i2s`)를 `okay`로. 핀 GPIO18~21 ALT0은 기본 DT의 `i2s_pins`(`bcm2711-rpi-ds.dtsi` L308)에 이미 있다.
+   - [L14](../../examples/mic/inmp441-overlay.dts#L14) fragment@1: 루트에 코덱 노드 `inmp441-codec`, `compatible = "invensense,ics43432"`([L19](../../examples/mic/inmp441-overlay.dts#L19)).
+   - [L25](../../examples/mic/inmp441-overlay.dts#L25) fragment@2: 꺼져 있던 `/sound`를 `simple-audio-card`로. 형식 i2s([L29](../../examples/mic/inmp441-overlay.dts#L29)), 이름 `inmp441`([L30](../../examples/mic/inmp441-overlay.dts#L30)), cpu는 `&i2s_clk_producer`([L37](../../examples/mic/inmp441-overlay.dts#L37)), codec은 `&inmp441_codec`([L41](../../examples/mic/inmp441-overlay.dts#L41)).
+   - [L46](../../examples/mic/inmp441-overlay.dts#L46) `__overrides__`: `dtoverlay=inmp441,card-name=...`으로 카드 이름을 바꿀 수 있다.
 2. **커널이 compatible로 드라이버를 붙인다:** `snd_soc_bcm2835_i2s`, `snd_soc_ics43432`, `snd_soc_simple_card`가 자동 적재된다. A단계와 비교하면 코덱 모듈만 `snd_soc_adau7002` → `snd_soc_ics43432`로 바뀌었다.
 3. **machine이 카드를 등록한다:** simple-card가 DT의 cpu·codec DAI를 찾아 dai link를 만들고 카드 `inmp441`을 등록한다. 장치 이름 `bcm2835-i2s-ics43432-hifi`가 CPU DAI와 코덱 DAI의 결합을 보여 준다.
 4. **녹음:** `arecord -f S32_LE -r 48000 -c 2`가 hw_params를 협상하면 `bcm2835-i2s`가 마스터 모드로 BCLK(48kHz × 64 = 3.072MHz)·WS를 내보내고 DMA가 수신 데이터를 ring buffer에 채운다. 클럭이 시작되면 마이크가 깨어나므로 녹음 앞부분에 짧은 과도 구간이 생긴다.
 
-5. **C단계: 코덱만 직접 작성한 드라이버로 바꾼다:** [inmp441-study-overlay.dts](../mic_codec/inmp441-study-overlay.dts)는 B단계 overlay에서 코덱 `compatible = "nakta,inmp441"`([L19](../mic_codec/inmp441-study-overlay.dts#L19))과 카드 이름 `inmp441study`([L30](../mic_codec/inmp441-study-overlay.dts#L30)) 두 줄만 다르다.
-   - [L44](../mic_codec/inmp441_codec.c#L44) `of_device_id`의 `nakta,inmp441`이 overlay 코덱 노드와 매칭되어 probe가 불린다.
-   - [L31](../mic_codec/inmp441_codec.c#L31) probe는 `devm_snd_soc_register_component()` 한 번이다. 이 등록이 끝나야 대기하던 simple-card가 카드를 만든다. 실패는 `dev_err_probe()`로 돌려줘 `-EPROBE_DEFER`도 조용히 전달된다.
+5. **C단계: 코덱만 직접 작성한 드라이버로 바꾼다:** [inmp441-study-overlay.dts](../../examples/mic_codec/inmp441-study-overlay.dts)는 B단계 overlay에서 코덱 `compatible = "nakta,inmp441"`([L19](../../examples/mic_codec/inmp441-study-overlay.dts#L19))과 카드 이름 `inmp441study`([L30](../../examples/mic_codec/inmp441-study-overlay.dts#L30)) 두 줄만 다르다.
+   - [L44](../../examples/mic_codec/inmp441_codec.c#L44) `of_device_id`의 `nakta,inmp441`이 overlay 코덱 노드와 매칭되어 probe가 불린다.
+   - [L31](../../examples/mic_codec/inmp441_codec.c#L31) probe는 `devm_snd_soc_register_component()` 한 번이다. 이 등록이 끝나야 대기하던 simple-card가 카드를 만든다. 실패는 `dev_err_probe()`로 돌려줘 `-EPROBE_DEFER`도 조용히 전달된다.
    - remove가 없다. devm이 해제 때 component 등록을 풀어 준다(`soc-devres.c`).
    - component 드라이버는 비어 있다. `ics43432`의 `endianness`를 넣으면 BE 형식까지 광고되고(`soc-core.c` L2889), `use_pmdown_time`은 재생 스트림에만 쓰여 넣지 않았다(Codex 구현 보고).
 
 6. **D단계: alsa-lib 앱으로 캡처한다:** B단계 overlay(카드 `inmp441`) 그대로, 앱이 `S32_LE`·2채널을 고정하고 레이트·period·buffer를 요청한다.
-   - [L244](../mic_app/mic_capture.c#L244) ch0만 `>> 8`로 24비트 값을 얻고, 정수 이득을 곱해 ±8388607로 자른다. 1초마다 이득 전 peak·RMS·clip·xrun을 stderr로 출력한다.
+   - [L244](../../examples/mic_app/mic_capture.c#L244) ch0만 `>> 8`로 24비트 값을 얻고, 정수 이득을 곱해 ±8388607로 자른다. 1초마다 이득 전 peak·RMS·clip·xrun을 stderr로 출력한다.
    - 출력은 WAV(모노 32비트, 끝에서 헤더 크기 보정) 또는 `-o -`(int32 원시 샘플)다. `mic_capture -o - | python3 mic_plot.py`로 실시간 파형을 그린다.
    - 빌드는 WSL에서 Ubuntu 22.04 `libasound2-dev:arm64`(multiarch)로 크로스 컴파일하고, 실행 때는 Pi의 `libasound.so.2`를 쓴다(필요 GLIBC 2.34).
 
 ## 5. 재현
 
-전체 단계와 출력은 [작업 노트](../../docs/tasks/14-mic.md)에 있다. 배선은 [bringup.md 40핀 한눈에 보기](../../docs/bringup.md#40핀-한눈에-보기)(VDD 17, GND 39, SCK 12, WS 35, SD 38, L/R → 34).
+전체 단계와 출력은 [작업 노트](../tasks/14-mic.md)에 있다. 배선은 [bringup.md 40핀 한눈에 보기](../bringup.md#40핀-한눈에-보기)(VDD 17, GND 39, SCK 12, WS 35, SD 38, L/R → 34).
 
 ```bash
 # [WSL] ~/bspworkspace/bsp-study/examples/mic — overlay 빌드·전송
@@ -171,7 +171,7 @@ sudo reboot
 | 조용히 (`q1`) 0~50ms → 150ms 이후 | 약 49만 → 수천 | 0 | 시작 과도 구간 후 가라앉음 |
 | 조용히 (`q1`) 1초 이후 | 약 2.2만 | 0 | 주변 소음 |
 
-**C단계 (직접 작성한 코덱 드라이버)** — 전체 단계는 [14-3 작업 노트](../../docs/tasks/14-3-mic-codec.md).
+**C단계 (직접 작성한 코덱 드라이버)** — 전체 단계는 [14-3 작업 노트](../tasks/14-3-mic-codec.md).
 
 ```bash
 # [WSL] ~/bspworkspace/bsp-study/examples/mic_codec — 모듈·overlay 빌드·전송
@@ -210,7 +210,7 @@ sudo cp /boot/firmware/config.txt.bak-14-3 /boot/firmware/config.txt
 sudo reboot
 ```
 
-**D단계 (alsa-lib 캡처 앱)** — 전체 단계는 [14-4 작업 노트](../../docs/tasks/14-4-mic-app.md). 선행 조건: WSL `libasound2-dev:arm64` 설치(노트 0단계), Pi에 B단계 overlay 적용.
+**D단계 (alsa-lib 캡처 앱)** — 전체 단계는 [14-4 작업 노트](../tasks/14-4-mic-app.md). 선행 조건: WSL `libasound2-dev:arm64` 설치(노트 0단계), Pi에 B단계 overlay 적용.
 
 ```bash
 # [WSL] ~/bspworkspace/bsp-study/examples/mic_app
@@ -246,4 +246,4 @@ make deploy                       # mic_capture, mic_plot.py → pi:bsp/apps/
 **한 번 나온 이상:** 재부팅 직후 첫 녹음(`a-quiet`, A단계)에서 0~50ms는 0이었다가 이후 끝까지 ch0·ch1 모두 최대치(8,388,608)였고 "뿌직" 소리로 들렸다. ch1까지 최대치라 마이크 소리가 아니라 데이터가 잘못 읽힌 것이다. 이어서 녹음한 `a-loud`·`q1`·`q2`와 B단계 녹음은 정상이라 재현되지 않았다. 재부팅 직후 첫 캡처의 프레임 어긋남이나 순간 접촉 불량을 의심하지만 원인은 확인하지 않았다.
 
 - **미검증:** `a-quiet` 이상의 원인과 재현 여부, B단계 `b-loud`·C단계 `c-loud`의 채널별 진폭 수치(녹음·청취는 완료, 수치 미확인), C단계 코덱 없이 bind한 뒤의 대기 목록, D단계 이득 후 peak 수치와 휴대폰을 가까이 둔 레벨 변화, 실행 중 `dtoverlay` 적용·제거, 레이트별(16k·44.1k) 녹음, mmap·poll 기반 캡처.
-- **한계:** GPIO18~21을 I2S가 점유하므로 17단계 모터 PWM은 GPIO12/13으로 옮겨야 한다([bringup.md](../../docs/bringup.md#40핀-한눈에-보기)). 오른쪽 슬롯은 비어 있어 마이크 하나는 모노다.
+- **한계:** GPIO18~21을 I2S가 점유하므로 17단계 모터 PWM은 GPIO12/13으로 옮겨야 한다([bringup.md](../bringup.md#40핀-한눈에-보기)). 오른쪽 슬롯은 비어 있어 마이크 하나는 모노다.

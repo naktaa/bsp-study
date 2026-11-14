@@ -9,7 +9,7 @@
 - 프레임워크에 맡기는 것: platform 드라이버 매칭(`of_match_table`), ASoC component·DAI 등록(`devm_snd_soc_register_component`), 카드 구성(simple-audio-card), DMA·버퍼(bcm2835-i2s·ALSA)
 - 사용자 확인 추가: 직접 작성한 모듈을 `/lib/modules/<버전>/extra/`에 설치해 mainline 드라이버처럼 부팅 때 자동 적재되는지 확인하고, 원복 때 제거한다(3-1단계)
 - 하지 않는 것: CPU DAI(I2S 컨트롤러)·DMA 직접 구현, 커널 config 변경, `modules_install`
-- 마무리 때 [mic.md](../../examples/mic/mic.md)에 14-3 절을 추가한다.
+- 마무리 때 [mic.md](../learning/14-mic.md)에 14-3 절을 추가한다.
 
 ## 알아둘 개념
 1. **코덱 드라이버의 실제 일:** 레지스터가 없는 I2S 마이크의 코덱은 "캡처 스트림이 어떤 채널·레이트·형식을 지원하는가"를 `struct snd_soc_dai_driver`의 `.capture`(`struct snd_soc_pcm_stream`, `include/sound/soc.h` L598~604)에 적어 등록하는 것이 전부다. ALSA는 이 값과 CPU DAI 값의 교집합으로 `hw_params` 범위를 만든다. 참고: `sound/soc/codecs/ics43432.c`(74줄) 전체.

@@ -7,7 +7,7 @@ allowed-tools: Read Grep Glob Bash(git status *) Bash(git log *) Bash(ls *)
 
 요청 주제: $ARGUMENTS
 
-1. `git status`로 현재 브랜치를 확인한다. `docs/worklog.md`, `docs/roadmap.md`, `docs/bringup.md`와 진행 중인 `docs/tasks/NN-*.md`를 읽는다. 진행 중인 노트가 끝나지 않았으면 새 노트를 만들지 않는다. 주제가 비어 있으면 roadmap·worklog 기준 다음 단계를 고른다.
+1. `git status`·`git branch -a`로 현재 브랜치와 열린 기능 브랜치를 확인한다. `docs/roadmap.md`, `docs/bringup.md`, main의 `docs/worklog.md` '다음 작업'과 끝나지 않은 노트(`grep -L "^상태: 완료" docs/tasks/[0-9]*.md`)를 읽는다. 같은 브랜치에서 진행 중인 노트가 끝나지 않았으면 새 노트를 만들지 않는다. 주제가 비어 있으면 roadmap·worklog 기준 다음 단계를 고른다.
 2. 대상 장치·기능의 mainline 드라이버·DT binding·overlay·config 존재 여부를 `external/linux`와 `out/kernel-rpi4/.config`에서 확인한다. 확인하지 못한 것은 "확인 필요"로 둔다.
 3. 채팅으로 아래를 설명하고 **승인을 기다린다**(파일은 아직 만들지 않는다).
    - 목표와 roadmap에서의 위치
@@ -16,5 +16,5 @@ allowed-tools: Read Grep Glob Bash(git status *) Bash(git log *) Bash(ls *)
    - 완료 기준과 사용자가 보드에서 할 확인, 부팅·SD 카드를 바꾸면 백업·복구 경로
    - 보드에서 하루 안에 끝나는 크기인지. 크면 나눈다
 4. 승인되면 `docs/tasks/_note-template.md`로 `docs/tasks/NN-주제.md`(NN = roadmap 단계 번호)를 만든다. 코드 구현이 필요하면 `docs/tasks/_codex-template.md`로 `docs/tasks/NN-주제.codex.md`도 만들고 '지시'를 채운다.
-5. 마지막에 추천 브랜치 이름(`<타입>/<짧은-설명>`, 최신 main에서 생성)을 준다. git 명령은 사용자가 요청할 때만 준다. Codex 지시서를 만들었으면 붙여넣을 한 줄 지시를 준다:
+5. 마지막에 추천 브랜치 이름(`<타입>/<짧은-설명>`, 최신 main에서 생성)과 main의 worklog '다음 작업'에 넣을 한 줄을 준다. git 명령은 사용자가 요청할 때만 준다. Codex 지시서를 만들었으면 붙여넣을 한 줄 지시를 준다:
    `docs/tasks/<NN-주제>.codex.md를 읽고 AGENTS.md 규칙에 따라 구현 계획을 먼저 설명해줘.`

@@ -38,7 +38,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | 인터페이스 | MIPI CSI-2 2-lane 영상 + 센서 제어용 I2C. Pi 4의 CAM 커넥터(15핀 FPC) |
 | 커널 | `drivers/media/i2c/imx219.c`(센서 서브디바이스) → Raspberry Pi unicam `drivers/media/platform/bcm2835/bcm2835-unicam.c`(모듈 `bcm2835_unicam_legacy`, CSI-2 수신) → V4L2 / media controller. upstream `drivers/media/platform/broadcom/`는 rpi 커널에서 `-upstream` compatible에만 매칭되어 쓰이지 않음 |
 | 부팅 설정 | 기본 `camera_auto_detect=1`이면 펌웨어가 인식한 카메라의 overlay를 자동 적용한다. 수동으로 다룰 때는 `camera_auto_detect=0` + `dtoverlay=imx219`. 두 방식 모두 같은 결과를 실측함 |
-| 실측 | `imx219 [3280x2464 10-bit RGGB]`, 모드 640x480@200 / 1640x1232@81 / 1920x1080@47.6 / 3280x2464@21.2 fps, subdev `exposure` 4~3522(라인), `analogue_gain` 0~232 → [카메라 문서](../examples/camera/camera.md) |
+| 실측 | `imx219 [3280x2464 10-bit RGGB]`, 모드 640x480@200 / 1640x1232@81 / 1920x1080@47.6 / 3280x2464@21.2 fps, subdev `exposure` 4~3522(라인), `analogue_gain` 0~232 → [카메라 문서](learning/13-camera.md) |
 | VEDA 사용 | libcamera 640×480@20fps, `hfov_deg=62.2`, `vfov_deg=48.8` |
 | 확인 필요 | 실물이 공식 Camera Module 2인지 호환 모듈인지(호환 모듈은 overlay 옵션이 다를 수 있음) |
 
@@ -61,7 +61,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 - **Pi가 I2S 마스터**로 BCLK·LRCLK를 공급하고 마이크는 SD로 데이터만 보낸다. 모듈 핀: VDD, GND, SCK→BCLK, WS→LRCLK, SD→DIN, L/R.
 - Pi 4 I2S(PCM) 핀은 GPIO18(BCLK), GPIO19(LRCLK), GPIO20(DIN), GPIO21(DOUT)이다. **아래 모터 핀 충돌 참고.**
 - 24bit 데이터가 32bit 슬롯에 들어가므로 ALSA 캡처는 보통 `S32_LE`로 받는다.
-- 커널 대응: 14-1 기존 overlay `adau7002-simple`로 동작 확인, 14-2 mainline 코덱 `sound/soc/codecs/ics43432.c`(레이트 7190~52800Hz, S24_LE·S32) + simple-audio-card를 직접 작성한 overlay `examples/mic/inmp441-overlay.dts`로 연결(완료). 14-3 직접 작성한 코덱 `nakta,inmp441`(레이트 7800~50000Hz, S24_LE·S32_LE, `examples/mic_codec/`, 완료). INMP441 전용 mainline 드라이버는 없음 → [마이크 문서](../examples/mic/mic.md)
+- 커널 대응: 14-1 기존 overlay `adau7002-simple`로 동작 확인, 14-2 mainline 코덱 `sound/soc/codecs/ics43432.c`(레이트 7190~52800Hz, S24_LE·S32) + simple-audio-card를 직접 작성한 overlay `examples/mic/inmp441-overlay.dts`로 연결(완료). 14-3 직접 작성한 코덱 `nakta,inmp441`(레이트 7800~50000Hz, S24_LE·S32_LE, `examples/mic_codec/`, 완료). INMP441 전용 mainline 드라이버는 없음 → [마이크 문서](learning/14-mic.md)
 - [INMP441 제품 페이지 (TDK InvenSense)](https://invensense.tdk.com/?p=582)
 - [INMP441 데이터시트 (미러)](https://microcontroller-course.web.cern.ch/Project_Material/resources/INMP441.pdf)
 
@@ -101,7 +101,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | **주의** | **Echo 출력이 5V 레벨이다. Pi GPIO는 5V tolerant가 아니므로 분압이나 레벨 변환 후 연결한다.** Trig는 3.3V로 구동 가능한지 실물로 확인 |
 
 - 커널: IIO `drivers/iio/proximity/srf04.c`, DT binding `devantech,srf04`. 필수 속성 `trig-gpios`(출력), `echo-gpios`(IRQ 가능 입력). 드라이버가 Echo의 상승·하강 IRQ 사이 시간을 재서 거리를 계산한다.
-- HC-SR04 전용 compatible은 mainline에 없다(2026-07 RFC 패치 제안 단계). 16단계에서 `devantech,srf04`로 동작 확인(자동 적재, 거리 변화, 읽기당 Echo IRQ 2회) → [초음파 문서](../examples/ultrasonic/ultrasonic.md)
+- HC-SR04 전용 compatible은 mainline에 없다(2026-07 RFC 패치 제안 단계). 16단계에서 `devantech,srf04`로 동작 확인(자동 적재, 거리 변화, 읽기당 Echo IRQ 2회) → [초음파 문서](learning/16-ultrasonic.md)
 - 확인 필요: 실물 모델(HC-SR04, 3.3V 동작형 HC-SR04P 등). 3.3V 동작형이면 레벨 변환 조건이 달라진다.
 - [HC-SR04 사용자 매뉴얼 (ElecFreaks, 미러)](https://www-users.york.ac.uk/~mjf5/roach/Datasheets/HCSR04_Manual.pdf)
 - [devantech-srf04 DT binding](https://grok.openbmc.org/xref/openbmc/linux/Documentation/devicetree/bindings/iio/proximity/devantech-srf04.yaml?r=52f171ab)
