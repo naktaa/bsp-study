@@ -84,7 +84,7 @@ VEDA Final에서 사용한 모듈을 bsp-study에서 BSP 관점으로 다루기 
 | 회전 | 약 180° |
 | VEDA 사용 | 50Hz, pan=ch0, tilt=ch1, 중앙 90° |
 
-- 커널: `drivers/pwm/pwm-pca9685.c` → pwmchip 16채널. sysfs `/sys/class/pwm/pwmchipN`에서 period 20,000,000ns, duty 1,000,000~2,000,000ns로 제어.
+- 커널: `drivers/pwm/pwm-pca9685.c` → pwmchip `npwm` 17(ch0~15 + ch16 ALL_LED). overlay `i2c-pwm-pca9685a`로 연결. sysfs `/sys/class/pwm/pwmchipN`에서 period 20,000,000ns, duty 1,000,000~2,000,000ns로 제어. 15단계에서 레지스터 값 확인과 직접 작성 provider `pca9685_simple` 비교(서보 실구동 미검증) → [PCA9685 문서](learning/15-pca9685.md)
 - 서보 2개의 기동 전류를 Pi 5V 핀에서 직접 끌어오지 않는다. 서보 전원은 분리하고 GND만 공통.
 - [PCA9685 데이터시트 (NXP)](https://nxp.com/docs/en/data-sheet/PCA9685.pdf)
 - [SG90 데이터시트 (미러)](https://bit.nkust.edu.tw/~csshieh/teach/111A/mc/datasheet/SG90.pdf)
