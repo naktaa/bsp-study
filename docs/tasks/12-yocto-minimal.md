@@ -6,7 +6,7 @@
 ## 인수인계 (2026-11-13, 노트북 세션에서 작성)
 - 현재 상태: 2부 11·13·14·16단계 완료, main에 머지됨. 이 노트와 지시서만 `feat/yocto-minimal`에 커밋·푸시함. 레이어 파일은 아직 없음.
 - 결정:
-  - 릴리스 scarthgap(5.0 LTS). poky + meta-raspberrypi(scarthgap) + `yocto/meta-bsp-study`. meta-openembedded는 쓰지 않음
+  - 릴리스 scarthgap(5.0 LTS). poky + meta-raspberrypi(scarthgap) + `yocto/meta-bsp-study`. meta-openembedded는 쓰지 않음 → 18단계에서 변경: 카메라 앱·GStreamer를 위해 meta-oe·meta-python·meta-multimedia(scarthgap `2db6aece32c7`) 추가([18 노트](18-integration.md))
   - `MACHINE = "raspberrypi4-64"`, 커널은 meta-raspberrypi 기본 `linux-raspberrypi`(버전은 3단계에서 확인)
   - 이미지는 `bsp-study-image`(`core-image-minimal` + dropbear SSH, 비밀번호 없는 root 로그인). U-Boot·센서 레시피는 넣지 않음. 센서는 18단계
   - 빌드 설정은 레이어 템플릿(`TEMPLATECONF`)으로 만듦. 경로는 `${TOPDIR}`·`##OEROOT##` 기준 상대 경로이고 홈 절대 경로를 쓰지 않음. 빌드 디렉터리는 저장소 밖 `~/yocto`
