@@ -1,6 +1,6 @@
 # 18 장치 통합 (Yocto 6.6)
 
-상태: 계획 · 브랜치: `feat/integration` · Codex 지시서: [18-integration.codex.md](18-integration.codex.md)
+상태: 완료 · 브랜치: `feat/integration` · Codex 지시서: [18-integration.codex.md](18-integration.codex.md)
 진행 장소: 데스크톱 WSL(Codex A·레이어·bitbake·카드 쓰기) ↔ 노트북(Codex B·64GB 카드 기준값·Yocto 카드 확인)
 
 ## 목표
@@ -279,9 +279,14 @@ devcheck all
 rpicam-hello --list-cameras
 rpicam-hello -t 10000                 # HDMI에 10초 미리보기
 rpicam-still -o /tmp/test.jpg && ls -l /tmp/test.jpg
+```
 
-# [노트북 PowerShell 또는 WSL]
-scp root@<IP>:/tmp/test.jpg .
+```bash
+# [노트북 WSL] ~/bspworkspace/bsp-study — Pi SSH 창이 아니라 노트북 새 터미널에서. yocto는 노트북 ~/.ssh/config 별칭
+mkdir -p out/cam18
+scp yocto:/tmp/test.jpg out/cam18/
+ls -l out/cam18/test.jpg
+explorer.exe "$(wslpath -w out/cam18)"
 ```
 
 확인: **[붙여 주세요]** `imx219` 인식, 로그 `Made DRM preview window`(+ HDMI 화면 확인), `Preview window unavailable` 없음, 사진 크기, 노트북에서 열림.
@@ -289,12 +294,12 @@ scp root@<IP>:/tmp/test.jpg .
 **선택 확인(TCP 스트림):** 보드 `rpicam-vid -n -t 0 --inline --listen -o tcp://0.0.0.0:8888` → 노트북 VLC `tcp/h264://<IP>:8888`. 재생 여부와 보드 `top` CPU 사용률만 적는다.
 
 ## 완료 기준
-- [ ] `mpu6050_iio`가 6.6(Codex A)과 6.18(5단계) 모두 `W=1` 경고 0, 6.18 본문 동작 변경 없음
-- [ ] 통합 빌드 1회로 이미지 생성, 부트 파티션에 dtbo 5개와 `config.txt` 항목, `libcamera-apps`·`ipa_rpi_vc4` 포함
-- [ ] Yocto 카드에서 `1-0068/driver` → `mpu6050-iio-study`, 직접 작성 모듈 자동 적재
-- [ ] `devcheck all`의 IMU·PCA9685·마이크·초음파 수치가 64GB 카드 기준값과 맞음(PWM은 17단계 이후 비교)
-- [ ] HDMI 미리보기 10초(`Made DRM preview window`)와 `rpicam-still` 사진 scp 성공
-- [ ] 장치를 모두 켠 상태에서 I2C 주소(0x40·0x68)·핀 충돌 없음
+- [x] `mpu6050_iio`가 6.6(Codex A)과 6.18(5단계) 모두 `W=1` 경고 0, 6.18 본문 동작 변경 없음
+- [x] 통합 빌드 1회로 이미지 생성, 부트 파티션에 dtbo 5개와 `config.txt` 항목, `libcamera-apps`·`ipa_rpi_vc4` 포함 (7단계 빌드 결과와 9단계 보드 동작으로 확인)
+- [x] Yocto 카드에서 `1-0068/driver` → `mpu6050-iio-study`, 직접 작성 모듈 자동 적재
+- [x] `devcheck all`의 IMU·PCA9685·마이크·초음파 수치가 64GB 카드 기준값과 맞음(PWM은 17단계 이후 비교). PCA9685 LED0 1카운트 차이와 초음파 거리 차이는 결과 9 참고
+- [x] HDMI 미리보기 10초(`Made DRM preview window`)와 `rpicam-still` 사진 scp 성공
+- [x] 장치를 모두 켠 상태에서 I2C 주소(0x40·0x68)·핀 충돌 없음
 
 ## 결과
 - 1 64GB 카드 rpicam: `rpicam-hello`·`rpicam-still` 있음. `rpicam-apps` 1.13.0, `libcamera0.7` 0.7.2+rpt20260817(`libcamera-ipa`·`libcamera-v4l2`·`python3-libcamera` 포함) → 6단계 카메라 기준값을 같은 명령으로 얻음. Yocto 쪽은 libcamera 0.4.0 + `libcamera-apps` 1.4.2라 버전이 다르므로 로그 형식·옵션 차이는 버전 차이로 구분해 비교
@@ -317,4 +322,18 @@ scp root@<IP>:/tmp/test.jpg .
 - 7 빌드: `time bitbake bsp-study-image` 성공, real 83m7s, 태스크 6639개(재실행 안 함 4589개), WARNING 1개(v4l-utils git.linuxtv.org 받기 실패 → 미러에서 받아 진행)
 - 7 빌드 결과: `bootfiles/config.txt` L245~246 `dtparam=i2c1=on`·`i2c_arm=on`, L252 `dtoverlay=imx219`, L254~258 dtoverlay 5줄이 각각 별도 줄(앞 공백 없음). `KERNEL_MODULE_AUTOLOAD=" i2c-dev "`, deploy에 dtbo 5개, `rpicam-hello`·`rpicam-still`·`rpicam-vid`, `ipa_rpi_vc4.so`, 커널 `.config` `CONFIG_SRF04=m`(fragment 병합됨), rootfs 203M, `.wic.bz2` 100,105,479B
 - 8 `.img`: 1,205,862,400B. `fdisk -l` FAT boot 130M, ext4 root 1014M(예상 0.9~1.0GB보다 큼, 원인은 결정 5 실측 줄)
-- 미검증:
+- 9 Yocto 카드 기본(HDMI 연결 부팅): `6.6.63-v8`. `lsmod`에 `mpu6050_iio`·`inmp441_codec`·`pwm_pca9685`·`pwm_bcm2835`·`srf04`·`imx219`·`i2c_dev`, `inv_mpu6050` 없음. `/dev/i2c-1` 있음, `1-0068/driver` → `mpu6050-iio-study`, `1-0040/driver` → `pca9685-pwm`. CmaTotal 524288 kB
+- 9 `devcheck all` 6개 PASS, 64GB 기준값과 비교:
+
+  | 항목 | Yocto 6.6.63 | 64GB 6.18.59 | 판단 |
+  | --- | --- | --- | --- |
+  | imu | `iio:device1`, dt 평균 10.016ms(10.011~10.017) | 10.016ms | 같음 |
+  | pca | `pwmchip2`, MODE1 `0x00`, PRE_SCALE `0x79`, LED0 `00 00 34 01` | `pwmchip1`, `0x20`, `0x79`, `00 00 33 01` | 주기 같음. 1.5ms = 307.2카운트를 6.18은 버림(307), 6.6은 308. 6.18은 probe에서 `MODE1_AI` 설정(`pwm-pca9685.c` L477). 6.6 계산·AI 처리는 6.6 소스 확인 필요 |
+  | cam | JPEG 2,045,628 B, FFD8 | 1,681,569 B | 장면·libcamera 버전 차이 |
+  | mic | card 2 `inmp441study`, rms 92051.9, xrun 0 | rms 90241.2, xrun 0 | 맞음 |
+  | sonar | 38~39mm | 120~121mm | 물체 위치 차이. 가깝게 29mm, 멀게 54~55mm로 거리 변화를 따라감(자로 잰 거리 비교는 안 함) |
+  | pwm | `pwmchip0` ch0·ch1 1ms/0.5ms | 같음 | 같음 |
+
+- 9 카메라: `imx219 [3280x2464 10-bit RGGB]` 모드 4개. `rpicam-hello -t 10000`에 `Made DRM preview window`, SSH에서 실행했고 HDMI 모니터(로그인 콘솔 위)에 실시간 영상 확인 후 콘솔로 복귀. `Preview window unavailable` 없음. `rpicam-still` `/tmp/test.jpg` 2,057,331 B → 노트북 WSL에서 `scp yocto:` 후 열림. `Mismatch between Unicam and CamHelper for embedded data usage!` 경고는 13-2와 같은 embedded data 미지원 경고로 영상·사진에 영향 없음
+  - 처음 `scp`를 Pi 셸에서 실행해 실패(`<IP>`를 리다이렉트로 해석, `yocto` 이름 해석 실패, 자기 자신 호스트 키 거부) → 노트북 WSL 명령으로 고침
+- 미검증: PCA9685 6.6 드라이버의 duty 계산(올림 여부)·MODE1 AI 처리 소스 확인. 초음파 자로 잰 거리 비교. 선택 확인(TCP 스트림) 미실행. 모터 PWM 기준값 비교는 17단계 이후
