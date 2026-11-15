@@ -1,19 +1,12 @@
 # MPU6050: IIO 채널·scale·IRQ 버퍼와 mainline 비교
 
-- [1. 한눈에 보기](#1-한눈에-보기)
-- [2. 구조](#2-구조)
-- [3. 알아야 할 개념](#3-알아야-할-개념)
-- [4. 구현 흐름](#4-구현-흐름)
-- [5. 재현](#5-재현)
-- [6. 트러블슈팅과 한계](#6-트러블슈팅과-한계)
-
 ## 1. 한눈에 보기
 
 - **목적:** IIO의 뼈대(채널·scale·trigger·buffer·timestamp)를 직접 구현해 이해하고, 같은 센서를 mainline `inv_mpu6050`에 연결해 생략한 기능이 왜 필요한지 비교한다.
 - **기능:** 직접 작성한 I2C 드라이버 [mpu6050_iio.c](../../examples/mpu6050_iio/mpu6050_iio.c)를 IIO에 등록해 6축 raw·고정 scale을 sysfs로 조회하고, GPIO17 Data Ready IRQ마다 6축과 IRQ 시각을 IIO 버퍼에 넣는다. [mpu6050_iio_app.c](../../examples/mpu6050_iio/mpu6050_iio_app.c)는 버퍼를 읽어 SI 단위 CSV를 기록한다.
-- **결과:** 24바이트 scan 연속 수집·정상 해제, 60초 정지 기준선(5990샘플/59.98초), mainline 드라이버 바인딩·`iio_generic_buffer` 수신을 보드에서 확인했다. 수치와 미검증은 [6장](#6-트러블슈팅과-한계).
-- **범위:** 센서 설정은 100Hz·±2g·±250deg/s로 고정한다. 센서 FIFO·별도 커널 큐·범위 변경·자동 복구는 없다. IIO에 센서 FIFO를 다시 연결하는 작업과 EIS 보완은 제외한다.
-- **기존 예제와의 차이:** [FIFO 예제](06-mpu6050.md)는 IRQ → 센서 FIFO → 자체 커널 큐 → misc read였다. 이번에는 사용자 인터페이스와 버퍼를 IIO에 맡긴다. 두 드라이버를 같은 센서에 동시에 연결하지 않는다.
+- **직접 작성 / 가져다 쓴 것:** IIO 드라이버·overlay·수집 앱은 직접 작성했다. IIO 코어(sysfs 이름·kfifo 버퍼·trigger·장치 파일)·mainline `inv_mpu6050`·rpi `i2c-sensor` overlay·`iio_generic_buffer`는 커널 것을 쓴다. [06 FIFO 예제](06-mpu6050.md)에서 직접 만든 큐·대기·ABI를 IIO가 대신한다.
+- **결과(실측):** 24바이트 scan 연속 수집·정상 해제, 60초 정지 기준선 5990샘플/59.98초(평균 간격 10.0ms). 같은 센서를 mainline에 연결해 `iio_generic_buffer`로 수신. 상세는 [6장](#6-트러블슈팅과-한계).
+- **범위 밖:** 센서 FIFO, 별도 커널 큐, 범위·주파수 변경(100Hz·±2g·±250deg/s 고정), 자동 복구, IIO 센서 FIFO 재연결과 EIS 보완. 두 드라이버를 같은 센서에 동시에 연결하지 않는다.
 - **관련 파일:** [mpu6050_iio.c](../../examples/mpu6050_iio/mpu6050_iio.c), [mpu6050_iio_app.c](../../examples/mpu6050_iio/mpu6050_iio_app.c), [mpu6050-iio-overlay.dts](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts), [Makefile](../../examples/mpu6050_iio/Makefile), [imu_plot.py](../../examples/mpu6050_iio/imu_plot.py), mainline 비교 기록 [T-001](../tasks/T-001-inv-mpu6050-compare.md)
 
 ## 2. 구조
@@ -44,11 +37,8 @@
 
 | 항목 | 학습용 `mpu6050_iio.c` | mainline `inv_mpu6050` | 근거 |
 | --- | --- | --- | --- |
-| 바인딩·이름 | `mpu6050-iio-study` | 드라이버 `inv-mpu6050-i2c`, IIO `name` = `mpu6050`, trigger `mpu6050-dev0` | 실측 |
-| 채널 | 6축 + timestamp | 6축 + 온도 + timestamp (`in_temp_*`, `calibbias`, `mount_matrix` 추가) | 실측(sysfs 목록) |
-| scan index | accel 0~2, gyro 3~5, timestamp 6 | accel 0~2, temp 3, gyro 4~6, timestamp 7. 형식은 같다(`be:s16/16>>0`, `le:s64/64>>0`) | 실측 |
-| 초기 범위·scale | ±2 g `0.000598550`, ±250 deg/s `0.000133231` 고정 | ±2 g `0.000598`, **±2000 deg/s** `0.001064724`. `*_scale_available`로 변경 가능 | 실측 |
-| 주파수 | 공칭 100 Hz 고정 | `sampling_frequency` = 50, 10~500 Hz로 변경 가능 | 실측(50)·읽기 확인(범위, `inv_mpu_core.c` L1687) |
+| 채널·scan index | 6축 + timestamp, accel 0~2, gyro 3~5, ts 6 | 온도 추가, accel 0~2, temp 3, gyro 4~6, ts 7. 형식은 같다(`be:s16/16>>0`) | 실측 |
+| 초기 범위·주파수 | ±2 g, ±250 deg/s, 100 Hz 고정 | ±2 g, **±2000 deg/s**, 50 Hz. `*_scale_available`·`sampling_frequency`(10~500 Hz)로 변경 가능 | 실측·읽기 확인(`inv_mpu_core.c` L1687) |
 | IRQ 종류 | 드라이버가 `IRQF_TRIGGER_HIGH` 지정, 칩 LATCH ([mpu6050_iio.c#L353](../../examples/mpu6050_iio/mpu6050_iio.c#L353)) | DT의 종류를 `irq_get_trigger_type()`으로 읽어 칩 INT_PIN_CFG를 맞춤. 이번 overlay는 falling → active-low, 비래치 | 실측(`/proc/interrupts` `17 Edge inv_mpu`)·읽기 확인(`inv_mpu_core.c` L1922) |
 | IRQ 없을 때 | `request_threaded_irq()` 실패 시 probe 실패로 정리 ([mpu6050_iio.c#L353](../../examples/mpu6050_iio/mpu6050_iio.c#L353)) | raw·scale은 동작하지만 **trigger·buffer를 만들지 않음** | 학습용은 읽기 확인(미실측). mainline은 실측([6-2](#6-2-실행-중-dtoverlay로-적용한-mainline-장치에-buffer가-없음))·읽기 확인(`inv_mpu_core.c` L2086) |
 | timestamp 출처 | hard IRQ의 `iio_get_time_ns()`, CLOCK_MONOTONIC 지정 ([mpu6050_iio.c#L324](../../examples/mpu6050_iio/mpu6050_iio.c#L324)) | IRQ 시각과 칩 클럭 주기로 `inv_sensors_timestamp`가 샘플별 시각을 계산. 시계 지정이 없어 IIO 기본값 CLOCK_REALTIME | 실측(값이 수집 시점의 epoch ns, 간격 20.00~20.02 ms)·읽기 확인 |
@@ -66,15 +56,11 @@ FIFO 예제는 문자 장치(misc) 위에서 사용자 인터페이스를 전부
 | 단위 변환 | 앱에 16384·131 상수를 직접 씀 [mpu6050_app.c#L12](../../examples/mpu6050/mpu6050_app.c#L12) | `in_*_scale` 규약 | scale 반환 [mpu6050_iio.c#L85](../../examples/mpu6050_iio/mpu6050_iio.c#L85) |
 | 샘플 큐 | 링 배열·head·queued·overrun 처리 [mpu6050_drv.c#L193](../../examples/mpu6050/mpu6050_drv.c#L193) | kfifo 버퍼, `buffer/length`·`watermark` | push 호출 [mpu6050_iio.c#L206](../../examples/mpu6050_iio/mpu6050_iio.c#L206) |
 | 대기·깨우기 | wait queue [mpu6050_drv.c#L366](../../examples/mpu6050/mpu6050_drv.c#L366)·[L468](../../examples/mpu6050/mpu6050_drv.c#L468). poll은 미구현 [mpu6050_drv.c#L390](../../examples/mpu6050/mpu6050_drv.c#L390) | 버퍼 read/poll | 없음(앱이 poll 사용 [mpu6050_iio_app.c#L151](../../examples/mpu6050_iio/mpu6050_iio_app.c#L151)) |
-| 수명·open 관리 | kref·단일 reader [mpu6050_drv.c#L288](../../examples/mpu6050/mpu6050_drv.c#L288)·[L281](../../examples/mpu6050/mpu6050_drv.c#L281) | 장치 파일·참조를 IIO 코어가 관리 | devm 할당 [mpu6050_iio.c#L310](../../examples/mpu6050_iio/mpu6050_iio.c#L310) |
-| 수집 시작·중지 | probe에서 IRQ를 켜고 중지 함수를 직접 작성 [mpu6050_drv.c#L472](../../examples/mpu6050/mpu6050_drv.c#L472) | `buffer/enable` 쓰기 → 트리거 ops 호출 | set_trigger_state [mpu6050_iio.c#L126](../../examples/mpu6050_iio/mpu6050_iio.c#L126) |
 | 타임스탬프 | 순번만 있고 시각 없음 [mpu6050_data.h#L8](../../examples/mpu6050/mpu6050_data.h#L8) | 소프트 타임스탬프 채널 + push_with_ts | [mpu6050_iio.c#L71](../../examples/mpu6050_iio/mpu6050_iio.c#L71)·[L166](../../examples/mpu6050_iio/mpu6050_iio.c#L166) |
-| 채널 선택 | 항상 6축 고정 구조체 | `scan_elements/*_en` | scan mask [mpu6050_iio.c#L75](../../examples/mpu6050_iio/mpu6050_iio.c#L75) |
-| 직접 읽기와 버퍼의 상호 배제 | 직접 읽기 경로 없음(mutex는 큐 보호용 [mpu6050_drv.c#L58](../../examples/mpu6050/mpu6050_drv.c#L58)) | `iio_device_claim_direct()` | [mpu6050_iio.c#L102](../../examples/mpu6050_iio/mpu6050_iio.c#L102) |
 
-센서 FIFO 사용 여부는 IIO 전환과 별개의 차이다. 이번 예제는 FIFO 없이 Data Ready마다 측정 레지스터를 읽으며, IIO에 센서 FIFO를 붙이는 작업은 범위에서 제외했다.
+이 밖에 open 수명 관리(kref → IIO 코어), 수집 시작·중지(직접 작성 → `buffer/enable`과 트리거 ops), 채널 선택(`scan_elements/*_en`), 직접 읽기와 버퍼의 상호 배제(`iio_device_claim_direct()`)도 IIO가 맡는다.
 
-IMU·ADC·압력 센서처럼 **샘플 단위 측정값**을 내는 장치는 커널에서 IIO로 다루는 것이 표준이다. 같은 센서의 mainline 드라이버 `drivers/iio/imu/inv_mpu6050/`도 IIO 드라이버다(대상 커널 `external/linux`에서 확인, 2026-11-10). mainline 드라이버는 regmap·runtime PM·센서 FIFO까지 지원하지만, 이 예제는 IIO의 뼈대를 배우기 위해 고정 범위 raw·scale과 FIFO 없는 버퍼만 직접 구현했다. 두 드라이버를 같은 센서에 번갈아 연결해 비교한 결과는 [2-2](#2-2-mainline-inv_mpu6050와의-차이)에 있다.
+IMU·ADC·압력 센서처럼 **샘플 단위 측정값**을 내는 장치는 IIO로 다루는 것이 표준이고, 같은 센서의 mainline `drivers/iio/imu/inv_mpu6050/`도 IIO 드라이버다. 센서 FIFO 사용 여부는 IIO 전환과 별개의 차이라서 이 예제는 FIFO 없이 Data Ready마다 측정 레지스터를 읽는다.
 
 ### 왜 mainline은 DT의 IRQ 종류로 칩 설정을 정하는가
 
@@ -88,23 +74,9 @@ IRQ 처리가 늦어도 센서가 FIFO에 샘플을 쌓아 두므로 유실이 �
 
 ### 왜 raw가 아니라 raw × scale로 비교하는가
 
-gyro 초기 범위가 다르므로 raw를 바로 비교하지 않는다. 각 드라이버 sysfs의 raw × scale(SI 단위)로 비교한다. 정지 자세 가속도는 60초 기준선과 1% 이내로 맞지만, 축별 차이가 노이즈 범위 안인지는 판정하지 않았다([6-3](#6-3-실측과-기준선)).
+gyro 초기 범위가 다르므로 raw를 바로 비교하지 않는다. 각 드라이버 sysfs의 raw × scale(SI 단위)로 비교한다. 정지 자세 가속도는 60초 기준선과 1% 이내로 맞지만, 축별 차이가 노이즈 범위 안인지는 판정하지 않았다([6장](#6-트러블슈팅과-한계)).
 
 mainline의 초기 gyro 범위는 ±2000 deg/s라 raw 크기가 학습용(±250)의 약 1/8이다. timestamp도 mainline은 CLOCK_REALTIME, 학습용은 CLOCK_MONOTONIC이라 값을 직접 빼지 않는다.
-
-### 왜 같은 0x68에 두 드라이버를 동시에 붙이지 않는가
-
-같은 버스·주소의 I2C client는 하나만 등록된다. 다른 경로로 접근하더라도 두 드라이버가 같은 레지스터와 INT를 서로 다르게 설정해 IRQ 극성과 데이터가 꼬인다. 그래서 한쪽 overlay·모듈을 내린 것을 확인한 뒤 전환한다([5-7](#5-7-mainline-inv_mpu6050로-같은-센서-읽기) 선행 조건).
-
-### 왜 직접 작성하고 mainline과 비교했는가
-
-| 방식 | 내용 | 특징 |
-| --- | --- | --- |
-| VEDA Final(사용자 공간) | `/dev/i2c-*` 직접 접근 + wiringPi `waitForInterrupt()` 후 센서 FIFO 비움 | 빠르게 구현할 수 있지만 다른 프로그램이 표준 방식으로 같은 장치를 쓸 수 없고 커널 드라이버·DT는 다루지 않음 |
-| 학습용 IIO 드라이버 | 채널·trigger·buffer를 최소 구현 | IIO 구조 이해용 |
-| mainline 드라이버 | 검증된 드라이버를 DT로 연결 | BSP 작업의 기본. 남은 장치도 같은 방식으로 진행 |
-
-같은 센서로 비교하면 학습용에서 생략한 기능(센서 FIFO, 범위 선택, DT 기반 IRQ 설정)이 왜 필요한지 구체적으로 설명할 수 있다.
 
 ## 4. 구현 흐름
 
@@ -183,7 +155,7 @@ sysfs raw 조회와 버퍼 수집이 동시에 센서를 읽으면 I2C 전송이
 | 4 | IRQ thread | `mpu6050_trigger_handler`: 14B 읽기 → 온도 제외 → 6축+시각 24B를 kfifo에 push |
 | 5 | 사용자 공간 | 앱: `read()` 24B → raw × scale → CSV 한 줄 |
 
-**설명 — primary와 thread 분리, LATCH + IRQF_ONESHOT:** primary 핸들러는 hard IRQ 문맥이라 잠들 수 없다. I2C 전송은 잠들 수 있으므로 thread로 미루고, primary에서는 시각만 가능한 한 빨리 기록한다.
+**설명 — primary와 thread 분리:** I2C를 thread에서 하는 이유와 level-high + 래치 짝은 [06 문서](06-mpu6050.md#왜-threaded-irq로-받는가)와 같다. 06과 다른 점은 primary 핸들러가 비어 있지 않고 **시각만** 가능한 한 빨리 기록한다는 것이다.
 
 ```c
 static irqreturn_t mpu6050_irq(int irq, void *private)
@@ -195,7 +167,7 @@ static irqreturn_t mpu6050_irq(int irq, void *private)
 }
 ```
 
-센서는 LATCH 설정이라 INT_STATUS를 읽을 때까지 INT를 HIGH로 유지한다. 레벨 HIGH IRQ에서 래치를 풀기 전에 선을 다시 허용하면 같은 IRQ가 반복해서 들어온다. 그래서 `IRQF_ONESHOT`으로 thread가 끝날 때까지 선을 막아 둔다. `iio_trigger_poll_nested()`는 수집 콜백을 같은 thread에서 동기로 실행한다. 따라서 다음 IRQ가 `pollfunc->timestamp`를 덮어쓰기 전에 그 샘플의 시각이 버퍼로 들어가며, 별도 잠금이 필요 없다. 수집 콜백은 성공·실패 모두 `iio_trigger_notify_done()`을 호출해야 다음 트리거를 받는다.
+`IRQF_ONESHOT`으로 thread가 래치를 풀 때까지 선을 막아 같은 IRQ가 반복되지 않게 한다. `iio_trigger_poll_nested()`는 수집 콜백을 같은 thread에서 동기로 실행한다. 따라서 다음 IRQ가 `pollfunc->timestamp`를 덮어쓰기 전에 그 샘플의 시각이 버퍼로 들어가며, 별도 잠금이 필요 없다. 수집 콜백은 성공·실패 모두 `iio_trigger_notify_done()`을 호출해야 다음 트리거를 받는다.
 
 **설명 — 24바이트 scan 구조:** 센서는 0x3b부터 가속도 6B·온도 2B·자이로 6B를 연속으로 내므로 14B를 한 번에 읽고 온도만 건너뛴다.
 
@@ -231,24 +203,11 @@ mpu6050_sleep(client);
 
 ## 5. 재현
 
-| 단계 | 내용 |
-| --- | --- |
-| 5-0 준비 | 커널 빌드 디렉터리·배선·기존 FIFO 드라이버 정리 |
-| 5-1·5-2 | 모듈·overlay·앱 빌드, Pi로 배포 |
-| 5-3 | overlay로 I2C client 생성 → probe에서 ①~⑧ 등록 |
-| 5-4 | 채널 → read_raw → sysfs로 확인 |
-| 5-5 | 버퍼·트리거·타임스탬프 → 앱으로 연속 수집 |
-| 5-6 | 버퍼 중지와 등록 역순 해제 |
-| 5-7 | 같은 센서를 mainline 드라이버로 연결해 비교 |
+<details><summary>준비 → 빌드·배포 → probe → raw·scale → 버퍼 수집 → 정리 → mainline 비교 (펼치기)</summary>
 
 ### 5-0. 준비
 
-| 항목 | 값 |
-| --- | --- |
-| 보드·커널 | Pi 4, `6.18.59-v8-bsp-study01` (구축 과정: [커널 구축](07-kernel-build.md)) |
-| WSL 커널 빌드 디렉터리 | `~/bspworkspace/bsp-study/out/kernel-rpi4` ([Makefile](../../examples/mpu6050_iio/Makefile)의 KDIR 기본값). `.config`에 `CONFIG_IIO=m` |
-| 배선 | [bringup.md 모듈과 핀 연결표](../bringup.md#모듈과-핀-연결표). SDA/SCL·전원과 INT → GPIO17(물리 11) |
-| 도구 | ARM64 크로스 GCC, SSH 별칭 `pi` |
+선행 조건: Pi 4 + `6.18.59-v8-bsp-study01`([07](07-kernel-build.md)), WSL `out/kernel-rpi4`(`CONFIG_IIO=m`), SSH 별칭 `pi`, 배선은 [bringup 연결표](../bringup.md#모듈과-핀-연결표)(INT → GPIO17, 물리 11).
 
 ```bash
 # [WSL] ~/bspworkspace/bsp-study
@@ -278,17 +237,7 @@ modinfo -F vermagic ./mpu6050_iio.ko
 modinfo -F depends ./mpu6050_iio.ko
 ```
 
-**관련 코드**
-- [Makefile#L1](../../examples/mpu6050_iio/Makefile#L1) — KERNELRELEASE 분기(Kbuild가 다시 읽을 때 obj-m만 본다)
-- [Makefile#L4](../../examples/mpu6050_iio/Makefile#L4) — KDIR·ARCH·CROSS_COMPILE·APP_CC·DTC 변수
-- [Makefile#L17](../../examples/mpu6050_iio/Makefile#L17) — all → modules / overlay / app 타깃
-
-**확인 포인트**
-- 두 파일 모두 `ELF 64-bit ... ARM aarch64`
-- vermagic이 `6.18.59-v8-bsp-study01`로 시작
-- depends = `industrialio,industrialio-triggered-buffer`
-
-**설명:** `make`를 처음 실행하면 KERNELRELEASE가 비어 있어 else 쪽 타깃이 동작한다. modules 타깃은 커널 빌드 디렉터리의 Makefile을 `M=`으로 호출하고, Kbuild는 이 Makefile을 KERNELRELEASE가 설정된 상태로 다시 읽어 `obj-m`만 사용한다. overlay는 커널 트리의 dtc로 `-@`(라벨 심볼 포함) 컴파일하고, 앱은 APP_CC로 크로스 빌드한다.
+**확인 포인트:** 두 파일 모두 ARM aarch64, vermagic `6.18.59-v8-bsp-study01`, depends `industrialio,industrialio-triggered-buffer`. Makefile 구조([L17](../../examples/mpu6050_iio/Makefile#L17) `all: modules overlay app`)는 [02 문서](02-kernel-module.md#왜-makefile이-두-번-읽히는가)와 같고, overlay는 커널 트리의 dtc로 `-@`(라벨 심볼 포함) 컴파일한다.
 
 ### 5-2. 배포
 
@@ -299,11 +248,7 @@ modinfo -F depends ./mpu6050_iio.ko
 make deploy
 ```
 
-**관련 코드**
-- [Makefile#L10](../../examples/mpu6050_iio/Makefile#L10) — 대상 호스트 `pi`와 Pi 쪽 디렉터리
-- [Makefile#L33](../../examples/mpu6050_iio/Makefile#L33) — ko·dtbo·앱·imu_plot.py를 scp
-
-**확인 포인트:** scp 4건이 오류 없이 끝나고 `~/bsp/modules/mpu6050_iio.ko`, `~/bsp/overlays/mpu6050-iio-overlay.dtbo`, `~/bsp/apps/{mpu6050_iio_app,imu_plot.py}`가 있다.
+**확인 포인트([deploy L33](../../examples/mpu6050_iio/Makefile#L33)):** scp 4건이 오류 없이 끝나고 `~/bsp/modules/mpu6050_iio.ko`, `~/bsp/overlays/mpu6050-iio-overlay.dtbo`, `~/bsp/apps/{mpu6050_iio_app,imu_plot.py}`가 있다.
 
 ### 5-3. overlay 적용 → probe
 
@@ -327,25 +272,14 @@ sudo dmesg | grep -F 'mpu6050-iio-study' | tail -1
 grep -F 'mpu6050-iio-data-ready' /proc/interrupts
 ```
 
-**관련 코드**
-- [mpu6050-iio-overlay.dts#L7](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts#L7) — GPIO17 pinctrl(입력, 풀다운)
-- [mpu6050-iio-overlay.dts#L29](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts#L29) — client 노드: compatible·reg·pinctrl-0·`interrupts = <17 4>`
-- [mpu6050_iio.c#L391](../../examples/mpu6050_iio/mpu6050_iio.c#L391) — of_match(compatible)·i2c_driver 등록
-- [mpu6050_iio.c#L294](../../examples/mpu6050_iio/mpu6050_iio.c#L294) — probe 사전 검사: DT IRQ·I2C 기능·WHO_AM_I
-- [mpu6050_iio.c#L310](../../examples/mpu6050_iio/mpu6050_iio.c#L310) — iio_dev 할당·필드 설정·monotonic 클록
-- [mpu6050_iio.c#L233](../../examples/mpu6050_iio/mpu6050_iio.c#L233) — 센서 초기화(100Hz·±2g·±250deg/s·INT LATCH)
-- [mpu6050_iio.c#L332](../../examples/mpu6050_iio/mpu6050_iio.c#L332) — triggered buffer·트리거 할당/등록/immutable
-- [mpu6050_iio.c#L352](../../examples/mpu6050_iio/mpu6050_iio.c#L352) — request_threaded_irq(NO_AUTOEN)·iio_device_register·ready 로그
-- [mpu6050_iio.c#L366](../../examples/mpu6050_iio/mpu6050_iio.c#L366) — probe 실패 시 역순 정리
+**관련 코드:** overlay client 노드 [L29](../../examples/mpu6050_iio/mpu6050-iio-overlay.dts#L29), of_match [L391](../../examples/mpu6050_iio/mpu6050_iio.c#L391), probe 사전 검사 [L294](../../examples/mpu6050_iio/mpu6050_iio.c#L294), 센서 초기화 [L233](../../examples/mpu6050_iio/mpu6050_iio.c#L233), 실패 시 역순 정리 [L366](../../examples/mpu6050_iio/mpu6050_iio.c#L366). 등록 순서는 [2-1](#2-1-드라이버가-채우는-것과-iio-코어가-해-주는-것) 표에 있다.
 
 **확인 포인트**
 - driver 링크 = `/sys/bus/i2c/drivers/mpu6050-iio-study`
 - `[IIO] ready: raw + scale + IRQ timestamp buffer, scan=24 bytes`
 - `/proc/interrupts`에 GPIO17 Level `mpu6050-iio-data-ready` 행이 있고 횟수는 0
 
-초기화에 100ms 대기가 두 번 있어 driver 링크가 먼저 보이고 ready 로그가 늦게 나올 수 있다. 잠시 뒤 다시 확인한다.
-
-DT IRQ·pinctrl과 IRQF_NO_AUTOEN의 의미는 [4-1](#4-1-probe-dt-irq와-iio-등록)에 있다.
+초기화에 100ms 대기가 두 번 있어 driver 링크가 먼저 보이고 ready 로그가 늦게 나올 수 있다.
 
 ### 5-4. raw·scale 조회
 
@@ -363,18 +297,10 @@ cat "$imu_iio_path/in_accel_scale" "$imu_iio_path/in_anglvel_scale"
 cat "$imu_iio_path/current_timestamp_clock" "$imu_iio_path/scan_elements/in_timestamp_type"
 ```
 
-**관련 코드**
-- [mpu6050_iio.c#L39](../../examples/mpu6050_iio/mpu6050_iio.c#L39) — scale nano 상수
-- [mpu6050_iio.c#L48](../../examples/mpu6050_iio/mpu6050_iio.c#L48) — 채널 매크로·6축+timestamp 배열
-- [mpu6050_iio.c#L85](../../examples/mpu6050_iio/mpu6050_iio.c#L85) — SCALE 분기(IIO_VAL_INT_PLUS_NANO)
-- [mpu6050_iio.c#L100](../../examples/mpu6050_iio/mpu6050_iio.c#L100) — RAW 분기: claim_direct → 2바이트 읽기 → release
-
 **확인 포인트**
 - 경로가 `/sys/bus/iio/devices/iio:deviceN`. 비어 있으면 5-3부터 확인
 - raw 6개가 -32768~32767 정수이고 자세를 바꾸면 변한다
 - scale `0.000598550`, `0.000133231` / clock `monotonic` / timestamp type `le:s64/64>>0`
-
-scale 표현과 버퍼 상태에 따른 결과는 [4-3](#4-3-read_raw-scale과-직접-읽기의-상호-배제)에 있다.
 
 ### 5-5. 버퍼 수집
 
@@ -388,23 +314,7 @@ echo $?
 sudo dmesg | grep -F 'mpu6050-iio-study' | tail -2
 ```
 
-**관련 코드 — 앱이 버퍼를 켜기까지**
-- [mpu6050_iio_app.c#L124](../../examples/mpu6050_iio/mpu6050_iio_app.c#L124) — check_scan: index 0~6·type·clock 확인
-- [mpu6050_iio_app.c#L258](../../examples/mpu6050_iio/mpu6050_iio_app.c#L258) — 이미 켜진 버퍼면 건드리지 않고 종료
-- [mpu6050_iio_app.c#L110](../../examples/mpu6050_iio/mpu6050_iio_app.c#L110) — prepare_buffer: 7채널·length 128·watermark 1
-- [mpu6050_iio_app.c#L318](../../examples/mpu6050_iio/mpu6050_iio_app.c#L318) — buffer/enable=1
-
-**관련 코드 — 드라이버의 수집 경로**
-- [mpu6050_iio.c#L143](../../examples/mpu6050_iio/mpu6050_iio.c#L143) — set_trigger_state 켜기: INT_STATUS 정리 → INT_ENABLE → enable_irq
-- [mpu6050_iio.c#L161](../../examples/mpu6050_iio/mpu6050_iio.c#L161) — primary IRQ: 시각만 기록
-- [mpu6050_iio.c#L170](../../examples/mpu6050_iio/mpu6050_iio.c#L170) — IRQ thread: INT_STATUS 읽어 래치 해제 → poll_nested
-- [mpu6050_iio.c#L186](../../examples/mpu6050_iio/mpu6050_iio.c#L186) — trigger_handler: 14B 읽기 → 온도 제외 → push_with_ts → notify_done
-- [mpu6050_iio.c#L74](../../examples/mpu6050_iio/mpu6050_iio.c#L74) — available_scan_masks(하드웨어 수집은 항상 6축)
-
-**관련 코드 — 앱이 scan을 해석**
-- [mpu6050_iio_app.c#L151](../../examples/mpu6050_iio/mpu6050_iio_app.c#L151) — read_sample: poll 최대 5초 → 24바이트 read
-- [mpu6050_iio_app.c#L187](../../examples/mpu6050_iio/mpu6050_iio_app.c#L187) — decode_axis: big-endian 2바이트 → int16
-- [mpu6050_iio_app.c#L342](../../examples/mpu6050_iio/mpu6050_iio_app.c#L342) — timestamp(오프셋 16) 복사·scale 곱
+**관련 코드(앱):** check_scan [L124](../../examples/mpu6050_iio/mpu6050_iio_app.c#L124) → 이미 켜진 버퍼면 종료 [L258](../../examples/mpu6050_iio/mpu6050_iio_app.c#L258) → prepare_buffer(7채널·length 128·watermark 1) [L110](../../examples/mpu6050_iio/mpu6050_iio_app.c#L110) → enable [L318](../../examples/mpu6050_iio/mpu6050_iio_app.c#L318) → read_sample(poll 최대 5초) [L151](../../examples/mpu6050_iio/mpu6050_iio_app.c#L151) → decode_axis(big-endian) [L187](../../examples/mpu6050_iio/mpu6050_iio_app.c#L187) → timestamp(오프셋 16) [L342](../../examples/mpu6050_iio/mpu6050_iio_app.c#L342). 드라이버 쪽 경로는 [4-5](#4-5-irq에서-버퍼까지-한-샘플의-경로).
 
 **확인 포인트**
 - `=== OPEN ===` 다음에 `device: /dev/iio:deviceN`, `CSV: /home/<사용자>/bsp/logs/YYYYMMDD-HHMMSS_mpu6050.csv`
@@ -413,7 +323,7 @@ sudo dmesg | grep -F 'mpu6050-iio-study' | tail -2
 
 CSV 첫 줄은 `time_s,ax_m_s2,ay_m_s2,az_m_s2,gx_rad_s,gy_rad_s,gz_rad_s`이다. 값은 첫 IRQ부터의 경과 초와 SI 6축을 소수 둘째 자리로 기록한다. 앱은 `~/bsp/logs`를 직접 만들고, sudo로 실행해도 원래 사용자의 홈에 기록하며, 같은 이름의 파일은 덮어쓰지 않는다(`fopen "wx"`). 수집 중 다른 터미널에서 `cat "$imu_iio_path/in_accel_x_raw"`를 실행하면 4-3의 표대로 `Device or resource busy`가 예상된다.
 
-**정해진 시간만 수집(정지 기준선):** 센서를 고정해 두고 Ctrl+C 대신 `timeout`으로 SIGINT를 보낸 뒤 CSV에서 축별 평균·표준편차와 간격을 계산한다. 결과는 [6-3](#6-3-실측과-기준선)에 있다.
+**정해진 시간만 수집(정지 기준선):** 센서를 고정해 두고 Ctrl+C 대신 `timeout`으로 SIGINT를 보낸 뒤 CSV에서 축별 평균·표준편차와 간격을 계산한다. 결과는 [6장](#6-트러블슈팅과-한계)에 있다.
 
 ```bash
 # [Pi] ~/bsp/apps — 5-3 적용 후. --preserve-status가 없으면 timeout이 앱 종료 코드 대신 124를 반환한다
@@ -456,19 +366,11 @@ sudo rmmod mpu6050_iio
 lsmod | grep '^mpu6050_iio '                         # 출력 없음
 ```
 
-**관련 코드**
-- [mpu6050_iio_app.c#L383](../../examples/mpu6050_iio/mpu6050_iio_app.c#L383) — 앱 종료 경로의 buffer/enable=0
-- [mpu6050_iio.c#L133](../../examples/mpu6050_iio/mpu6050_iio.c#L133) — set_trigger_state 끄기: disable_irq → INT_ENABLE=0
-- [mpu6050_iio.c#L377](../../examples/mpu6050_iio/mpu6050_iio.c#L377) — remove: 등록의 역순 정리
-- [mpu6050_iio.c#L275](../../examples/mpu6050_iio/mpu6050_iio.c#L275) — 센서 슬립
+**확인 포인트:** buffer/enable `0`, raw 정수, dmesg 마지막 줄 `[REMOVE] detached`, 장치 경로·IRQ 행·모듈 모두 없음.
 
-**확인 포인트**
-- buffer/enable = `0`, raw는 정수
-- dmesg 마지막 줄 `[REMOVE] detached`, 장치 경로·IRQ 행·모듈 모두 없음
-
-장치 파일을 close한다고 버퍼가 꺼지지는 않는다. 앱은 Ctrl+C·SIGTERM·오류 시 공통 종료 경로에서 0을 쓰며, SIGKILL·전원 차단에서는 이를 보장하지 않는다. 버퍼를 끌 때 `disable_irq()`가 진행 중인 IRQ thread와 수집 콜백이 끝날 때까지 기다린 뒤 센서 알림을 끈다. 이 I2C 쓰기가 실패해도 Linux IRQ는 이미 막혀 있으므로 경고만 남기고 0을 반환해 IIO의 정리를 진행시킨다. industrialio 계열 공통 모듈은 다른 장치가 쓸 수 있어 내리지 않는다.
-
-remove가 등록의 역순인 이유는 [4-6](#4-6-중지와-remove)에 있다.
+- 장치 파일을 close해도 버퍼는 꺼지지 않는다. 앱은 Ctrl+C·SIGTERM·오류 때 공통 종료 경로에서 0을 쓴다([L383](../../examples/mpu6050_iio/mpu6050_iio_app.c#L383)). SIGKILL·전원 차단은 예외다.
+- 버퍼를 끌 때 `disable_irq()`가 진행 중인 thread가 끝나기를 기다린 뒤 센서 알림을 끈다([L133](../../examples/mpu6050_iio/mpu6050_iio.c#L133)). 이 I2C 쓰기가 실패해도 IRQ는 이미 막혀 있어 경고만 남긴다.
+- industrialio 공통 모듈은 다른 장치가 쓸 수 있어 내리지 않는다.
 
 ### 5-7. mainline `inv_mpu6050`로 같은 센서 읽기
 
@@ -538,18 +440,10 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 - 도구 출력 `iio trigger number being used is 0`, `mpu6050-dev0`. 열은 accel X/Y/Z(m/s²), gyro X/Y/Z(rad/s), timestamp(ns)
 - IRQ 횟수 0 → 5, 수집 후 `buffer/enable` = `0`
 
-```text
--5.763524 -2.091804 -6.627036 -0.046848 -0.004259 0.011712 1794243198960687246
--5.769504 -2.126488 -6.635408 -0.047913 -0.010647 0.010647 1794243198980687066
--5.785052 -2.104960 -6.622252 -0.042589 -0.013841 0.006388 1794243199000696986
- 61:          5          0          0          0 pinctrl-bcm2835  17 Edge      inv_mpu
-```
+- `-a`를 주면 활성 채널이 없을 때 온도까지 켜므로 6축+timestamp를 sysfs로 직접 고르고 `-a` 없이 실행한다. 도구는 자기가 켠 채널만 끄므로(`tools/iio/iio_generic_buffer.c` L303) 수동으로 켠 채널은 직접 되돌린다.
+- trigger 이름 `%s-dev%d`(`inv_mpu_trigger.c` L306)가 도구의 기본 규칙과 같아 `-t` 없이 연결된다. timestamp는 epoch ns(CLOCK_REALTIME)라 학습용 MONOTONIC 값과 빼서 비교하지 않는다.
 
-**설명**
-- `iio_generic_buffer`는 `-a`가 있으면 활성 채널이 없을 때 온도까지 전부 켠다. 그래서 6축+timestamp를 sysfs로 직접 고르고 `-a` 없이 실행한다. 도구는 자기가 켠 채널만 끄므로(`tools/iio/iio_generic_buffer.c` L303) 수동으로 켠 채널은 직접 되돌린다.
-- trigger 이름 `%s-dev%d`(`inv_mpu_trigger.c` L306)가 도구의 기본 trigger 이름 규칙과 같아 `-t` 없이 연결된다.
-- 온도를 꺼도 gyro index는 4~6으로 유지된다. 출력 열은 활성 채널의 scan index 순서다.
-- timestamp 값은 수집 시점의 epoch ns(2026-11-10 01:53 KST)라서 CLOCK_REALTIME이다. 학습용 드라이버의 MONOTONIC 값과 직접 빼서 비교하지 않는다.
+</details>
 
 ## 6. 트러블슈팅과 한계
 
@@ -567,10 +461,7 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 [15924.234381] mpu6050-iio-study 1-0068: [BUFFER] sample dropped: -16
 ```
 
-**확인한 계층**
-- 센서 FIFO: 이 드라이버는 사용하지 않는다.
-- I2C 읽기: 실패했다면 `sample read failed`가 나왔을 것이다.
-- IIO 버퍼 저장: `iio_push_to_buffers_with_ts()`의 실패 경고다([mpu6050_iio.c#L206](../../examples/mpu6050_iio/mpu6050_iio.c#L206)). 대상 커널의 kfifo 저장 함수(`iio_store_to_kfifo()`)는 한 샘플을 넣지 못하면 `-EBUSY`(-16)를 반환한다.
+**확인한 계층:** 센서 FIFO는 쓰지 않고, I2C 실패였다면 `sample read failed`가 나왔을 것이다. 이 경고는 `iio_push_to_buffers_with_ts()` 실패([L206](../../examples/mpu6050_iio/mpu6050_iio.c#L206))이고, kfifo 저장 함수 `iio_store_to_kfifo()`는 한 샘플을 넣지 못하면 `-EBUSY`(-16)를 반환한다.
 
 **원인:** IRQ 수집은 버퍼를 켜는 순간 시작되지만, 읽는 쪽이 없어 커널 IIO 버퍼(length 128, 100Hz 설정 기준 약 1.28초 분량)가 가득 찼다. 가득 찬 동안 새 샘플은 버려지고 기존 샘플을 최신 값으로 바꾸지 않는다. 로그는 빈도 제한이 걸려 있어 줄 수를 유실 개수로 해석하지 않는다.
 
@@ -581,21 +472,23 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 **증상:** `sudo dtoverlay -d /boot/firmware/overlays-bsp-study01 i2c-sensor mpu6050 int_pin=17` 뒤 `inv-mpu6050-i2c` 바인딩과 `iio:device0`이 생겼고 raw·scale도 읽혔다. 그러나 `buffer/`·`scan_elements/`·trigger가 없었고 `/proc/interrupts`에 행이 없었다. `iio_generic_buffer`는 `Failed to find the trigger mpu6050-trigger`로 끝났다.
 
 **확인한 계층**
-- 바인딩·I2C: 정상(raw 값을 읽음).
-- live DT: 노드의 `interrupts`는 `00 00 00 11 00 00 00 02`(GPIO17, falling)로 맞지만 `interrupt-parent`가 `ff ff ff ff`, 곧 해결되지 않은 phandle이었다. gpio 노드의 phandle은 `00 00 00 07`이다.
-- dtbo: 배포한 `i2c-sensor.dtbo`의 `__fixups__`에 `gpio = ... "/fragment@28/__dormant__/mpu6050@68:interrupt-parent:0"`가 있고, 배포 파일은 빌드 결과와 같았다(`cmp`, WSL 읽기 확인).
-- 드라이버: IRQ가 없으면 trigger·buffer를 만들지 않는다(`inv_mpu_core.c` L2086 "no IRQ, no trigger, no buffer").
+- 바인딩·I2C는 정상(raw 읽힘). live DT의 `interrupts`는 `00 00 00 11 00 00 00 02`(GPIO17, falling)로 맞지만 `interrupt-parent`가 `ff ff ff ff`(해결 안 된 phandle, gpio 노드는 `00 00 00 07`)였다.
+- 배포한 `i2c-sensor.dtbo`의 `__fixups__`에는 `gpio = ... "/fragment@28/__dormant__/mpu6050@68:interrupt-parent:0"`가 있고 빌드 결과와 같았다(`cmp`).
+- 드라이버는 IRQ가 없으면 trigger·buffer를 만들지 않는다(`inv_mpu_core.c` L2086 "no IRQ, no trigger, no buffer").
 
 **원인:** 실행 중 적용에서 `interrupt-parent` fixup이 반영되지 않아 client에 IRQ가 없었고, 드라이버가 의도대로 buffer 없이 probe했다. fixup이 dtbo에 있는데도 실행 중 적용에서 왜 해결되지 않았는지(`__dormant__` fragment를 파라미터로 켜는 경로와의 관계 등)는 **확인 필요**다.
 
 **조치:** 같은 overlay를 `config.txt`의 `dtoverlay=i2c-sensor,mpu6050,int_pin=17`로 부팅 시 적용했다. 그러자 `interrupt-parent` = `00 00 00 07`, `17 Edge inv_mpu`, buffer·trigger가 생성되었다([5-7](#5-7-mainline-inv_mpu6050로-같은-센서-읽기)). 학습용 overlay는 실행 중 적용으로 IRQ가 정상 연결되었으므로, 이 증상을 실행 중 적용 전체의 문제로 일반화하지 않는다.
 
-### 6-3. 실측과 기준선
+**현재 버전 검증 (2026-11-10)**
 
-- **실측(이전 고정 20샘플 버전, 사용자 실행):** 24바이트 scan 20샘플, IRQ 간격 평균 10.015ms, 종료 0·정지 후 raw 재개·정상 제거 확인.
-- **실측(현재 연속 수집판, 2026-11-10 사용자 실행):** `timeout -s INT 60`으로 60초 수집 후 `=== CLOSE ===`·`samples: 5990`, CSV 기록. 이후 buffer/enable `0`, raw 재개(`in_accel_x_raw` = -9700 → -5.81 m/s², ax 평균과 일치), dmesg `[BUFFER] disabled` → `[REMOVE] detached` 확인. `--preserve-status` 없이 실행해 표시된 `exit=124`는 timeout의 반환값이며 앱 자체 종료 코드는 확인하지 못했다.
+| 항목 | 결과 |
+| --- | --- |
+| 연속 수집 | `timeout -s INT 60` → `samples: 5990`, CSV 기록, buffer/enable `0`, raw 재개(`in_accel_x_raw` -9700 → -5.81 m/s²), `[BUFFER] disabled` → `[REMOVE] detached` |
+| IRQ 간격 | 이전 20샘플 버전에서 평균 10.015ms |
+| mainline | `inv-mpu6050-i2c` 바인딩, `17 Edge inv_mpu`, `iio_generic_buffer` 5샘플(IRQ 0 → 5) |
 
-**60초 정지 기준선 (2026-11-10, 기울어진 정지 자세, 보정 없음)**
+60초 정지 기준선(기울어진 정지 자세, 보정 없음):
 
 | 항목 | 평균 | 표준편차 | 해석 |
 | --- | --- | --- | --- |
@@ -607,7 +500,7 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 - **가속도 크기 0.92 g:** scale 상수(9.80665/16384)는 맞으므로 센서 영점 오프셋·감도 오차로 추정한다. 저가형 모듈의 실제 사양과 6방향 보정은 확인하지 않았고 원인을 분리하지 않았다.
 - **자이로 bias:** 데이터시트의 초기 영점 오차 범위(±20 °/s) 안이다. 보정하지 않은 값이다.
 
-**mainline `inv_mpu6050` 비교 (2026-11-10, [5-7](#5-7-mainline-inv_mpu6050로-같은-센서-읽기))**
+mainline과 같은 자세 비교([5-7](#5-7-mainline-inv_mpu6050로-같은-센서-읽기)):
 
 | 항목 | mainline 실측 (raw × scale 또는 버퍼 5샘플 평균) | 60초 기준선 평균 | 차이 |
 | --- | --- | --- | --- |
@@ -617,9 +510,17 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 
 - **판정:** 가속도는 |g|(9.04 m/s²)의 1% 이내로 같은 자세를 나타낸다. 버퍼 평균의 ay 차이는 60초 표준편차(0.017)의 약 4배라서 "노이즈 범위 안에서 같다"고 판정하지 않는다. 샘플이 5개뿐이고, 센서를 다시 놓은 자세가 같은지 확인하지 않았다. 주파수(50 vs 100 Hz)에 따른 필터 설정 차이도 분리하지 않았다.
 
-### 6-4. 미검증·한계
+- 미검증:
+  - 수집 중 raw `EBUSY` 출력, 현재판 앱 자체 종료 코드(`exit=124`는 `--preserve-status` 없이 실행한 timeout 반환값), Python 그래프 창 닫기 후 버퍼 중지
+  - 수집 중 제거·I2C 실패·timeout 경로
+  - 장기 주기 안정성, 축별 회전 방향, 6방향 정지 보정
+  - mainline: 원복 뒤 `inv_mpu` IRQ 행·IIO 장치 부재(`1-0068` 부재·모듈 미적재만 확인), 센서 FIFO 일괄 읽기·overflow 재설정, timestamp 추정 정확도, 범위·주파수 변경, 실행 중 dtoverlay의 `interrupt-parent` 미해결 원인
+- 한계:
+  - 센서 FIFO가 없어 IRQ 처리가 늦으면 이전 값이 덮어써질 수 있고, 긴 Δt를 유실 개수로 환산할 수 없다. IRQ 시각 간격만으로 무손실·정확도를 판정하지 않는다.
+  - scale은 ±2g·±250deg/s 고정이며 보정하지 않는다.
 
-- **미검증:** 수집 중 raw `EBUSY` 출력, 현재판 앱 자체 종료 코드(`--preserve-status`), Python의 가속도 전환과 창 닫기 후 버퍼 중지, 수집 중 제거·I2C 실패·timeout 경로.
-- **미측정:** 장기 주기 안정성, 축별 회전 방향 검증, 6방향 정지 보정. IRQ 시각 간격만으로 무손실이나 측정 정확도를 판정하지 않는다.
-- **한계:** 센서 FIFO가 없어 IRQ 처리가 늦어지면 이전 값이 덮어써질 수 있고, 긴 Δt를 유실 개수로 환산할 수 없다. scale은 ±2g·±250deg/s 고정이며 보정하지 않는다.
-- **미검증(mainline):** 원복 뒤 `/proc/interrupts`의 `inv_mpu` 행과 IIO 장치가 없는지 직접 확인하지 않았다(`1-0068` 부재·모듈 미적재만 확인). 센서 FIFO의 여러 샘플 일괄 읽기와 overflow 재설정, timestamp 추정 정확도, 범위·주파수 변경, 실행 중 dtoverlay의 `interrupt-parent` 미해결 원인도 확인하지 않았다.
+**더 보기**
+- 왜 같은 0x68에 두 드라이버를 동시에 붙이지 않는가 → 같은 주소의 I2C client는 하나만 등록되고, 두 드라이버가 같은 레지스터·INT를 다르게 설정해 IRQ 극성과 데이터가 꼬인다. 한쪽 overlay·모듈을 내린 뒤 전환한다([5-7](#5-7-mainline-inv_mpu6050로-같은-센서-읽기))
+- 왜 직접 작성하고 mainline과도 비교했나 → VEDA Final은 사용자 공간 `/dev/i2c-*` + wiringPi `waitForInterrupt()`로 커널 드라이버·DT를 다루지 않았다. 학습용 드라이버로 IIO 뼈대를 익히고, mainline과 비교해 생략한 기능(센서 FIFO, 범위 선택, DT 기반 IRQ 설정)이 왜 필요한지 설명한다
+- `iio_device_claim_direct()`는 왜 bool인가 → 6.15부터 쓰는 API다. 예전 `claim_direct_mode`는 int를 반환했고, 6.6용 호환은 [18 문서](18-integration.md)의 `mpu6050_compat.h`가 맡는다
+- mainline 비교 기록 전체 → [T-001](../tasks/T-001-inv-mpu6050-compare.md)

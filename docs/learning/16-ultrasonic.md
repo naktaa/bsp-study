@@ -1,16 +1,10 @@
 # 초음파 HC-SR04: config fragment로 켠 mainline IIO srf04
 
-- [1. 한눈에 보기](#1-한눈에-보기)
-- [2. 구조](#2-구조)
-- [3. 알아야 할 개념](#3-알아야-할-개념)
-- [4. 구현 흐름](#4-구현-흐름)
-- [5. 재현](#5-재현)
-- [6. 트러블슈팅과 한계](#6-트러블슈팅과-한계)
-
 ## 1. 한눈에 보기
 
 - **목적:** VEDA Final에서 사용자 공간 wiringPi로 읽던 HC-SR04 초음파 센서를 커널 IIO 드라이버로 처리한다. 대상 커널에 드라이버는 있지만 꺼져 있어서, 커널 config fragment로 켜고 모듈 하나만 추가하는 흐름을 처음 거친다.
 - **기능:** 저장소 첫 config fragment [bsp-study.config](../../configs/bsp-study.config)(`CONFIG_SRF04=m`), overlay [srf04-overlay.dts](../../examples/ultrasonic/srf04-overlay.dts)(`devantech,srf04`, Trig GPIO23·Echo GPIO24). 드라이버 코드는 쓰지 않았다.
+- **직접 작성 / 가져다 쓴 것:** config fragment [bsp-study.config](../../configs/bsp-study.config)와 overlay [srf04-overlay.dts](../../examples/ultrasonic/srf04-overlay.dts)는 직접 작성했다. IIO 드라이버 `srf04`와 IIO 코어는 커널 것을 쓴다.
 - **결과(사용자 보드 실행):** 커널 이미지를 다시 빌드하지 않고 `srf04.ko`만 추가했다. 부팅 때 모듈이 자동 적재되어 IIO 장치 `srf04`가 생겼고, `in_distance_raw`(mm)가 멀어질수록 커지는 것을 확인했다. 한 번 읽을 때 Echo IRQ가 2씩 늘었다. 원복 후 장치가 없어졌다. 거리별 정확도와 범위 밖 오류는 확인하지 않았다.
 - **관련 파일:** [bsp-study.config](../../configs/bsp-study.config), [srf04-overlay.dts](../../examples/ultrasonic/srf04-overlay.dts), [Makefile](../../examples/ultrasonic/Makefile), 작업 노트 [16-ultrasonic](../tasks/16-ultrasonic.md)·[Codex 지시서](../tasks/16-ultrasonic.codex.md), 사양 [hardware.md](../hardware.md#초음파-hc-sr04-계열), 배선 [bringup.md](../bringup.md#40핀-한눈에-보기). 커널 소스(`external/linux`, Git 대상 아님): `drivers/iio/proximity/srf04.c`, `Documentation/devicetree/bindings/iio/proximity/devantech-srf04.yaml`. VEDA 비교: `../VEDA_Final_Project` 브랜치 `origin/test/tank+eis`의 `patrol_track.cpp`, `origin/jiho`의 `patrol/mqtt_patrol/rc_control_node.cpp`
 
@@ -76,6 +70,8 @@ MPU6050 IIO는 trigger·buffer로 장치가 정한 주기의 샘플을 `/dev/iio
 
 ## 5. 재현
 
+<details><summary>재현 절차 (펼치기)</summary>
+
 전체 단계와 출력은 [작업 노트](../tasks/16-ultrasonic.md)에 있다. 배선(전원 분리 상태): VCC → 물리 2(5V), GND → 14, Trig → 16(GPIO23), Echo → 1:2 분압 → 18(GPIO24). Echo는 5V라 분압 없이 연결하지 않는다.
 
 ```bash
@@ -125,6 +121,8 @@ sudo reboot
 | 자동 적재 | `srf04 12288 0`, `iio:device0` 이름 `srf04` |
 | IRQ | `59: ... pinctrl-bcm2835 24 Edge proximity`, 읽기 1회에 22 → 24 |
 | 거리 | 가까이 31~51mm, 멀어질수록 커짐(사용자 확인) |
+
+</details>
 
 ## 6. 트러블슈팅과 한계
 

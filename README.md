@@ -17,16 +17,13 @@ VEDA Final 프로젝트에서 사용한 모듈·센서(IMU, 카메라, I2S 마�
 
 ## 현재 상태
 
-WSL에서 ARM64 프로그램·커널·외부 모듈을 크로스 빌드하고 Pi 4의 커널 `6.18.59-v8-bsp-study01`에서 실행했다. 커널 부팅·화면 장애 복구, 문자 디바이스·Device Tree/platform 실습을 확인했다.
-
-MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IRQ 버퍼 수집을 확인했다. 현재 앱은 IRQ 타임스탬프를 포함한20개 샘플을 SI 단위로 출력하고 정상 종료했다. 관찰한 IRQ 간격은 평균10.015ms이며, 버퍼 중지 후 raw 조회 재개와 장치·모듈 정리도 확인했다. 코드 해설·실측과 버퍼 포화 문제는 [IIO 문서](docs/learning/09-iio-direct.md)에 정리했다. 장기 수집·측정 정확도·오류/경쟁 경로 등 미검증 항목은 IIO 문서 6장에 구분한다.
-
-2부에서는 Pi firmware 다음 단계에 U-Boot를 넣어 같은 커스텀 커널을 부팅하고, firmware가 만든 DT가 그대로 커널에 전달됨을 확인했다([U-Boot 문서](docs/learning/11-uboot-boot.md)). 이어서 scarthgap poky·meta-raspberrypi 위에 직접 만든 `meta-bsp-study` 레이어로 Pi 4 최소 이미지를 빌드하고, 새 카드에서 랜선 없이 Wi-Fi SSH 접속과 재부팅 후 자동 연결을 확인했다([Yocto 문서](docs/learning/12-yocto-minimal.md)). 이 이미지의 커널은 meta-raspberrypi 기본 6.6.63이다. PCA9685는 업스트림 `pwm-pca9685`로 레지스터 기준값을 만든 뒤 PWM provider를 직접 작성해 같은 sysfs 설정에서 같은 레지스터 값이 나오는 것을 확인했다(서보 실구동은 미검증, [PCA9685 문서](docs/learning/15-pca9685.md)).
+WSL에서 크로스 빌드한 커널 `6.18.59-v8-bsp-study01`(64GB 카드, Debian 13)에서 모듈·문자 디바이스·Device Tree를 거쳐 MPU6050 드라이버를 misc FIFO 방식과 IIO 방식으로 직접 작성하고, 카메라·마이크·PCA9685·초음파를 하나씩 연결했다. 2부에서는 U-Boot 경유 부팅을 확인하고, 직접 만든 `meta-bsp-study` 레이어로 Yocto 이미지(커널 6.6.63, 32GB 카드)를 만들었다. 18단계에서 6개 장치를 이 이미지에 통합해 부팅만으로 자동 적재되게 했고, 테스트 앱 `devcheck`로 두 카드의 값을 비교했다(6개 PASS). 서보·모터 실구동, 10단계 회전 검증 등 남은 항목은 [전체 지도](docs/learning/00-overview.md)와 각 학습 문서 6장에 정리했다.
 
 ## 복습·재현
 
 학습 문서는 [docs/learning/](docs/learning/)에 roadmap 단계 번호 순으로 모았다.
 
+- 00 [전체 지도: 장치·서브시스템·부팅·복습 순서](docs/learning/00-overview.md)
 - 01 [첫 사용자 프로그램 크로스 빌드](docs/learning/01-cross-compile.md)
 - 02 [모듈 코드·Makefile·빌드·로드·해제](docs/learning/02-kernel-module.md)
 - 03 [문자 디바이스 코드·데이터 왕복·ioctl](docs/learning/03-char-device.md)
@@ -40,6 +37,7 @@ MPU6050의 직접 작성한 I2C·IRQ·FIFO 예제를 거쳐 IIO raw·scale과 IR
 - 14 [I2S 마이크 INMP441·ASoC](docs/learning/14-mic.md)
 - 15 [PCA9685 PWM·업스트림과 직접 작성 provider 비교](docs/learning/15-pca9685.md)
 - 16 [초음파 HC-SR04·IIO srf04](docs/learning/16-ultrasonic.md)
+- 18 [Yocto 6.6 이미지 장치 통합·devcheck](docs/learning/18-integration.md)
 
 실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
 

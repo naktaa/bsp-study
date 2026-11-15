@@ -1,16 +1,10 @@
 # Yocto 최소 이미지: 직접 만든 레이어로 Pi 4 이미지 빌드와 Wi-Fi SSH
 
-- [1. 한눈에 보기](#1-한눈에-보기)
-- [2. 구조](#2-구조)
-- [3. 알아야 할 개념](#3-알아야-할-개념)
-- [4. 구현 흐름](#4-구현-흐름)
-- [5. 재현](#5-재현)
-- [6. 트러블슈팅과 한계](#6-트러블슈팅과-한계)
-
 ## 1. 한눈에 보기
 
 - **목적:** 1~16단계에서 손으로 하던 커널·rootfs 구성을 Yocto 빌드로 바꾼다. 레이어 → `MACHINE` → 이미지 레시피가 커널·DTB·부트 파일·rootfs로 이어지는 과정을 직접 만든 레이어로 설명할 수 있게 한다. 18단계 통합 이미지의 바탕이다.
 - **기능:** scarthgap(5.0) poky + meta-raspberrypi 위에 `meta-bsp-study` 레이어를 얹어 `bsp-study-image`를 만든다. core-image-minimal + dropbear SSH(비밀번호 없는 root) + Wi-Fi 자동 연결(firmware·`brcmfmac` 모듈·`wpa_supplicant`·wlan0 대기 스크립트)
+- **직접 작성 / 가져다 쓴 것:** `meta-bsp-study` 레이어(`layer.conf`, 템플릿, 이미지 레시피, Wi-Fi 레시피·스크립트, `interfaces`)는 직접 작성했다. poky scarthgap, meta-raspberrypi(`linux-raspberrypi` 6.6.63, firmware, `rpi-config`), core-image-minimal은 가져다 썼다.
 - **결과:** 새 32GB 카드에서 랜선 없이 Wi-Fi로 부팅해 노트북에서 `ssh root@<IP>` 접속, 재부팅 후 자동 연결을 보드에서 확인했다. 커널 `6.6.63-v8`, Raspberry Pi 4 Model B Rev 1.5, Poky 5.0.21. 첫 빌드 127분(병렬도 3), Wi-Fi 추가 재빌드 13분
 - **범위:** U-Boot·센서·Bluetooth·systemd는 넣지 않았다. 커널은 meta-raspberrypi 기본 `linux-raspberrypi` 6.6.63을 그대로 쓴다(기존 카드는 6.18.59). 64GB 카드 원복은 확인하지 않았다
 - **관련 파일:** [layer.conf](../../yocto/meta-bsp-study/conf/layer.conf), [local.conf.sample](../../yocto/meta-bsp-study/conf/templates/bsp-study/local.conf.sample), [bblayers.conf.sample](../../yocto/meta-bsp-study/conf/templates/bsp-study/bblayers.conf.sample), [bsp-study-image.bb](../../yocto/meta-bsp-study/recipes-core/images/bsp-study-image.bb), [interfaces](../../yocto/meta-bsp-study/recipes-core/init-ifupdown/files/interfaces), [bsp-study-wifi](../../yocto/meta-bsp-study/recipes-connectivity/bsp-study-wifi/files/bsp-study-wifi), 진행 기록 [12 작업 노트](../tasks/12-yocto-minimal.md)·[Codex 지시서](../tasks/12-yocto-minimal.codex.md). poky·meta-raspberrypi·빌드 디렉터리는 저장소 밖 `~/yocto`
@@ -82,6 +76,8 @@ VEDA 강의(`VEDA/임베디드리눅스/강의자료/임베디드리눅스2.pdf`
 
 ## 5. 재현
 
+<details><summary>재현 절차 (펼치기)</summary>
+
 선행 조건: Ubuntu 22.04(WSL2), 리눅스 홈에 100GB 이상, 호스트 패키지(작업 노트 1단계 목록), 이 저장소가 `~/bspworkspace/bsp-study`, 소스는 `~/yocto`(두 경로가 모두 홈 바로 아래여야 `bblayers.conf.sample`의 상대 경로가 맞음).
 
 ```bash
@@ -136,6 +132,8 @@ ip addr show wlan0
 ```
 
 확인: `6.6.63-v8`, `Poky ... 5.0.21`, `brcmfmac`·`cfg80211` 로드, `Connected to`, wlan0 `inet`. 연결이 안 될 때의 HDMI 진단·수동 연결 절차는 [작업 노트 7단계](../tasks/12-yocto-minimal.md#7-부팅wi-fi-ssh-확인-노트북)에 있다.
+
+</details>
 
 ## 6. 트러블슈팅과 한계
 

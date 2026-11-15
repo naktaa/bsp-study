@@ -5,6 +5,7 @@
 - **기능:**
   - `meta-bsp-study` 레이어 하나에 커널 config 조각, overlay 5개, `config.txt` 줄, 직접 작성 모듈 레시피 2개, 테스트 앱 `devcheck`, libcamera·rpicam-apps를 넣었다.
   - 직접 작성 `mpu6050_iio`는 compat 헤더로 6.6과 6.18 모두에서 빌드되게 했다.
+- **직접 작성 / 가져다 쓴 것:** 레이어 내용(커널 bbappend·config 조각, `bsp-study-devices.inc`, 모듈 레시피 2개, libcamera bbappend, 이미지 레시피), [mpu6050_compat.h](../../examples/mpu6050_iio/mpu6050_compat.h), [devcheck.c](../../examples/devcheck/devcheck.c)는 직접 작성했다. 업스트림 드라이버(`pwm-pca9685`, `imx219`, `srf04`, `pwm-bcm2835`), meta-openembedded의 libcamera 0.4.0, meta-raspberrypi의 `libcamera-apps` 1.4.2는 가져다 썼다.
 - **결과(실측):**
   - Yocto 카드에서 6개 장치 모두 자동 적재됐고 `devcheck all` 6개가 PASS했다.
   - IMU 샘플 간격 10.016ms와 마이크 rms는 64GB 카드 기준값과 맞았다.
@@ -101,6 +102,9 @@
 - 6.6.63 `drivers/pwm/pwm-pca9685.c`(Yocto `tmp/work-shared/raspberrypi4-64/kernel-source`, `e442e5c1ab6b`)는 L409에서 `DIV_ROUND_UP_ULL`로 올림해 308을 쓰고, `MODE1_AI` 정의가 없어 probe(L558)에서 ALLCALL·SUB 비트만 지운다(MODE1 `0x00`). 6.18은 probe에서 `MODE1_AI`를 켠다(`external/linux/drivers/pwm/pwm-pca9685.c` L477). LED0 1카운트와 MODE1 차이는 드라이버 버전 차이다.
 
 ## 5. 재현
+
+<details><summary>재현 절차 (펼치기)</summary>
+
 선행 조건: 12단계 빌드 디렉터리 `~/yocto/build`(데스크톱), 레이어 추가와 meta-openembedded는 [작업 노트 3단계](../tasks/18-integration.md#3-데스크톱-meta-openembedded-추가).
 
 ```bash
@@ -130,6 +134,8 @@ explorer.exe "$(wslpath -w out/cam18)"
 ```
 
 64GB 카드 기준값 측정과 원복 절차는 [작업 노트 6단계](../tasks/18-integration.md#6-노트북-64gb-카드-기준값)에 있다.
+
+</details>
 
 ## 6. 트러블슈팅과 한계
 

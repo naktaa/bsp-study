@@ -1,16 +1,10 @@
 # U-Boot: firmware 다음 단계에서 커스텀 커널 부팅
 
-- [1. 한눈에 보기](#1-한눈에-보기)
-- [2. 구조](#2-구조)
-- [3. 알아야 할 개념](#3-알아야-할-개념)
-- [4. 구현 흐름](#4-구현-흐름)
-- [5. 재현](#5-재현)
-- [6. 트러블슈팅과 한계](#6-트러블슈팅과-한계)
-
 ## 1. 한눈에 보기
 
 - **목적:** 일반 임베디드 SoC처럼 부트로더 단계를 직접 구성해, 부팅 시 커널이 무엇을 어떻게 받는지 계층별로 설명할 수 있게 한다. 12단계 Yocto 부팅 경로의 기반이다.
 - **기능:** Pi 4 firmware가 커널 대신 U-Boot(`u-boot.bin`)를 실행하게 하고, U-Boot가 [boot.cmd](../../boot/uboot/boot.cmd)로 만든 `boot.scr`에 따라 기존 커스텀 커널 `6.18.59-v8-bsp-study01`과 initramfs를 올린다. firmware가 `config.txt`의 `dtparam`·`dtoverlay`를 적용해 만든 DT를 U-Boot가 **바꾸지 않고** 커널에 넘긴다.
+- **직접 작성 / 가져다 쓴 것:** 부트 스크립트 [boot.cmd](../../boot/uboot/boot.cmd)(→ `boot.scr`)와 [Makefile](../../boot/uboot/Makefile), `config.txt`의 `kernel=` 변경은 직접 했다. U-Boot `v2026.10`(`rpi_arm64_defconfig`, 소스 수정 없음)·Pi firmware·[07](07-kernel-build.md)의 커스텀 커널은 가져다 썼다.
 - **결과:** U-Boot 경유 부팅, `/chosen/u-boot,version` = `2026.10`, cmdline 동일, overlay 노드 전달, 원복을 보드에서 확인했다([6장](#6-트러블슈팅과-한계)).
 - **범위:** U-Boot `v2026.10`, `rpi_arm64_defconfig`, 소스 수정 없음, `saveenv` 없음(SD 카드에 환경을 쓰지 않음). 부트 파티션에 `u-boot.bin`·`boot.scr`를 추가하고 `config.txt`의 `kernel=` 한 줄만 바꾼다. 네트워크 부팅·부팅 메뉴·시리얼 콘솔은 하지 않았다.
 - **관련 파일:** [boot.cmd](../../boot/uboot/boot.cmd), [Makefile](../../boot/uboot/Makefile), 진행 기록 [T-B01](../tasks/T-B01-uboot-boot.md). U-Boot 소스는 `external/u-boot`(Git 대상 아님)
@@ -117,6 +111,8 @@ firmware DT는 firmware가 정한 위치(RAM 상단 쪽)에 있고 `fdt_addr`로
 커널 헤더 flags의 bit 3이 켜져 있어(`0xa`) `booti`는 커널을 2MB 경계(`0x200000`)로 옮긴다(`arch/arm/lib/image.c`). 끝 주소가 `scriptaddr`·initramfs 영역보다 아래라 겹치지 않는다.
 
 ## 5. 재현
+
+<details><summary>재현 절차 (펼치기)</summary>
 
 ### 5-0. 준비
 
@@ -241,6 +237,8 @@ diff ~/bsp/cmdline-before-tb01.txt /proc/cmdline && echo same
 `u-boot.bin`·`boot.scr`는 부트 파티션에 남아 있어도 `config.txt`가 가리키지 않으면 쓰이지 않는다. 다시 U-Boot로 부팅하려면 5-3의 `sed` 한 줄만 다시 실행한다.
 
 **부팅이 안 될 때:** 전원을 분리하고 SD 카드를 PC 리더에 꽂는다. Windows에서 `bootfs`의 `config.txt.bak-tb01`을 `config.txt`로 덮어쓴 뒤 다시 부팅한다. 부트 파티션이 손상되면 5-2의 WSL 백업으로 복원한다. U-Boot 프롬프트에서는 `saveenv`·`fatwrite`·`mmc write`·`gpt write`를 쓰지 않는다.
+
+</details>
 
 ## 6. 트러블슈팅과 한계
 
