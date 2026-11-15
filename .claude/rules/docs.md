@@ -46,3 +46,4 @@ paths:
 - docs/learning/14-mic.md: INMP441 I2S 마이크, ASoC CPU DAI·코덱·machine과 overlay
 - docs/learning/15-pca9685.md: PCA9685 PWM, 업스트림 `pwm-pca9685`와 직접 작성 provider 비교
 - docs/learning/16-ultrasonic.md: HC-SR04 초음파, 업스트림 IIO `srf04`·overlay, 거리 값 확인
+- docs/learning/18-integration.md: Yocto 6.6 통합 레이어, 직접 작성 모듈 자동 적재·6.6/6.18 compat, devcheck로 두 카드 비교, HDMI DRM 미리보기

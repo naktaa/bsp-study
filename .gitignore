@@ -9,6 +9,7 @@
 /examples/mpu6050_iio/mpu6050_iio_app
 /examples/mic_app/mic_capture
 /examples/camera/v4l2_capture
+/examples/devcheck/devcheck
 /examples/char_device/char_app
 /build/
 /out/
