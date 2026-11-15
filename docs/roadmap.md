@@ -137,7 +137,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 13. 카메라 IMX219
 - 확인함: `drivers/media/i2c/imx219.c`(`CONFIG_VIDEO_IMX219=m`), `CONFIG_VIDEO_BCM2835_UNICAM=m`, `overlays/imx219-overlay.dts`. VEDA Final 문서에 IMX219 언급이 있다. 실물 모듈 모델은 확인 필요.
 - 센서 드라이버(I2C 제어)와 CSI 수신 드라이버(unicam)의 역할, media controller 그래프를 해설한다.
-- 작업 노트: [13-camera](tasks/13-camera.md) · [13-2-camera-ctrl](tasks/13-2-camera-ctrl.md)(libcamera 없이 노출·게인·테스트 패턴) · [13-3-camera-sensor](tasks/13-3-camera-sensor.md)(고정 모드 센서 드라이버 직접 작성) · 학습 문서: [카메라 문서](learning/13-camera.md)
+- 작업 노트: [13-camera](tasks/13-camera.md) · [13-2-camera-ctrl](tasks/13-2-camera-ctrl.md)(libcamera 없이 노출·게인·테스트 패턴) · [13-3-camera-sensor](tasks/13-3-camera-sensor.md)(고정 모드 센서 드라이버 직접 작성) · [13-4-camera-libcamera](tasks/13-4-camera-libcamera.md)(직접 작성 드라이버 libcamera 연동) · 학습 문서: [카메라 문서](learning/13-camera.md)
 
 ## 14. I2S 마이크
 - 단계: 1) 기존 overlay로 배선·녹음 확인 2) simple-audio-card + `ics43432` overlay 직접 작성 3) `ics43432`를 직접 작성한 `inmp441` 코덱 드라이버로 교체해 2와 비교 4) alsa-lib 캡처 앱 + 실시간 파형 그래프
