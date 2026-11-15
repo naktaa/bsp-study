@@ -118,7 +118,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 | 14 | I2S 마이크 | 기존 카드 | 완료 | ALSA 캡처 장치 등록, 녹음 파일 확인 |
 | 15 | PCA9685 팬·틸트 | 기존 카드 | 완료 | 업스트림 확인 + provider 직접 작성, 레지스터 값 일치. 서보 실구동 미검증 |
 | 16 | 초음파 IIO srf04 | 기존 카드 | 완료 | IIO 거리 값 읽기, 거리 변화에 따른 값 변화 확인 |
-| 17 | 모터 PWM | 기존 카드 | 예정 | 내장 PWM 신호 확인만, 직접 작성 없음. 모터 실구동 미검증 |
+| 17 | 모터 PWM | 기존 카드 | 제외 (18에서 sysfs 값만 확인) | 내장 PWM 신호 확인만, 직접 작성 없음. 모터 실구동 미검증 |
 | 18 | 통합 | 새 카드 | 완료 | 모든 장치와 IMU를 `meta-bsp-study`에 추가, 핀·주소 충돌 확인, Yocto 이미지에서 장치별 재검증 |
 
 - 13~17단계는 장치마다 작업 노트 1개로 WSL 크로스 빌드 경로와 기존 6.18.59 커널 카드에서 실측한다.
@@ -162,6 +162,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - GPIO 펄스 폭 측정을 IIO 채널로 노출하는 구조를 1~10단계의 IIO 구현과 비교한다.
 
 ## 17. 모터 PWM
+- 제외(2026-11-15 결정): 별도 단계로 하지 않는다. 18단계에서 64GB 카드(6.18.59)와 Yocto 카드(6.6.63)의 PWM sysfs 값(ch0·ch1 1ms/0.5ms enable)이 같음을 확인했고, 아래 범위 중 debugfs·핀 기능(ALT0)·방향 GPIO·disable 후 출력·온보드 오디오 충돌은 확인하지 않는다.
 - VEDA Final `tank/src/tank_drive.cpp`는 EN/IN1/IN2와 wiringPi `pwmWrite`로 제어한다. 모터 드라이버 칩 모델은 확인 필요.
 - 확인함: `drivers/pwm/pwm-bcm2835.c`(`=m`), `pwm-gpio`(`=m`), `overlays/pwm-overlay.dts`·`pwm-2chan-overlay.dts`. pwm-2chan 기본 핀은 GPIO18/19로 I2S와 겹치므로 `pin=12 func=4 pin2=13 func2=4`(ALT0)로 GPIO12/13을 쓴다. 방향 핀은 GPIO5·6·16·26([bringup](bringup.md#40핀-한눈에-보기) 배치).
 - 범위: 업스트림 `pwm-bcm2835`만 쓰고 직접 작성·consumer 드라이버는 없다. overlay 적용 → sysfs 설정 → `/sys/kernel/debug/pwm`, 핀 기능(ALT0) 상태, 방향 GPIO 출력 값, disable·종료 뒤 출력 상태 확인까지. 모터 드라이버 보드와 모터 전원은 연결하지 않는다.

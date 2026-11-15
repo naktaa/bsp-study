@@ -27,7 +27,7 @@
 
 - `/dev/i2c-1`: `ENABLE_I2C = "1"`은 `dtparam=i2c1=on`·`i2c_arm=on`(rpi-config L158~161)과 `kernel-module-i2c-dev` 설치(rpi-base.inc L131 `MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS`)까지만 한다. 6.6은 `CONFIG_I2C_CHARDEV=m`이고 자동 적재 설정은 없어서 meta-raspberrypi `docs/extra-build-config.md` L238~240 안내대로 `KERNEL_MODULE_AUTOLOAD += "i2c-dev"`를 `bsp-study-devices.inc`에 넣는다(`i2c-bcm2708`은 6.6에서 `I2C_BCM2835=y` 내장이라 넣지 않음).
 - 이미지에서 제외(소스는 유지): `hello`·`hello_module`·`char_device`·`platform_device`, 옛 `mpu6050`(같은 센서를 동시에 제어하게 됨), `pca9685_simple`, `mpu6050_iio_app`·`mic_capture`(`devcheck`가 대신함), Python 스크립트.
-- 모터는 신호까지, 그래프 없이 숫자 출력만 한다. 17단계(`feat/motor-pwm`)는 아직 계획이라 PWM 기준값은 17단계 결과가 나온 뒤 비교한다.
+- 모터는 신호까지, 그래프 없이 숫자 출력만 한다. PWM은 64GB 카드 sysfs 값과 비교한다(17단계는 2026-11-15에 제외).
 
 ### 2. compatible 점검
 
@@ -297,7 +297,7 @@ explorer.exe "$(wslpath -w out/cam18)"
 - [x] `mpu6050_iio`가 6.6(Codex A)과 6.18(5단계) 모두 `W=1` 경고 0, 6.18 본문 동작 변경 없음
 - [x] 통합 빌드 1회로 이미지 생성, 부트 파티션에 dtbo 5개와 `config.txt` 항목, `libcamera-apps`·`ipa_rpi_vc4` 포함 (7단계 빌드 결과와 9단계 보드 동작으로 확인)
 - [x] Yocto 카드에서 `1-0068/driver` → `mpu6050-iio-study`, 직접 작성 모듈 자동 적재
-- [x] `devcheck all`의 IMU·PCA9685·마이크·초음파 수치가 64GB 카드 기준값과 맞음(PWM은 17단계 이후 비교). PCA9685 LED0 1카운트 차이와 초음파 거리 차이는 결과 9 참고
+- [x] `devcheck all`의 IMU·PCA9685·마이크·초음파 수치가 64GB 카드 기준값과 맞음(PWM은 sysfs 값이 64GB 카드와 같음). PCA9685 LED0 1카운트 차이와 초음파 거리 차이는 결과 9 참고
 - [x] HDMI 미리보기 10초(`Made DRM preview window`)와 `rpicam-still` 사진 scp 성공
 - [x] 장치를 모두 켠 상태에서 I2C 주소(0x40·0x68)·핀 충돌 없음
 
@@ -336,4 +336,4 @@ explorer.exe "$(wslpath -w out/cam18)"
 
 - 9 카메라: `imx219 [3280x2464 10-bit RGGB]` 모드 4개. `rpicam-hello -t 10000`에 `Made DRM preview window`, SSH에서 실행했고 HDMI 모니터(로그인 콘솔 위)에 실시간 영상 확인 후 콘솔로 복귀. `Preview window unavailable` 없음. `rpicam-still` `/tmp/test.jpg` 2,057,331 B → 노트북 WSL에서 `scp yocto:` 후 열림. `Mismatch between Unicam and CamHelper for embedded data usage!` 경고는 13-2와 같은 embedded data 미지원 경고로 영상·사진에 영향 없음
   - 처음 `scp`를 Pi 셸에서 실행해 실패(`<IP>`를 리다이렉트로 해석, `yocto` 이름 해석 실패, 자기 자신 호스트 키 거부) → 노트북 WSL 명령으로 고침
-- 미검증: 초음파 자로 잰 거리 비교. 선택 확인(TCP 스트림) 미실행. 모터 PWM 기준값 비교는 17단계 이후
+- 미검증: 초음파 자로 잰 거리 비교. 선택 확인(TCP 스트림) 미실행. 모터 PWM은 sysfs 값만 확인했고 debugfs·핀 기능(ALT0)·방향 GPIO·disable 후 출력·온보드 오디오 충돌은 확인 안 함(17단계 제외)

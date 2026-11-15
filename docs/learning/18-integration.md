@@ -9,7 +9,7 @@
   - Yocto 카드에서 6개 장치 모두 자동 적재됐고 `devcheck all` 6개가 PASS했다.
   - IMU 샘플 간격 10.016ms와 마이크 rms는 64GB 카드 기준값과 맞았다.
   - SSH에서 실행한 `rpicam-hello`가 HDMI 모니터에 DRM 미리보기를 그렸고, 사진을 노트북으로 가져왔다.
-- **남은 것:** PCA9685 6.6 duty 계산 소스 확인, 모터 PWM 비교(17단계 이후).
+- **남은 것:** 모터 PWM은 sysfs 설정값까지만 확인했다(17단계 제외, 6장 미검증).
 - **관련 파일:**
   - 작업 노트·지시서: [18-integration.md](../tasks/18-integration.md), [18-integration.codex.md](../tasks/18-integration.codex.md)
   - 장치 설정: [bsp-study-devices.inc](../../yocto/meta-bsp-study/conf/bsp-study-devices.inc)
@@ -145,4 +145,5 @@ explorer.exe "$(wslpath -w out/cam18)"
 
 - 미검증:
   - 초음파를 자로 잰 거리와 비교하지 않았다. 거리 변화를 따라가는 것만 확인했다.
-  - TCP 스트림 선택 확인은 실행하지 않았다. 모터 PWM 기준값 비교는 17단계 이후에 한다.
+  - TCP 스트림 선택 확인은 실행하지 않았다.
+  - 모터 PWM은 두 카드의 sysfs 값(ch0·ch1 1ms/0.5ms enable)이 같은 것만 확인했다. debugfs·핀 기능(ALT0)·방향 GPIO·disable 후 출력·온보드 오디오 충돌은 확인하지 않았다(17단계 제외).
