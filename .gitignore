@@ -5,6 +5,7 @@
 /examples/mic/*.dtbo
 /examples/mic_codec/*.dtbo
 /examples/ultrasonic/*.dtbo
+/examples/camera_sensor/*.dtbo
 /examples/mpu6050/mpu6050_app
 /examples/mpu6050_iio/mpu6050_iio_app
 /examples/mic_app/mic_capture
