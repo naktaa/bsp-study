@@ -135,9 +135,60 @@ external/linux/scripts/checkpatch.pl --no-tree -f examples/devcheck/devcheck.c
 
 ### B
 - 변경 요약:
+  - `examples/devcheck/devcheck.c`와 `Makefile`을 새로 작성했다. `all|imu|pca|cam|mic|sonar|pwm` 명령, 장치별 수치·PASS/FAIL, `all`의 실패 후 계속 진행과 종료 코드 1 집계를 구현했다. Makefile은 `mic_app` 형식으로 `app`·`deploy`(`pi:bsp/apps/`)·`clean`을 제공한다.
+  - IMU는 드라이버 링크와 IIO name으로 찾고, 기존 앱의 24B scan/offset 16B timestamp 형식을 확인한 뒤 20샘플·19간격의 평균·최소·최대(ms)를 출력한다. scan enable 7개와 buffer length·watermark를 보관하고 종료 시 buffer enable=0과 원래 설정으로 복원한다. 이미 활성화된 버퍼에는 쓰지 않는다.
+  - PCA9685와 플랫폼 PWM은 장치·드라이버 링크로 pwmchip을 찾고 지정 period·duty를 설정해 enable·재조회한다. PCA9685의 지정 레지스터는 SMBus READ만 사용한다. 직접 export한 채널만 disable·unexport하며 기존 export 채널은 FAIL 처리한다.
+  - 카메라는 IMX219 media entity와 unicam·bcm2835-codec QUERYCAP을 출력한 뒤 fork/exec로 `rpicam-still -n --immediate -o /tmp/devcheck-cam.jpg`를 실행한다. 종료 코드·JPEG 크기·FFD8을 확인하고 실행 파일이 없으면 캡처 SKIP, 인식 결과로 판정한다.
+  - 마이크는 `/proc/asound/cards`의 `inmp441study`를 찾아 기존 앱과 같은 S32_LE·2채널·48kHz 요청, period 1024·buffer 4096으로 1초 분량의 프레임을 캡처하고 왼쪽 채널 상위 24비트 RMS·xrun을 출력한다. 초음파는 IIO name `srf04`의 거리 5회를 읽는다.
+  - SIGINT·SIGTERM도 정리 경로로 처리한다. A 파일·다른 문서·작업 시작 전부터 있던 `18-integration.md` 변경은 수정하지 않았다.
 - 빌드 결과:
+  - 2026-11-15, WSL 노트북에서 아래 명령을 실행했다. 앱 빌드 종료 코드 0·`-Wall -Wextra` 경고 0, `file` 결과는 `ELF 64-bit LSB pie executable, ARM aarch64`이다. 처음 빌드의 경로 길이 경고는 반환 길이 검사를 추가한 뒤 해소했다. 최종 앱 산출물은 `examples/devcheck/devcheck`에 남겼다(현재 `.gitignore`에는 이 이름이 없어 추적되지 않은 빌드 산출물로 표시됨).
+
+    ```bash
+    make -C examples/devcheck app
+    file examples/devcheck/devcheck
+    ```
+
+  - 요구사항 5의 정적 grep을 `external/linux`에서 아래 그대로 실행했다. 첫 명령은 출력 없음·종료 코드 1(일치 없음), 두 번째는 종료 코드 0이며 `drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c:202: .compatible = "invensense,mpu6050",` 한 곳만 나왔다.
+
+    ```bash
+    grep -rn '"nakta,' drivers sound
+    grep -rn '"invensense,mpu6050"' drivers
+    ```
+
+  - 요구사항 6의 `make -C examples/mpu6050_iio W=1 modules`는 종료 코드 0·경고 0이었다. `CC [M] mpu6050_iio.o` → `MODPOST` → 모듈 메타데이터 컴파일 → `LD [M] mpu6050_iio.ko`로 6.18에서 실제 재컴파일했다. A의 C 소스·compat 헤더·Makefile은 수정하지 않았다.
+  - `aarch64-linux-gnu-readelf -d examples/devcheck/devcheck`에서 추가 라이브러리는 `libasound.so.2`·`libm.so.6`이고 나머지는 libc·동적 로더임을 확인했다. `make -C examples/devcheck -n deploy`의 출력은 `scp devcheck pi:bsp/apps/`이며 전송은 실행하지 않았다. `git diff --check`도 통과했다.
+  - 보드 조작·앱 실행·설치·전체 커널 빌드·Yocto 빌드·커밋은 하지 않았다. 장치 탐색, 실측 수치, rpicam 실행·SKIP 분기, 오류·신호 시 실제 설정 복원은 보드에서 확인해야 한다.
 - checkpatch (`external/linux/scripts/checkpatch.pl --no-tree -f <파일>`):
+  - `examples/devcheck/devcheck.c`: 종료 코드 1, **0 errors / 1 warning**. 경고는 `volatile sig_atomic_t stopped`에 대한 `VOLATILE`이다. 사용자 공간의 비동기 signal handler와 일반 처리 경로 사이에 중단 요청을 전달하는 변수이므로 유지했다. 최종 C 소스에 대한 결과이며 빌드 경고와 구분한다.
+  - `examples/mpu6050_iio/mpu6050_iio.c`: 종료 코드 1, **0 errors / 1 warning**. 기존 SPDX 누락이며 A 파일 수정 금지에 따라 유지했다.
+  - `examples/mpu6050_iio/mpu6050_compat.h`: 종료 코드 1, **1 error / 6 warnings**. A 보고와 같이 `LINUX_VERSION_CODE` 3건·상수 비교 방향 3건, 배열 선언 매크로의 `COMPLEX_MACRO` 1건이다. 버전 분기는 지시서 요구이고 선언 매크로 전체를 표현식 괄호로 감쌀 수 없어 A의 판단을 유지한다. 해당 파일은 수정하지 않았으며 6.18 `W=1` 컴파일은 경고 없이 통과했다.
 - 판단이 필요했던 부분:
+  - PWM의 모듈명과 드라이버 링크 이름은 다르다. 로컬 소스 `drivers/pwm/pwm-pca9685.c`·`pwm-bcm2835.c`의 `.driver.name`인 `pca9685-pwm`·`bcm2835-pwm`을 사용하며, 전자는 부모 장치 `1-0040`, 후자는 `*.pwm` 플랫폼 부모도 확인한다. pwmchip·IIO·ALSA 카드 번호나 모듈 이름은 고정하지 않았다.
+  - PWM readback 수치는 그대로 출력하고 enable=1을 확인한다. 하드웨어 반올림 가능성이 있어 요청 period·duty와 문자열이 정확히 같은 것을 PASS 조건으로 추가하지 않았다. `drivers/pwm/core.c`의 period=0 거부 경로에 맞춰 초기 period=0이면 period부터 설정하며, 기존 period가 있으면 disable·duty=0 후 새 period를 쓴다. 종료 시에는 지시대로 disable·unexport한다.
+  - I2C 접근은 `<linux/i2c-dev.h>`의 `I2C_SLAVE_FORCE`·`I2C_SMBUS`와 `I2C_SMBUS_READ`만 사용해 별도 libi2c 의존성 없이 구현했다. FORCE를 쓰는 이유는 한글 주석으로 남겼다.
+  - IMU는 복원할 기존 설정을 모두 읽고 scan index·type·timestamp clock을 확인한 다음에만 쓴다. buffer length를 변경하면 watermark가 영향을 받을 수 있어 두 값도 함께 복원한다. 복원 쓰기가 실패하면 PASS로 처리하지 않는다.
+  - 마이크는 짧은 read를 누적해 실제 rate만큼의 프레임을 수집한다. read 또는 wait의 xrun은 집계·복구하고, 반복 xrun 5회나 입력 대기 2초 초과는 FAIL 처리해 `all`의 다음 장치로 넘어간다. IMU 입력 대기는 기존 앱처럼 poll 5초 제한이다.
+  - 카메라 모듈명은 검사하지 않고 media entity와 QUERYCAP의 driver·card를 사용한다. CLOEXEC pipe로 exec의 ENOENT를 자식의 일반적인 종료 실패와 구분하며, rpicam이 설치돼 있지만 캡처가 실패한 경우는 SKIP으로 숨기지 않는다. 사진 외 결과 파일은 생성하지 않는다.
+
+- 재작업 1회차 (2026-11-15):
+  - `examples/devcheck/devcheck.c`만 단순화했다. `wc -l examples/devcheck/devcheck.c`는 **915 → 580줄**(335줄 감소)이다. Makefile·A 파일·작업 노트·리뷰는 수정하지 않았다. 이 항목은 위 최초 구현 보고의 signal·scan 검사·pipe·nonblocking 관련 설명을 대체한다.
+  - signal handler·`sigaction`·`stopped`와 모든 중단 검사·자식 kill을 제거했다. IMU의 `_index`·`_type`·`current_timestamp_clock` 검사도 제거하고 고정 scan 24B·timestamp offset 16B를 한글 주석 한 줄로 남겼다.
+  - 카메라는 exec 오류 pipe 없이 자식의 `execlp()` 실패 시 `_exit(127)`, 부모의 정상 종료 코드 127이면 `capture=SKIP`으로 처리한다. 그 외 캡처 실패는 FAIL이며, 인식 결과·종료 코드·크기·FFD8 출력은 유지했다. media·video 탐색과 캡처를 장치 함수 하나로 모았다.
+  - 마이크는 blocking 열기(`snd_pcm_open(..., 0)`)와 `snd_pcm_readi()`로 변경했다. `-EPIPE`는 xrun 집계·`snd_pcm_prepare()` 후 계속하며 5회면 FAIL이다. `snd_pcm_wait`·마이크 NONBLOCK 분기는 제거했다. 요청 format·rate·channels·period·buffer와 RMS 계산은 유지하고 ALSA 하드웨어 설정 실패는 공통 캡처 오류로 보고한다.
+  - IIO·PWM은 첫 번째 일치를 사용하고 중복 오류·경로 길이 검사를 제거했다. PWM은 sysfs 드라이버의 장치 링크 아래 `pwm/pwmchip*`를 직접 찾도록 줄였다. 경로 근거는 로컬 `drivers/base/dd.c:driver_sysfs_add()`의 드라이버→장치 링크, `drivers/pwm/core.c:pwmchip_alloc()`의 class·parent 설정, `drivers/base/core.c:get_device_parent()`의 class 디렉터리 생성이다. 드라이버명·장치 조건은 종전과 같고 번호는 고정하지 않았다.
+  - PCA·모터 PWM의 설정·재조회·정리를 하나의 공통 함수로 합쳤다. 이미 export된 채널은 커널의 `pwm_request_from_chip()` 경로가 `-EBUSY`로 거부하며, export 성공 직후 소유 개수를 기록해 직접 export한 채널만 disable·unexport한다. IMU는 scan enable 7개·buffer length·watermark 저장과 복원, 활성 버퍼 거부를 유지했다. 하위 명령·key=value·PASS/FAIL·`all`의 계속 진행 및 실패 시 종료 코드 1 규칙도 유지했다.
+  - 검증 명령과 결과:
+
+    ```bash
+    make -C examples/devcheck app
+    wc -l examples/devcheck/devcheck.c
+    external/linux/scripts/checkpatch.pl --no-tree -f examples/devcheck/devcheck.c
+    file examples/devcheck/devcheck
+    ```
+
+    앱 빌드는 종료 코드 0·`-Wall -Wextra` 경고 0, 줄 수는 580, checkpatch는 종료 코드 0·**0 errors / 0 warnings**, 산출물은 ARM aarch64 ELF이다. `sigaction|stopped|kill\(|pipe2?\(|_index|_type|current_timestamp_clock|snd_pcm_wait|SND_PCM_NONBLOCK|EEXIST|ENAMETOOLONG` 정적 검색은 일치 없음이었다. 처리 단위 사이 빈 줄도 정리했다.
+  - 보드 조작·앱 실행·커밋은 하지 않았다. 원복은 정상 종료·처리 오류 경로에 유지했으며 signal 종료용 원복 처리는 요청대로 제거했다. 이번 코드의 장치 탐색·수치·원복 동작은 보드에서 재확인해야 하며, 작업 노트의 기존 보드 실측은 이번 재작업 코드 실행 결과가 아니다.
 
 ## 리뷰 (Claude)
 - 확인 항목(A):
@@ -156,3 +207,38 @@ external/linux/scripts/checkpatch.pl --no-tree -f examples/devcheck/devcheck.c
 - B에 전달: `devcheck.bb`가 `LICENSE = "GPL-2.0-only"`이므로 `examples/devcheck/devcheck.c` 첫 줄을 `// SPDX-License-Identifier: GPL-2.0-only`로 한다.
 - 결과: A 통과 (B는 구현 후 리뷰)
 - 수정 지시: 없음
+- A 미결 항목 확인(2026-11-15, 노트북 읽기): 로컬 6.18 `external/linux/include/linux/iio/iio.h` L788~803의 `IIO_DECLARE_BUFFER_WITH_TS`는 `type name[ALIGN(count, sizeof(s64)/sizeof(type)) + sizeof(s64)/sizeof(type)] __aligned(sizeof(s64))`로, compat L28~30과 같은 식이다
+- 리뷰 B (2026-11-15, 노트북, 새 파일 대조):
+  - 범위: 새 파일 `examples/devcheck/devcheck.c`·`Makefile`만. A 파일 변경 없음. SPDX `GPL-2.0-only`(A 전달 사항 반영). `-lasound -lm`만 링크(readelf 확인)
+  - 장치 찾기: IIO `name`(`find_iio` L93), pwmchip은 부모 장치·드라이버 링크(`find_pwm` L305, `pca9685-pwm`·`bcm2835-pwm`), ALSA 카드 id(L586), media entity·`QUERYCAP` driver(L706). 번호·모듈 이름을 고정하지 않음(요구사항 2)
+  - imu: 원래 scan enable 7개·`buffer/length`·`watermark`를 저장(L183)하고, scan 배치(index 0~6, `be:s16/16>>0`, timestamp `le:s64/64>>0`)와 `monotonic` 시계를 확인한 뒤에만 씀(L196). 드라이버(`mpu6050_iio.c` L58~71·L324)와 일치. timestamp는 offset 16(L265)으로 A의 24B 배치와 같음. 종료 시 enable 0 → 저장값 복원(L285)
+  - pca: ch0만 export해서 prescale을 바꿀 수 있는 순서(15단계 결론)와 맞음. export 직후 period가 0이 아니면 enable 0·duty 0 뒤 period를 씀(L377). I2C는 `I2C_SLAVE_FORCE` + `I2C_SMBUS_READ`만 쓰고 이유를 주석으로 남김(L482, AGENTS 규칙 범위). 이미 export된 채널은 건드리지 않고 FAIL(L355). 끝나면 disable·unexport
+  - pwm: `pwm-bcm2835`는 `get_state`가 없어 export 직후 period 0 → period부터 씀(L376 주석과 일치)
+  - mic: 기존 앱 설정(S32_LE·2ch·48k·period 1024·buffer 4096). nonblock + `snd_pcm_wait` 2초, xrun 5회 제한으로 `all`이 멈추지 않음(L674)
+  - cam: exec 실패를 CLOEXEC pipe로 받아 `ENOENT`만 SKIP(L823). 설치돼 있는데 캡처가 실패하면 SKIP으로 숨기지 않음
+  - 정리 경로: 모든 하위 명령이 실패·SIGINT 때도 바꾼 설정을 되돌림('하지 말 것: 장치 설정을 바꾼 채 종료'를 지킴). checkpatch `VOLATILE` 경고 1건은 signal handler 공유 변수라 타당
+  - 관찰(수정 불요):
+    - 915줄로 "장치마다 함수 하나 수준"보다 큼. 늘어난 부분은 설정 저장·복원, scan 배치 확인, signal 정리 등 안전 경로라 수용함
+    - AGENTS.md "처리 단위 사이 빈 줄"이 여러 함수에서 지켜지지 않음(L44~45, L105~106, L169~173 등). 동작과 무관하므로 보드 확인을 막지 않고, 원하면 아래 지시로 정리함
+    - Yocto `libcamera-apps` 1.4.2의 `rpicam-still --immediate` 지원은 9단계 출력으로 확인(확인 필요)
+    - `examples/devcheck/devcheck` 바이너리가 `.gitignore`에 없음(Codex 범위 밖). 머지 때 main에서 추가
+  - 결과: B 통과(동작). 단, 사용자 목적("모듈을 쓰면서 값이 잘 나오는지 간단히 확인")보다 과하게 구현된 부분을 줄이는 재작업 1회차를 진행함. 출력 형식·하위 명령·설정 원복은 그대로라 6단계 보드 확인과 병행 가능
+  - 재작업 지시(1회차):
+
+```text
+docs/tasks/18-integration.codex.md '리뷰 B'에 따라 examples/devcheck/devcheck.c를 간단하게 줄여 줘. 목적은 "모듈을 쓰면서 값이 잘 나오는지 간단히 확인"이다. 하위 명령, 출력 형식(key=value, PASS|FAIL), 종료 코드 규칙, 바꾼 설정의 원복(IMU scan·buffer, PWM disable·unexport)은 그대로 둔다.
+1. signal 처리(sigaction, stopped 변수와 모든 stopped 검사, 자식 kill)를 지운다.
+2. IMU의 scan 배치 확인(_index·_type·current_timestamp_clock 읽기)을 지운다. 우리 드라이버 고정 배치(24B, timestamp offset 16)는 주석 한 줄로 남긴다.
+3. 카메라 exec 실패 감지 pipe를 지운다. 자식은 execlp 실패 시 _exit(127)하고, 부모는 종료 코드 127이면 capture=SKIP으로 처리한다.
+4. 마이크는 blocking 열기 + snd_pcm_readi로 단순화한다. -EPIPE면 xrun을 세고 snd_pcm_prepare 후 계속, 5회면 FAIL. snd_pcm_wait·NONBLOCK 분기는 지운다.
+5. find_iio·find_pwm의 중복(-EEXIST) 처리와 경로 길이 검사 중 snprintf 반환값 검사는 PATH_MAX 버퍼라 지운다. 첫 번째 일치를 쓴다.
+6. 함수 안 처리 단위 사이에 빈 줄을 넣는다(AGENTS.md).
+목표는 500줄 안팎. 수정 전 지울 부분과 남길 부분을 짧게 설명하고 승인받은 뒤 구현해. make -C examples/devcheck app, checkpatch를 다시 실행하고 '구현 보고 (Codex)'의 B에 "재작업 1회차"로 줄 수(wc -l)와 함께 덧붙여. 보드 조작·커밋은 하지 마.
+```
+- 리뷰 B 재작업 1회차 (2026-11-15, 노트북):
+  - 결과: 통과. 915 → 580줄, checkpatch 0/0
+  - 지시 6개 반영 확인: signal 처리 없음, IMU scan 배치 검사 대신 주석(L188), 카메라 SKIP은 종료 코드 127(L511), 마이크 blocking `snd_pcm_readi` + xrun 5회 FAIL(L407), 장치 찾기는 첫 일치(`find_iio` L79), 처리 단위 사이 빈 줄
+  - 유지 확인: IMU 활성 버퍼 거부(L148)·설정 저장(L154)·실패 때도 복원(L211), PWM은 직접 export한 채널만 disable·unexport(L313). 이미 export된 채널은 커널이 `export` 쓰기를 거부해 `owned`에 들어가지 않음. PCA 레지스터는 FORCE + SMBus READ만(L243)
+  - `find_pwm`(L101)은 드라이버 디렉터리의 장치 링크 아래 `pwm/pwmchip*`를 찾음. pwmchip의 부모가 장치(`1-0040`, `fe20c000.pwm`)라 6.18·6.6 모두 같은 경로로 예상(6.6은 9단계 출력으로 확인)
+  - 관찰(수정 불요): 마이크가 blocking이라 I2S 클럭이 없으면 `all`이 마이크에서 멈출 수 있음(단순화 지시에 따른 선택). 실패 이유 문자열이 장치별 한 문구로 합쳐짐
+  - 수정 지시: 없음

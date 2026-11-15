@@ -176,12 +176,13 @@ sudo reboot
 
 ```bash
 # [Pi] ~ — 재부팅 후. 6.18 카드는 직접 작성 모듈을 insmod로 올림
+sudo modprobe industrialio_triggered_buffer   # insmod는 의존 모듈을 올리지 않음(9단계와 같음)
 sudo insmod ~/bsp/modules/mpu6050_iio.ko
 sudo insmod ~/bsp/modules/inmp441_codec.ko
 readlink /sys/bus/i2c/devices/1-0068/driver
 sudo ~/bsp/apps/devcheck all
-rpicam-hello -t 10000          # 1단계에서 설치 확인된 경우만, HDMI 연결
-rpicam-still -o /tmp/test.jpg && ls -l /tmp/test.jpg
+rpicam-hello -t 10000 -v 1 2>&1 | grep -v '^#'   # HDMI 연결. 프레임마다 찍히는 '#N (fps)' 줄은 거름
+rpicam-still -n -o /tmp/test.jpg 2>&1 | tail -2 && ls -l /tmp/test.jpg
 ```
 
 확인: **[붙여 주세요]** (없던 dtbo는 해당 단계 산출물에서 복사), `driver` → `mpu6050-iio-study`, `devcheck all` 전체 출력, rpicam 로그의 미리보기 종류(`Made X/EGL` 또는 `Made DRM`).
@@ -280,5 +281,18 @@ scp root@<IP>:/tmp/test.jpg .
 ## 결과
 - 1 64GB 카드 rpicam: `rpicam-hello`·`rpicam-still` 있음. `rpicam-apps` 1.13.0, `libcamera0.7` 0.7.2+rpt20260817(`libcamera-ipa`·`libcamera-v4l2`·`python3-libcamera` 포함) → 6단계 카메라 기준값을 같은 명령으로 얻음. Yocto 쪽은 libcamera 0.4.0 + `libcamera-apps` 1.4.2라 버전이 다르므로 로그 형식·옵션 차이는 버전 차이로 구분해 비교
 - 2 6.18 compatible·config(Claude 읽기 확인 후 사용자 실행으로 같은 출력 확인): `"nakta,` 출력 없음. `"invensense,mpu6050"`은 `drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c` L202에만 있음. `CONFIG_INV_MPU6050_I2C=m`·`SRF04=m`·`PWM_BCM2835=m`·`PWM_PCA9685=m`
+- 5 6.18 재컴파일(A pull 후, `6ad11bb`): `make -C examples/mpu6050_iio modules` 경고 없이 `CC [M]` → `MODPOST` → `LD [M] mpu6050_iio.ko`. 6.6 compat 변경 뒤에도 6.18 빌드 유지
+- 6 64GB 카드 dtbo·config: `overlays-bsp-study01/`에 `i2c-pwm-pca9685a`·`inmp441-study`·`pwm-2chan`·`srf04` dtbo 있음, `mpu6050-iio-overlay.dtbo`를 `mpu6050-iio.dtbo`로 복사. 기존 `dtoverlay` 줄은 `vc4-kms-v3d`·`dwc2,dr_mode=host`·`nospi10`뿐 → 5줄 모두 추가 대상
+- 6 64GB 카드 기준값(1차): `config.txt` 63~67행에 5줄 각각 추가. `mpu6050_iio.ko` insmod가 `Unknown symbol in module` → IIO 의존 모듈(`industrialio_triggered_buffer`)을 먼저 올리지 않음(9단계 절차 누락) → 노트 명령에 `modprobe` 추가, imu 재확인 필요
+  - pca: `pwmchip1`, ch0 20000000/1500000 enable=1, MODE1 `0x20`, PRE_SCALE `0x79`, LED0 `0x00,0x00,0x33,0x01`(15단계와 같음) → PASS
+  - cam: `/dev/media0` `imx219 10-0010`, unicam `/dev/video0`, bcm2835-codec 5노드, `rpicam-still` 1,679,569 B, FFD8 → PASS
+  - mic: card 3 `inmp441study`, 48000/S32_LE/2ch, frames 48000, rms 90337.6, xrun 0 → PASS
+  - sonar: `iio:device0`, 121·122·121·120·121(mm) → PASS
+  - pwm: `pwmchip0`, ch0·ch1 1000000/500000 enable=1 → PASS
+  - rpicam-hello: `Failed to create egl preview`·`Failed to create drm preview`·`Preview window unavailable`. 영상 자체는 1640x1232 약 29.98fps, 노출 33287µs·게인 8.53로 계속 들어옴. 로그가 긴 것은 프레임마다 `#N (fps)` 줄을 찍기 때문
+  - imu(재확인, `modprobe industrialio_triggered_buffer` 후 insmod): driver `mpu6050-iio-study`, `iio:device1`, 20샘플 dt 평균 10.015ms(최소 10.011, 최대 10.019) → PASS. 9단계 평균 10.015ms와 같음
+  - HDMI 미리보기: 64GB 카드에서는 HDMI를 연결하지 않고 진행해 미확인. 완료 기준의 미리보기는 9단계 Yocto 카드에서 확인함
+- 6 64GB 카드 기준값(재작업 devcheck 580줄, 2차): 6개 모두 PASS. imu dt 평균 10.016ms(10.011~10.023), pca `pwmchip1` MODE1 `0x20`·PRE_SCALE `0x79`·LED0 `00 00 33 01`, cam JPEG 1,681,569 B·FFD8, mic rms 90241.2·xrun 0, sonar 120~121mm, pwm ch0·ch1 1ms/0.5ms enable → 1차와 같은 값. **이 줄을 9단계 비교 기준으로 씀**
+- 6 원복: `config.txt.bak-18` 복사 후 `dtoverlay`는 `vc4-kms-v3d`·`dwc2,dr_mode=host`·`nospi10` 3줄만 남음, 재부팅
 - 3 meta-openembedded: `2db6aece32`(python3-grpcio: update gRPC repo roots)로 checkout, `show-layers`에 `openembedded-layer`·`meta-python`·`multimedia-layer`(priority 5)가 기존 4개 레이어와 함께 오류 없이 표시. `add-layer`는 `build/conf/bblayers.conf`에 절대 경로로 기록(템플릿의 상대 경로는 Codex A가 새 빌드 디렉터리용으로 추가)
 - 미검증:
