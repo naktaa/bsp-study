@@ -13,7 +13,7 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/time.h>
-#include <linux/unaligned.h>
+#include "mpu6050_compat.h"
 
 #define MPU6050_REG_SMPLRT_DIV	0x19
 #define MPU6050_REG_CONFIG	0x1a
