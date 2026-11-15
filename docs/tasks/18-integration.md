@@ -247,5 +247,6 @@ scp root@<IP>:/tmp/test.jpg .
 - [ ] 장치를 모두 켠 상태에서 I2C 주소(0x40·0x68)·핀 충돌 없음
 
 ## 결과
-- 
+- 1 64GB 카드 rpicam: `rpicam-hello`·`rpicam-still` 있음. `rpicam-apps` 1.13.0, `libcamera0.7` 0.7.2+rpt20260817(`libcamera-ipa`·`libcamera-v4l2`·`python3-libcamera` 포함) → 7단계 카메라 기준값을 같은 명령으로 얻음. Yocto 쪽은 libcamera 0.4.0 + `libcamera-apps` 1.4.2라 버전이 다르므로 로그 형식·옵션 차이는 버전 차이로 구분해 비교
+- 2 6.18 compatible·config(Claude 읽기 확인 후 사용자 실행으로 같은 출력 확인): `"nakta,` 출력 없음. `"invensense,mpu6050"`은 `drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c` L202에만 있음. `CONFIG_INV_MPU6050_I2C=m`·`SRF04=m`·`PWM_BCM2835=m`·`PWM_PCA9685=m`
 - 미검증:
