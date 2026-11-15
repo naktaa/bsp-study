@@ -2,6 +2,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
+#include <linux/lockdep.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
@@ -26,6 +27,8 @@ struct imx219 {
 	struct media_pad pad;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_ctrl *exposure;
+	struct v4l2_ctrl *hflip;
+	struct v4l2_ctrl *vflip;
 	struct regmap *regmap;
 	struct clk *xclk;
 	struct regulator_bulk_data supplies[3];
@@ -185,6 +188,11 @@ static int imx219_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_TEST_PATTERN:
 		return cci_write(sensor->regmap, CCI_REG16(0x0600),
 				 ctrl->val ? 2 : 0, NULL);
+	case V4L2_CID_HFLIP:
+	case V4L2_CID_VFLIP:
+		return cci_write(sensor->regmap, CCI_REG8(0x0172),
+				 sensor->hflip->val | sensor->vflip->val << 1,
+				 NULL);
 	default:
 		return -EINVAL;
 	}
@@ -197,10 +205,11 @@ static const struct v4l2_ctrl_ops imx219_ctrl_ops = {
 static int imx219_init_controls(struct imx219 *sensor)
 {
 	struct v4l2_ctrl_handler *hdl = &sensor->ctrl_handler;
+	struct v4l2_fwnode_device_properties props;
 	struct v4l2_ctrl *ctrl;
 	int ret;
 
-	ret = v4l2_ctrl_handler_init(hdl, 7);
+	ret = v4l2_ctrl_handler_init(hdl, 11);
 	if (ret)
 		return ret;
 
@@ -232,8 +241,27 @@ static int imx219_init_controls(struct imx219 *sensor)
 				     V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(imx219_test_patterns) - 1,
 				     0, 0, imx219_test_patterns);
+
+	sensor->hflip = v4l2_ctrl_new_std(hdl, &imx219_ctrl_ops,
+					  V4L2_CID_HFLIP, 0, 1, 1, 0);
+	if (sensor->hflip)
+		sensor->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
+	sensor->vflip = v4l2_ctrl_new_std(hdl, &imx219_ctrl_ops,
+					  V4L2_CID_VFLIP, 0, 1, 1, 0);
+	if (sensor->vflip)
+		sensor->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
 	if (hdl->error)
 		return hdl->error;
+
+	ret = v4l2_fwnode_device_parse(sensor->sd.dev, &props);
+	if (ret)
+		return ret;
+
+	ret = v4l2_ctrl_new_fwnode_properties(hdl, &imx219_ctrl_ops, &props);
+	if (ret)
+		return ret;
 
 	sensor->sd.ctrl_handler = hdl;
 
@@ -256,7 +284,7 @@ static int imx219_s_stream(struct v4l2_subdev *sd, int enable)
 
 	ret = imx219_power_on(sensor);
 	if (ret)
-		goto unlock;
+		goto release_controls;
 
 	sensor->powered = true;
 	ret = cci_multi_reg_write(sensor->regmap, imx219_regs,
@@ -274,26 +302,49 @@ static int imx219_s_stream(struct v4l2_subdev *sd, int enable)
 		goto power_off;
 
 	sensor->streaming = true;
+	__v4l2_ctrl_grab(sensor->hflip, true);
+	__v4l2_ctrl_grab(sensor->vflip, true);
 	goto unlock;
 
 power_off:
 	imx219_power_off(sensor);
 	sensor->powered = false;
 	sensor->streaming = false;
+release_controls:
+	__v4l2_ctrl_grab(sensor->hflip, false);
+	__v4l2_ctrl_grab(sensor->vflip, false);
 unlock:
 	mutex_unlock(sensor->ctrl_handler.lock);
 
 	return ret;
 }
 
+static u32 imx219_get_format_code(struct imx219 *sensor)
+{
+	static const u32 codes[] = {
+		MEDIA_BUS_FMT_SRGGB10_1X10,
+		MEDIA_BUS_FMT_SGRBG10_1X10,
+		MEDIA_BUS_FMT_SGBRG10_1X10,
+		MEDIA_BUS_FMT_SBGGR10_1X10,
+	};
+
+	lockdep_assert_held(sensor->ctrl_handler.lock);
+
+	return codes[sensor->hflip->val | sensor->vflip->val << 1];
+}
+
 static int imx219_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
+	struct imx219 *sensor = container_of(sd, struct imx219, sd);
+
 	if (code->pad || code->index)
 		return -EINVAL;
 
-	code->code = MEDIA_BUS_FMT_SRGGB10_1X10;
+	mutex_lock(sensor->ctrl_handler.lock);
+	code->code = imx219_get_format_code(sensor);
+	mutex_unlock(sensor->ctrl_handler.lock);
 
 	return 0;
 }
@@ -302,7 +353,16 @@ static int imx219_enum_frame_size(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
-	if (fse->pad || fse->index || fse->code != MEDIA_BUS_FMT_SRGGB10_1X10)
+	struct imx219 *sensor = container_of(sd, struct imx219, sd);
+	u32 code;
+
+	if (fse->pad || fse->index)
+		return -EINVAL;
+
+	mutex_lock(sensor->ctrl_handler.lock);
+	code = imx219_get_format_code(sensor);
+	mutex_unlock(sensor->ctrl_handler.lock);
+	if (fse->code != code)
 		return -EINVAL;
 
 	fse->min_width = IMX219_WIDTH;
@@ -317,13 +377,20 @@ static int imx219_get_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_state *state,
 			  struct v4l2_subdev_format *fmt)
 {
+	struct imx219 *sensor = container_of(sd, struct imx219, sd);
+	u32 code;
+
 	if (fmt->pad)
 		return -EINVAL;
+
+	mutex_lock(sensor->ctrl_handler.lock);
+	code = imx219_get_format_code(sensor);
+	mutex_unlock(sensor->ctrl_handler.lock);
 
 	fmt->format = (struct v4l2_mbus_framefmt) {
 		.width = IMX219_WIDTH,
 		.height = IMX219_HEIGHT,
-		.code = MEDIA_BUS_FMT_SRGGB10_1X10,
+		.code = code,
 		.field = V4L2_FIELD_NONE,
 		.colorspace = V4L2_COLORSPACE_RAW,
 		.ycbcr_enc = V4L2_YCBCR_ENC_601,
@@ -334,11 +401,43 @@ static int imx219_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int imx219_get_selection(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *state,
+				struct v4l2_subdev_selection *sel)
+{
+	if (sel->pad)
+		return -EINVAL;
+
+	switch (sel->target) {
+	case V4L2_SEL_TGT_CROP:
+	case V4L2_SEL_TGT_CROP_DEFAULT:
+	case V4L2_SEL_TGT_CROP_BOUNDS:
+		sel->r = (struct v4l2_rect) {
+			.left = 8,
+			.top = 8,
+			.width = IMX219_WIDTH,
+			.height = IMX219_HEIGHT,
+		};
+		return 0;
+	case V4L2_SEL_TGT_NATIVE_SIZE:
+		sel->r = (struct v4l2_rect) {
+			.left = 0,
+			.top = 0,
+			.width = 3296,
+			.height = 2480,
+		};
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct v4l2_subdev_pad_ops imx219_pad_ops = {
 	.enum_mbus_code = imx219_enum_mbus_code,
 	.enum_frame_size = imx219_enum_frame_size,
 	.get_fmt = imx219_get_fmt,
 	.set_fmt = imx219_get_fmt,
+	.get_selection = imx219_get_selection,
 };
 
 static const struct v4l2_subdev_video_ops imx219_video_ops = {
@@ -362,6 +461,8 @@ static int imx219_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	v4l2_i2c_subdev_init(&sensor->sd, client, &imx219_subdev_ops);
+	/* libcamera는 엔티티 이름으로 센서 모델을 정한다. */
+	v4l2_i2c_subdev_set_name(&sensor->sd, client, "imx219", NULL);
 	ret = imx219_check_endpoint(dev);
 	if (ret)
 		return ret;
