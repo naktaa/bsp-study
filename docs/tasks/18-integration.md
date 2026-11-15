@@ -61,6 +61,7 @@
 ### 5. 이미지 크기
 - 현재 rootfs 84M, `.img` 282M. poky `image.bbclass` L541: rootfs = 사용량 × 1.3 + `IMAGE_ROOTFS_EXTRA_SPACE`.
 - `IMAGE_ROOTFS_EXTRA_SPACE = "524288"`(512MB) → 예상 rootfs 0.8~0.9GB, `.img` 약 0.9~1.0GB. 32GB 카드 문제없음. `/tmp`는 tmpfs가 아니라 rootfs 디렉터리라 사진은 이 여유 공간에 저장된다.
+- 실측(8단계): `.img` 1.2GB로 예상보다 크다. wic(`scripts/lib/wic/partition.py` L280 `get_rootfs_size()`)가 bitbake `ROOTFS_SIZE`(798720KB)를 요청 크기로 받은 뒤 기본 `--overhead-factor` 1.3(`ksparser.py` L136)을 한 번 더 곱해 ext4가 1014MiB가 된다.
 - 통합 빌드 첫 실행 추가 시간 **1.5~3시간 예상**(boost·gst base/good·libcamera·gnutls·커널).
 
 ### 6. 실패 대안 (미리 정함)
@@ -238,9 +239,26 @@ ls -lL $D/bsp-study-image-raspberrypi4-64.rootfs.wic.bz2
 확인: **[붙여 주세요]** `config.txt`에 `dtparam=i2c1=on`·`i2c_arm=on`·`dtoverlay=imx219`와 **dtoverlay 5줄이 각각 별도 줄**(한 줄에 붙거나 앞에 공백이 생기지 않음), `KERNEL_MODULE_AUTOLOAD`에 `i2c-dev`, dtbo 5개, rpicam 3개, `ipa_rpi_vc4`, `CONFIG_SRF04=m`(fragment 병합 확인), rootfs 크기.
 
 ### 8. [데스크톱 Windows] 카드 쓰기
-12단계 5단계와 같다(`bzcat … > /mnt/d/bsp-images/bsp-study-image.img` → Imager "Use custom" → **32GB 카드**).
 
-확인: `.img` 크기(예상 약 0.9~1.0GB).
+```bash
+# [데스크톱 WSL] ~/yocto/build — 7단계 빌드가 끝난 뒤
+mkdir -p /mnt/d/bsp-images
+bzcat tmp/deploy/images/raspberrypi4-64/bsp-study-image-raspberrypi4-64.rootfs.wic.bz2 > /mnt/d/bsp-images/bsp-study-image.img
+ls -l /mnt/d/bsp-images/bsp-study-image.img
+fdisk -l /mnt/d/bsp-images/bsp-study-image.img | tail -3   # 파티션 크기(FAT boot, ext4 root)
+```
+
+- Windows Raspberry Pi Imager: 장치 Raspberry Pi 4 → OS "Use custom" → `D:\bsp-images\bsp-study-image.img` → 저장소 **32GB 카드(용량 확인, 64GB 카드 아님)** → OS 커스터마이즈 질문 "아니요"
+- 쓰기·검증이 끝나면 카드를 꺼내고 "yocto" 표시를 확인한다.
+- 쓴 뒤 `.img`를 지운다(Wi-Fi `psk`가 들어 있음). 원본 `.wic.bz2`는 `tmp/deploy`에 남는다.
+
+```bash
+# [데스크톱 WSL]
+rm /mnt/d/bsp-images/bsp-study-image.img
+ls /mnt/d/bsp-images/
+```
+
+확인: `.img` 크기와 파티션 크기.
 
 ### 9. [노트북] Yocto 카드 확인 — HDMI 모니터를 연결한 뒤 부팅
 
@@ -281,18 +299,22 @@ scp root@<IP>:/tmp/test.jpg .
 ## 결과
 - 1 64GB 카드 rpicam: `rpicam-hello`·`rpicam-still` 있음. `rpicam-apps` 1.13.0, `libcamera0.7` 0.7.2+rpt20260817(`libcamera-ipa`·`libcamera-v4l2`·`python3-libcamera` 포함) → 6단계 카메라 기준값을 같은 명령으로 얻음. Yocto 쪽은 libcamera 0.4.0 + `libcamera-apps` 1.4.2라 버전이 다르므로 로그 형식·옵션 차이는 버전 차이로 구분해 비교
 - 2 6.18 compatible·config(Claude 읽기 확인 후 사용자 실행으로 같은 출력 확인): `"nakta,` 출력 없음. `"invensense,mpu6050"`은 `drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c` L202에만 있음. `CONFIG_INV_MPU6050_I2C=m`·`SRF04=m`·`PWM_BCM2835=m`·`PWM_PCA9685=m`
+- 3 meta-openembedded: `2db6aece32`(python3-grpcio: update gRPC repo roots)로 checkout, `show-layers`에 `openembedded-layer`·`meta-python`·`multimedia-layer`(priority 5)가 기존 4개 레이어와 함께 오류 없이 표시. `add-layer`는 `build/conf/bblayers.conf`에 절대 경로로 기록(템플릿의 상대 경로는 Codex A가 새 빌드 디렉터리용으로 추가)
 - 5 6.18 재컴파일(A pull 후, `6ad11bb`): `make -C examples/mpu6050_iio modules` 경고 없이 `CC [M]` → `MODPOST` → `LD [M] mpu6050_iio.ko`. 6.6 compat 변경 뒤에도 6.18 빌드 유지
 - 6 64GB 카드 dtbo·config: `overlays-bsp-study01/`에 `i2c-pwm-pca9685a`·`inmp441-study`·`pwm-2chan`·`srf04` dtbo 있음, `mpu6050-iio-overlay.dtbo`를 `mpu6050-iio.dtbo`로 복사. 기존 `dtoverlay` 줄은 `vc4-kms-v3d`·`dwc2,dr_mode=host`·`nospi10`뿐 → 5줄 모두 추가 대상
-- 6 64GB 카드 기준값(1차): `config.txt` 63~67행에 5줄 각각 추가. `mpu6050_iio.ko` insmod가 `Unknown symbol in module` → IIO 의존 모듈(`industrialio_triggered_buffer`)을 먼저 올리지 않음(9단계 절차 누락) → 노트 명령에 `modprobe` 추가, imu 재확인 필요
+- 6 64GB 카드 기준값(1차): `config.txt` 63~67행에 5줄 각각 추가. `mpu6050_iio.ko` insmod가 `Unknown symbol in module` → IIO 의존 모듈(`industrialio_triggered_buffer`)을 먼저 올리지 않음(09단계 IIO 학습 문서의 modprobe 절차 누락) → 노트 명령에 `modprobe` 추가, imu 재확인 필요
   - pca: `pwmchip1`, ch0 20000000/1500000 enable=1, MODE1 `0x20`, PRE_SCALE `0x79`, LED0 `0x00,0x00,0x33,0x01`(15단계와 같음) → PASS
   - cam: `/dev/media0` `imx219 10-0010`, unicam `/dev/video0`, bcm2835-codec 5노드, `rpicam-still` 1,679,569 B, FFD8 → PASS
   - mic: card 3 `inmp441study`, 48000/S32_LE/2ch, frames 48000, rms 90337.6, xrun 0 → PASS
   - sonar: `iio:device0`, 121·122·121·120·121(mm) → PASS
   - pwm: `pwmchip0`, ch0·ch1 1000000/500000 enable=1 → PASS
   - rpicam-hello: `Failed to create egl preview`·`Failed to create drm preview`·`Preview window unavailable`. 영상 자체는 1640x1232 약 29.98fps, 노출 33287µs·게인 8.53로 계속 들어옴. 로그가 긴 것은 프레임마다 `#N (fps)` 줄을 찍기 때문
-  - imu(재확인, `modprobe industrialio_triggered_buffer` 후 insmod): driver `mpu6050-iio-study`, `iio:device1`, 20샘플 dt 평균 10.015ms(최소 10.011, 최대 10.019) → PASS. 9단계 평균 10.015ms와 같음
+  - imu(재확인, `modprobe industrialio_triggered_buffer` 후 insmod): driver `mpu6050-iio-study`, `iio:device1`, 20샘플 dt 평균 10.015ms(최소 10.011, 최대 10.019) → PASS. 09단계 IIO 학습 문서의 평균 10.015ms와 같음
   - HDMI 미리보기: 64GB 카드에서는 HDMI를 연결하지 않고 진행해 미확인. 완료 기준의 미리보기는 9단계 Yocto 카드에서 확인함
 - 6 64GB 카드 기준값(재작업 devcheck 580줄, 2차): 6개 모두 PASS. imu dt 평균 10.016ms(10.011~10.023), pca `pwmchip1` MODE1 `0x20`·PRE_SCALE `0x79`·LED0 `00 00 33 01`, cam JPEG 1,681,569 B·FFD8, mic rms 90241.2·xrun 0, sonar 120~121mm, pwm ch0·ch1 1ms/0.5ms enable → 1차와 같은 값. **이 줄을 9단계 비교 기준으로 씀**
 - 6 원복: `config.txt.bak-18` 복사 후 `dtoverlay`는 `vc4-kms-v3d`·`dwc2,dr_mode=host`·`nospi10` 3줄만 남음, 재부팅
-- 3 meta-openembedded: `2db6aece32`(python3-grpcio: update gRPC repo roots)로 checkout, `show-layers`에 `openembedded-layer`·`meta-python`·`multimedia-layer`(priority 5)가 기존 4개 레이어와 함께 오류 없이 표시. `add-layer`는 `build/conf/bblayers.conf`에 절대 경로로 기록(템플릿의 상대 경로는 Codex A가 새 빌드 디렉터리용으로 추가)
+- 7 빌드 전 설정(`require` 추가 후 `bitbake -e`): `IMAGE_INSTALL`에 지정 11개, `IMAGE_ROOTFS_EXTRA_SPACE="524288"`, `RPI_EXTRA_CONFIG`는 리터럴 `\n`으로 구분된 `dtoverlay` 5줄, `RPI_KERNEL_DEVICETREE_OVERLAYS` 끝에 직접 작성 3개·`i2c-pwm-pca9685a`·`pwm-2chan`, libcamera `PACKAGECONFIG=" raspberrypi gst"`
+- 7 빌드: `time bitbake bsp-study-image` 성공, real 83m7s, 태스크 6639개(재실행 안 함 4589개), WARNING 1개(v4l-utils git.linuxtv.org 받기 실패 → 미러에서 받아 진행)
+- 7 빌드 결과: `bootfiles/config.txt` L245~246 `dtparam=i2c1=on`·`i2c_arm=on`, L252 `dtoverlay=imx219`, L254~258 dtoverlay 5줄이 각각 별도 줄(앞 공백 없음). `KERNEL_MODULE_AUTOLOAD=" i2c-dev "`, deploy에 dtbo 5개, `rpicam-hello`·`rpicam-still`·`rpicam-vid`, `ipa_rpi_vc4.so`, 커널 `.config` `CONFIG_SRF04=m`(fragment 병합됨), rootfs 203M, `.wic.bz2` 100,105,479B
+- 8 `.img`: 1,205,862,400B. `fdisk -l` FAT boot 130M, ext4 root 1014M(예상 0.9~1.0GB보다 큼, 원인은 결정 5 실측 줄)
 - 미검증:
