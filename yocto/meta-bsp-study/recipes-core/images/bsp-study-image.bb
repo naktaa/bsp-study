@@ -18,7 +18,20 @@ IMAGE_INSTALL:append = " \
     wpa-supplicant \
     iw \
     bsp-study-wifi \
+    mpu6050-iio \
+    inmp441-codec \
+    devcheck \
+    libcamera \
+    libcamera-apps \
+    libcamera-gst \
+    v4l-utils \
+    media-ctl \
+    gstreamer1.0 \
+    gstreamer1.0-plugins-base-meta \
+    gstreamer1.0-plugins-good-meta \
     "
+
+IMAGE_ROOTFS_EXTRA_SPACE = "524288"
 
 WIFI_SSID ??= ""
 WIFI_PSK ??= ""

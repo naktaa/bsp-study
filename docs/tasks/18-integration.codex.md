@@ -86,9 +86,52 @@ external/linux/scripts/checkpatch.pl --no-tree -f examples/devcheck/devcheck.c
 
 ### A
 - 변경 요약:
-- 빌드 결과:
+  - `mpu6050_iio.c`는 include 한 줄만 변경했다. `mpu6050_compat.h`에 unaligned 헤더·direct claim/release·timestamp 배열·push API의 버전 분기를 추가했다. 원본과 비교해 include 외 본문이 같은 것을 확인했다.
+  - 레이어 의존성과 템플릿에 meta-openembedded 3개 레이어를 추가하고, `bsp-study-devices.inc`에 overlay 5개·I2C·Camera V2·`i2c-dev` 자동 적재를 모았다.
+  - 커널 bbappend·SRF04 fragment, 모듈 레시피 2개와 전용 Makefile, `devcheck.bb`, libcamera gst bbappend를 추가했다. 이미지에 지정 패키지 11개와 추가 공간 524288KiB를 넣었다.
+  - `examples/`의 기존 Makefile·overlay·마이크 C 소스, `configs/bsp-study.config`, `build/conf`, B의 파일은 수정하지 않았다. 작업 시작 전부터 있던 `18-integration.md` 변경도 유지했다.
+- 빌드 결과 (2026-11-15, 데스크톱 6.6.63):
+  - 아래 명령으로 임시 복사본의 IMU를 빌드했고 종료 코드 0·경고 0이었다. 이후 레시피 전용 Makefile을 통한 IMU·마이크 빌드도 모두 종료 코드 0·경고 0, 산출물은 `file`로 ARM aarch64 ELF임을 확인했다. `T` 아래 `imu/`·`codec/`에 해당 소스와 레시피 Makefile을 복사했고, `imu/Kbuild`는 `obj-m := mpu6050_iio.o`이다.
+
+    ```bash
+    W=$HOME/yocto/build/tmp/work/raspberrypi4_64-poky-linux/linux-raspberrypi/6.6.63+git
+    K=$HOME/yocto/build/tmp/work-shared/raspberrypi4-64/kernel-source
+    B=$W/linux-raspberrypi4_64-standard-build
+    T=/tmp/bsp-integration-a-7upk38kl
+    export PATH=$W/recipe-sysroot-native/usr/bin/aarch64-poky-linux:$W/recipe-sysroot-native/usr/bin:$PATH
+    make -C "$K" O="$B" M="$T/imu" ARCH=arm64 CROSS_COMPILE=aarch64-poky-linux- W=1 modules
+    make -C "$T/imu" KERNEL_SRC="$K" O="$B" ARCH=arm64 CROSS_COMPILE=aarch64-poky-linux- W=1 modules
+    make -C "$T/codec" KERNEL_SRC="$K" O="$B" ARCH=arm64 CROSS_COMPILE=aarch64-poky-linux- W=1 modules
+    ```
+
+  - 임시 검증 모듈에서 compat 헤더를 포함해 `sizeof(struct scan_layout) == 24`와 `__alignof__(struct scan_layout) == 8`을 `static_assert`로 확인했다. 최종 `make -C "$K" O="$B" M="$T/layout" ARCH=arm64 CROSS_COMPILE=aarch64-poky-linux- W=1 modules`는 종료 코드 0·경고 0이었다. 검증 모듈은 저장소에 추가하지 않았다.
+  - overlay 3개는 아래 형식으로 각각 CPP 전처리 후 6.6 빌드 트리의 dtc로 컴파일했다. 모두 종료 코드 0·경고 0이었다. `mpu6050-iio.dtbo` 1052B, `inmp441-study.dtbo` 1475B, `srf04.dtbo` 555B이며 산출물은 `$T/dtbo/`에만 두었다.
+
+    ```bash
+    # source는 기존 examples/의 각 overlay, stem은 결과 dtbo의 이름이다.
+    aarch64-poky-linux-gcc -E -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
+        -I "$K/scripts/dtc/include-prefixes" "$source" > "$T/dtbo/$stem.dts"
+    "$B/scripts/dtc/dtc" -@ -H epapr -I dts -O dtb \
+        -o "$T/dtbo/$stem.dtbo" "$T/dtbo/$stem.dts"
+    ```
+
+  - `FILESEXTRAPATHS`의 실제 경로를 해석해 모든 기존 소스가 연결되는지, 두 모듈의 `file://Makefile`이 `examples/`가 아닌 레시피의 `files/Makefile`을 먼저 선택하는지 확인했다. fragment의 설정도 기존 fragment와 일치한다.
+  - `RPI_EXTRA_CONFIG` 문자열을 rpi-config와 같은 `printf` 형식으로 출력해 선행 빈 줄 1개 다음에 앞 공백 없는 지정 `dtoverlay` 5줄이 나오는 것을 확인했다. 실제 BitBake 변수 확장·배포된 config.txt 확인은 미실행이다.
+  - `devcheck.c`는 현재 데스크톱에 없어 앱 빌드는 미실행이다. B 소스 수신이 필요하다. 6.18 트리도 없어 해당 빌드·전처리 비교는 B의 후속 확인으로 남긴다. BitBake·전체 커널 빌드·설치·보드 실행은 하지 않았다.
 - checkpatch (`kernel-source/scripts/checkpatch.pl --no-tree -f <파일>`, 데스크톱에 `external/linux` 없음):
+  - `mpu6050_iio.c`: 종료 코드 1, **0 errors / 1 warning**. 기존 SPDX 누락이다. include 한 줄만 바꾸라는 범위를 지키기 위해 유지했다.
+  - `mpu6050_compat.h`: 종료 코드 1, **1 error / 6 warnings**. `LINUX_VERSION_CODE` 사용 경고 3건은 지시서의 명시적 요구에 따른다. 비교 방향 경고 3건은 `LINUX_VERSION_CODE < KERNEL_VERSION(...)`의 양쪽이 상수인 전처리 조건을 검사기가 일반 비교로 판정한 것이다.
+  - error는 `IIO_DECLARE_BUFFER_WITH_TS`에 대한 `COMPLEX_MACRO`이다. 이 매크로는 표현식이 아니라 초기화 가능한 배열 선언이므로 전체를 괄호로 감쌀 수 없다. 임시 파일의 단순 `type name[count] __aligned(8)` 선언 매크로에서도 같은 오류가 재현되어 오탐으로 판단했다. 억제 옵션이나 형변환은 추가하지 않았다. 빌드 경고와 checkpatch 진단은 별개이다.
 - 판단이 필요했던 부분:
+  - **버전 경계:** 로컬 6.6.63 헤더와 upstream의 인접 릴리스 헤더를 비교했다. unaligned는 [v6.11 asm-generic 헤더](https://github.com/torvalds/linux/blob/v6.11/include/asm-generic/unaligned.h)와 [v6.12 linux 헤더](https://github.com/torvalds/linux/blob/v6.12/include/linux/unaligned.h), 이동 커밋 [5f60d5f6bbc1](https://github.com/torvalds/linux/commit/5f60d5f6bbc12e782fac78110b0ee62698f3b576)을 근거로 6.12에서 분기했다.
+  - direct claim/release는 [v6.14 iio.h](https://github.com/torvalds/linux/blob/v6.14/include/linux/iio/iio.h)에는 구 API만 있고 [v6.15 iio.h](https://github.com/torvalds/linux/blob/v6.15/include/linux/iio/iio.h)에 bool 래퍼가 있으며, 도입 커밋은 [d795e38df4b7](https://github.com/torvalds/linux/commit/d795e38df4b7ebac1072bbf7d8a5500c1ea83332)이다. 따라서 6.15에서 분기했다.
+  - 배열 매크로와 길이 인자 push API는 v6.15 헤더에는 없고 v6.16의 [iio.h](https://github.com/torvalds/linux/blob/v6.16/include/linux/iio/iio.h)·[buffer.h](https://github.com/torvalds/linux/blob/v6.16/include/linux/iio/buffer.h)에 있다. 도입 커밋은 각각 [63fc53526d30](https://github.com/torvalds/linux/commit/63fc53526d3090b27bd06bb43b92e8bc85f46fb1)·[8f08055bc67a](https://github.com/torvalds/linux/commit/8f08055bc67a355aca55856cc810b89645506a5f)이며 6.16에서 함께 분기했다. [upstream v6.18 iio.h](https://github.com/torvalds/linux/blob/v6.18/include/linux/iio/iio.h)에서도 신 API를 읽기 확인했지만 로컬 6.18 빌드를 대신하지는 않는다.
+  - **timestamp 배치:** `__be16` 6개의 12B를 16B로 올리고 timestamp 8B를 더해 배열은 24B, 정렬은 8B다. 6.6 `buffer.h`의 push 함수는 timestamp를 `scan_bytes / 8 - 1`번째 s64에 쓰므로 이 장치의 24B scan에서는 offset 16B와 맞는다. 구 push API에 없는 길이 검사는 추가하지 않았다.
+  - **overlay 충돌·태스크:** 구현 전 6.6 `arch/arm/boot/dts/overlays/`에서 지정 DTS·DTBO 3개가 없고 Makefile에도 해당 이름이 없는 것을 확인했다. 기존 `scripts/Makefile.lib:444`의 `%.dtbo: %-overlay.dts` 규칙을 이용한다. `kernel.bbclass`의 `do_symlink_kernsrc`와 `kernel-yocto.bbclass`의 `do_kernel_checkout` 이후인 `do_patch:append()`에서 `${S}`에 넣어 unpack 이후 소스 이동·checkout에 영향을 받지 않게 했다. 이 태스크 자체는 실행하지 않았다.
+  - **fragment·fetch:** `bsp-study.cfg`는 일반 파일로 작성해 `CONFIG_SRF04=m` 설정만 복제했다. 로컬 fetcher가 `FILESPATH`에서 파일을 찾고 unpack 시 복사하는 경로를 읽기 확인했다(`bitbake/lib/bb/fetch2/local.py`, `fetch2/__init__.py:1618`). 저장소 밖을 가리키는 링크 없이 지정 내용을 가져올 수 있고, 기존 fragment의 WSL용 주석도 포함하지 않는다. 실제 fetch 태스크는 미실행이다.
+  - **부트 설정:** 각 설정 사이의 리터럴 `\n`을 `rpi-config_git.bb:304`의 `printf`가 줄바꿈으로 해석한다. 문자열 시작의 `\n`은 앞선 설정과 분리하고, 이후에는 들여쓰기나 줄 이음을 넣지 않아 각 `dtoverlay`가 공백 없이 시작한다.
+  - **패키지명:** 로컬 `libcamera_0.4.0.bb`의 `${PN}-gst`, `libcamera-apps_git.bb`의 기본 `${PN}`, `v4l-utils_1.26.1.bb`의 `media-ctl`, poky `gstreamer1.0-plugins-packaging.inc`의 `${PN}-meta`를 확인했다. 모듈은 `module.bbclass`가 `${PN}`을 빈 메타 패키지로 두고 분할 모듈을 의존성에 넣으므로 이미지에서 레시피 이름을 사용했다. 지시서와 다른 이름은 없었다. 패키지 생성·rootfs 설치 성공은 미검증이다.
+  - 레시피의 GPL-2.0-only 공통 라이선스 체크섬은 로컬 poky 파일의 MD5로 확인했다. `devcheck`의 실제 소스 라이선스는 B 소스 수신 후 함께 확인해야 한다.
 
 ### B
 - 변경 요약:
@@ -101,5 +144,15 @@ external/linux/scripts/checkpatch.pl --no-tree -f examples/devcheck/devcheck.c
   - compat의 `IIO_DECLARE_BUFFER_WITH_TS` 대체 배열이 `__be16`, count=6에서 24바이트이고 8바이트 정렬인지. 계산: 데이터 6 × 2B = 12B → timestamp(s64) 정렬을 위해 16B로 올림 → + timestamp 8B = 24B. 6.6 `iio_push_to_buffers_with_timestamp()`는 timestamp를 `scan_bytes - 8` 위치에 쓰므로 6.6 `scan_bytes`(채널 6개 + ts = 24B)와 일치해야 한다.
   - 6.18 경로에서 드라이버 본문·전처리 결과가 포팅 전과 같은지(diff는 include 한 줄)
   - `RPI_EXTRA_CONFIG` 결과가 앞 공백 없는 5줄인지, overlay 이름 충돌 확인 결과
-- 결과: 통과 | 수정 필요
-- 수정 지시:
+- 리뷰 A (2026-11-15, 데스크톱, `git diff`와 새 파일 대조):
+  - 범위: 변경 파일이 지시서 A 목록과 일치. `examples/*/Makefile`·overlay `.dts`·`configs/bsp-study.config`·`build/conf`·B 파일은 그대로. 커널 config는 `recipes-kernel/linux/files/bsp-study.cfg`(`CONFIG_SRF04=m` 한 줄)로 Yocto 커널에만 들어가고 내용은 `configs/bsp-study.config`와 같다.
+  - 포팅: `mpu6050_iio.c` diff는 L16 include 한 줄. `mpu6050_compat.h`는 6.6에서만 정의가 생기고 6.18에서는 `linux/unaligned.h` include 외에 아무것도 정의하지 않는다(L10~40). 6.6 `include/linux/iio/`에 같은 이름(`iio_device_claim_direct`·`IIO_DECLARE_BUFFER_WITH_TS`·`iio_push_to_buffers_with_ts`)이 없어 재정의 충돌 없음(읽기 확인). bool 변환 `== 0`(L19)으로 6.18 호출부 `if (!iio_device_claim_direct())`의 의미가 같다. 경계 버전(6.12·6.15·6.16)은 upstream 헤더·커밋 링크로 근거를 남겼다.
+  - 버퍼 크기: L29~31은 `ALIGN(6, 8/2) + 8/2 = 8 + 4 = 12`개 × 2B = **24B**, `__aligned(8)`(Codex가 upstream v6.18 `iio.h`를 읽고 같은 식으로 작성. 로컬 6.18 `external/linux`와의 대조는 노트북 B에서 확인 필요). Codex가 `static_assert`로 24B·8B 정렬을 확인했다. 6.6 push는 `((s64 *)data)[scan_bytes / 8 - 1]` = offset 16B에 timestamp를 쓰므로 6.18의 `IIO_DECLARE_BUFFER_WITH_TS` 배치와 같다. 6.6 wrapper가 `data_total_len`을 쓰지 않는 것은 구 API에 길이 인자가 없기 때문이며 검사를 새로 만들지 않은 것이 지시에 맞다.
+  - 레이어: `KERNEL_DEVICETREE ??= ${RPI_KERNEL_DEVICETREE} ${RPI_KERNEL_DEVICETREE_OVERLAYS}`(rpi-base.inc L107)라 `.inc`의 `:append`가 빌드·부트 파티션 배포 목록에 함께 들어간다. `RPI_EXTRA_CONFIG:append`는 리터럴 `\n` 구분이고 rpi-config L304 `printf`가 줄바꿈으로 바꾼다. 앞 공백 없음. 모듈 레시피 Makefile은 `oe_runmake`의 `O=`가 하위 make에 전달되는 형식이고, `FILESEXTRAPATHS`에서 `files/`가 먼저라 레시피 Makefile이 선택된다. 이미지 rootfs에 `udev`가 있어(`/sbin/udevd`, 현재 rootfs 확인) modalias 자동 적재 경로가 있다.
+  - 오류·문맥: 드라이버 본문 변경이 없어 probe·remove·IRQ 경로는 6.18과 같다.
+  - 관찰(수정 불요): kernel-yocto `do_patch()`는 `set +e`로 시작한다(kernel-yocto.bbclass L343~). 그래서 `do_patch:append`의 `install`이 실패해도 태스크가 바로 멈추지 않을 수 있다. 다만 그 경우 `do_compile`에서 dtbo 규칙이 없다는 오류로 드러나므로 7단계 로그로 판단한다.
+  - checkpatch: `mpu6050_iio.c` 기존 SPDX 경고 1건(범위상 유지), `mpu6050_compat.h`의 `LINUX_VERSION_CODE` 경고 3건(지시대로 버전 분기), 비교 방향 경고 3건(전처리 상수 비교), `COMPLEX_MACRO` error 1건(배열 선언 매크로라 괄호로 감쌀 수 없음, upstream 같은 형태). 이유가 타당해 유지한다.
+  - 미검증: bitbake 파싱·fetch·`do_patch`·패키지 생성, 6.18 재컴파일(노트 5단계), `devcheck.bb` 빌드(B 소스 필요).
+- B에 전달: `devcheck.bb`가 `LICENSE = "GPL-2.0-only"`이므로 `examples/devcheck/devcheck.c` 첫 줄을 `// SPDX-License-Identifier: GPL-2.0-only`로 한다.
+- 결과: A 통과 (B는 구현 후 리뷰)
+- 수정 지시: 없음

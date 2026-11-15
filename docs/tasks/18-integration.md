@@ -89,7 +89,7 @@ command -v rpicam-hello rpicam-still
 dpkg -l | grep -E 'rpicam|libcamera' | awk '{print $1, $2, $3}'
 ```
 
-확인: **[붙여 주세요]** 둘 다 있으면 7단계에서 카메라 기준값을 같은 명령으로 얻는다. 없으면 카메라 기준값은 13단계 결과(`imx219 [3280x2464 10-bit RGGB]` 인식, 13·13-2 캡처 결과)로만 비교하고 설치는 하지 않는다.
+확인: **[붙여 주세요]** 둘 다 있으면 6단계에서 카메라 기준값을 같은 명령으로 얻는다. 없으면 카메라 기준값은 13단계 결과(`imx219 [3280x2464 10-bit RGGB]` 인식, 13·13-2 캡처 결과)로만 비교하고 설치는 하지 않는다.
 
 ### 2. [노트북] 6.18 compatible·config 확인
 
@@ -104,8 +104,17 @@ grep -nE 'CONFIG_(INV_MPU6050_I2C|SRF04|PWM_PCA9685|PWM_BCM2835)=' out/kernel-rp
 
 ### 3. [데스크톱] meta-openembedded 추가
 
+빌드 셸은 VSCode 통합 터미널이 아니라 **Windows Terminal의 WSL 창 → tmux 세션 `yocto`** 안에서 연다(VSCode를 닫으면 빌드도 끝나기 때문. 12단계와 같음).
+
 ```bash
-# [WSL] ~/yocto — tmux 세션 yocto, 12단계 3단계처럼 PATH에서 /mnt 경로를 먼저 뺌
+# [데스크톱 Windows Terminal, WSL 창] — 세션이 있으면 들어가고 없으면 만든다
+tmux new -A -s yocto
+```
+
+```bash
+# [데스크톱 WSL, tmux yocto] ~/yocto — 빌드 셸에서만 Windows PATH(/mnt/...)를 뺀다
+export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd:)
+echo "$PATH" | tr ':' '\n' | grep -c '^/mnt/'   # 0이면 됨
 cd ~/yocto
 git clone -b scarthgap https://git.openembedded.org/meta-openembedded
 git -C meta-openembedded checkout 2db6aece32c7f8ebf6015b468e1b4e21de072e3b
@@ -117,6 +126,11 @@ bitbake-layers show-layers
 ```
 
 확인: **[붙여 주세요]** `show-layers`에 `meta-oe`·`meta-python`·`meta-multimedia`가 보이고 오류가 없다. 이 단계는 Codex A의 레이어 변경 전에 해야 한다(우리 레이어가 multimedia-layer에 의존하게 됨).
+
+주의:
+- 첫 줄 PATH export는 주석만 붙여 넣으면 실행되지 않는다. `grep -c` 결과가 0인지 본다. `add-layer`는 이번처럼 PATH를 정리하지 않아도 동작했다. 7단계 `bitbake`는 12단계 결정대로 Windows PATH(공백이 있는 `/mnt/c/...` 경로)를 뺀 셸에서 실행해, 빌드 도구가 Windows 쪽 실행 파일을 찾지 않게 한다(poky sanity 검사가 공백을 직접 막는지는 확인하지 않음. `sanity.bbclass` L803~805는 `.`·빈 항목만 검사).
+- VSCode 터미널에서 `oe-init-build-env`를 실행하면 `You had no .../poky/.vscode configuration` 메시지와 함께 `poky/.vscode`가 생긴다. 편집기 설정일 뿐이고 빌드와 저장소에 영향이 없어 그대로 둔다.
+- `add-layer`는 `build/conf/bblayers.conf`에 절대 경로(`/home/nakta/yocto/meta-openembedded/...`)로 쓴다. 이 빌드 디렉터리에서는 문제없고, 새 빌드 디렉터리용 상대 경로는 Codex A가 템플릿에 넣는다.
 
 ### 4. Codex A(데스크톱)·Codex B(노트북) 구현
 [Codex 지시서](18-integration.codex.md)의 A·B를 병렬로 진행한다. A와 B는 파일이 겹치지 않는다. 각자 리뷰 통과 후 같은 브랜치에 push하고 상대 PC에서 pull한다.
@@ -180,8 +194,22 @@ sudo reboot
 
 ### 7. [데스크톱] 통합 빌드 (A·B pull 후)
 
+3단계와 같은 tmux 창에서 실행한다. 새 WSL 창·새 tmux 창(`Ctrl-b c`)·분할 창(`Ctrl-b %`)은 PATH export·`source`가 안 된 상태이므로 아래 첫 블록부터 다시 한다. 빌드 전에 Windows 설정 → 전원에서 절전 모드가 "안 함"인지 확인한다(절전에 들어가면 WSL도 멈춤. 화면 꺼짐은 상관없음).
+
 ```bash
-# [WSL] ~/yocto/build — 3단계와 같은 셸
+# [데스크톱 Windows Terminal, WSL 창] — 3단계 세션으로 다시 들어가기
+tmux attach -t yocto            # 세션이 없으면 tmux new -A -s yocto
+```
+
+```bash
+# [데스크톱 WSL, tmux yocto] — 새 창이면 다시 실행. 3단계 창 그대로면 건너뜀
+export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd:)
+cd ~/yocto && source poky/oe-init-build-env build
+cd ~/bspworkspace/bsp-study && git pull && cd ~/yocto/build   # A·B가 push한 레이어·devcheck 받기
+```
+
+```bash
+# [데스크톱 WSL, tmux yocto] ~/yocto/build
 grep -n 'bsp-study-devices' conf/local.conf || echo 'require conf/bsp-study-devices.inc' >> conf/local.conf
 bitbake -e bsp-study-image | grep -E '^(IMAGE_INSTALL|IMAGE_ROOTFS_EXTRA_SPACE|RPI_EXTRA_CONFIG)='
 bitbake -e virtual/kernel | grep -E '^RPI_KERNEL_DEVICETREE_OVERLAYS='
@@ -191,6 +219,8 @@ time bitbake bsp-study-image
 
 확인: **[붙여 주세요]** `PACKAGECONFIG`에 `raspberrypi gst`, overlay 목록에 직접 작성 3개와 `i2c-pwm-pca9685a`·`pwm-2chan`, 빌드 시간. 실패하면 첫 ERROR 블록을 붙인다(`libcamera-apps`면 결정 6 대안).
 
+- 빌드 중 빠져나오기: `Ctrl-b`를 누르고 뗀 뒤 `d`(빌드는 계속됨). 다시 들어가기: `tmux attach -t yocto`. Windows Terminal의 WSL 창 하나는 빌드가 끝날 때까지 열어 둔다.
+
 ```bash
 # [WSL] ~/yocto/build
 D=tmp/deploy/images/raspberrypi4-64
@@ -199,11 +229,12 @@ bitbake -e virtual/kernel | grep -E '^KERNEL_MODULE_AUTOLOAD='
 ls $D | grep -E 'mpu6050-iio|inmp441-study|srf04|pca9685a|pwm-2chan'
 oe-pkgdata-util list-pkg-files libcamera-apps | grep -E 'rpicam-(hello|still|vid)$'
 oe-pkgdata-util list-pkg-files libcamera | grep ipa_rpi_vc4
+grep -n 'CONFIG_SRF04' tmp/work/raspberrypi4_64-poky-linux/linux-raspberrypi/6.6.63+git/linux-raspberrypi4_64-standard-build/.config
 du -sh tmp/work/raspberrypi4_64-poky-linux/bsp-study-image/1.0/rootfs
 ls -lL $D/bsp-study-image-raspberrypi4-64.rootfs.wic.bz2
 ```
 
-확인: **[붙여 주세요]** `config.txt`에 `dtparam=i2c1=on`·`i2c_arm=on`·`dtoverlay=imx219`와 **dtoverlay 5줄이 각각 별도 줄**(한 줄에 붙거나 앞에 공백이 생기지 않음), `KERNEL_MODULE_AUTOLOAD`에 `i2c-dev`, dtbo 5개, rpicam 3개, `ipa_rpi_vc4`, rootfs 크기.
+확인: **[붙여 주세요]** `config.txt`에 `dtparam=i2c1=on`·`i2c_arm=on`·`dtoverlay=imx219`와 **dtoverlay 5줄이 각각 별도 줄**(한 줄에 붙거나 앞에 공백이 생기지 않음), `KERNEL_MODULE_AUTOLOAD`에 `i2c-dev`, dtbo 5개, rpicam 3개, `ipa_rpi_vc4`, `CONFIG_SRF04=m`(fragment 병합 확인), rootfs 크기.
 
 ### 8. [데스크톱 Windows] 카드 쓰기
 12단계 5단계와 같다(`bzcat … > /mnt/d/bsp-images/bsp-study-image.img` → Imager "Use custom" → **32GB 카드**).
@@ -247,6 +278,7 @@ scp root@<IP>:/tmp/test.jpg .
 - [ ] 장치를 모두 켠 상태에서 I2C 주소(0x40·0x68)·핀 충돌 없음
 
 ## 결과
-- 1 64GB 카드 rpicam: `rpicam-hello`·`rpicam-still` 있음. `rpicam-apps` 1.13.0, `libcamera0.7` 0.7.2+rpt20260817(`libcamera-ipa`·`libcamera-v4l2`·`python3-libcamera` 포함) → 7단계 카메라 기준값을 같은 명령으로 얻음. Yocto 쪽은 libcamera 0.4.0 + `libcamera-apps` 1.4.2라 버전이 다르므로 로그 형식·옵션 차이는 버전 차이로 구분해 비교
+- 1 64GB 카드 rpicam: `rpicam-hello`·`rpicam-still` 있음. `rpicam-apps` 1.13.0, `libcamera0.7` 0.7.2+rpt20260817(`libcamera-ipa`·`libcamera-v4l2`·`python3-libcamera` 포함) → 6단계 카메라 기준값을 같은 명령으로 얻음. Yocto 쪽은 libcamera 0.4.0 + `libcamera-apps` 1.4.2라 버전이 다르므로 로그 형식·옵션 차이는 버전 차이로 구분해 비교
 - 2 6.18 compatible·config(Claude 읽기 확인 후 사용자 실행으로 같은 출력 확인): `"nakta,` 출력 없음. `"invensense,mpu6050"`은 `drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c` L202에만 있음. `CONFIG_INV_MPU6050_I2C=m`·`SRF04=m`·`PWM_BCM2835=m`·`PWM_PCA9685=m`
+- 3 meta-openembedded: `2db6aece32`(python3-grpcio: update gRPC repo roots)로 checkout, `show-layers`에 `openembedded-layer`·`meta-python`·`multimedia-layer`(priority 5)가 기존 4개 레이어와 함께 오류 없이 표시. `add-layer`는 `build/conf/bblayers.conf`에 절대 경로로 기록(템플릿의 상대 경로는 Codex A가 새 빌드 디렉터리용으로 추가)
 - 미검증:
