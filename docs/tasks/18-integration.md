@@ -328,7 +328,7 @@ explorer.exe "$(wslpath -w out/cam18)"
   | 항목 | Yocto 6.6.63 | 64GB 6.18.59 | 판단 |
   | --- | --- | --- | --- |
   | imu | `iio:device1`, dt 평균 10.016ms(10.011~10.017) | 10.016ms | 같음 |
-  | pca | `pwmchip2`, MODE1 `0x00`, PRE_SCALE `0x79`, LED0 `00 00 34 01` | `pwmchip1`, `0x20`, `0x79`, `00 00 33 01` | 주기 같음. 1.5ms = 307.2카운트를 6.18은 버림(307), 6.6은 308. 6.18은 probe에서 `MODE1_AI` 설정(`pwm-pca9685.c` L477). 6.6 계산·AI 처리는 6.6 소스 확인 필요 |
+  | pca | `pwmchip2`, MODE1 `0x00`, PRE_SCALE `0x79`, LED0 `00 00 34 01` | `pwmchip1`, `0x20`, `0x79`, `00 00 33 01` | 주기 같음. 1.5ms = 307.2카운트를 6.18은 버림(307), 6.6은 308. 6.18은 probe에서 `MODE1_AI` 설정(`pwm-pca9685.c` L477). 6.6은 L409 `DIV_ROUND_UP_ULL`(올림)이고 `MODE1_AI` 정의가 없음(Claude가 Yocto 6.6.63 소스 읽기 확인) → 드라이버 버전 차이 |
   | cam | JPEG 2,045,628 B, FFD8 | 1,681,569 B | 장면·libcamera 버전 차이 |
   | mic | card 2 `inmp441study`, rms 92051.9, xrun 0 | rms 90241.2, xrun 0 | 맞음 |
   | sonar | 38~39mm | 120~121mm | 물체 위치 차이. 가깝게 29mm, 멀게 54~55mm로 거리 변화를 따라감(자로 잰 거리 비교는 안 함) |
@@ -336,4 +336,4 @@ explorer.exe "$(wslpath -w out/cam18)"
 
 - 9 카메라: `imx219 [3280x2464 10-bit RGGB]` 모드 4개. `rpicam-hello -t 10000`에 `Made DRM preview window`, SSH에서 실행했고 HDMI 모니터(로그인 콘솔 위)에 실시간 영상 확인 후 콘솔로 복귀. `Preview window unavailable` 없음. `rpicam-still` `/tmp/test.jpg` 2,057,331 B → 노트북 WSL에서 `scp yocto:` 후 열림. `Mismatch between Unicam and CamHelper for embedded data usage!` 경고는 13-2와 같은 embedded data 미지원 경고로 영상·사진에 영향 없음
   - 처음 `scp`를 Pi 셸에서 실행해 실패(`<IP>`를 리다이렉트로 해석, `yocto` 이름 해석 실패, 자기 자신 호스트 키 거부) → 노트북 WSL 명령으로 고침
-- 미검증: PCA9685 6.6 드라이버의 duty 계산(올림 여부)·MODE1 AI 처리 소스 확인. 초음파 자로 잰 거리 비교. 선택 확인(TCP 스트림) 미실행. 모터 PWM 기준값 비교는 17단계 이후
+- 미검증: 초음파 자로 잰 거리 비교. 선택 확인(TCP 스트림) 미실행. 모터 PWM 기준값 비교는 17단계 이후

@@ -98,7 +98,7 @@
 | pwm ch0·ch1 | 1ms / 0.5ms | 같음 |
 
 - PCA9685 1.5ms는 4096 × 1.5/20 = 307.2카운트다. 6.18 드라이버는 버림(307 = `0x133`), 6.6은 308(`0x134`)로 썼다. 주기 설정은 같다.
-- 6.18은 probe에서 `MODE1_AI`를 켠다(`external/linux/drivers/pwm/pwm-pca9685.c` L477). 6.6 쪽 계산과 AI 처리는 6.6 소스로 확인이 필요하다.
+- 6.6.63 `drivers/pwm/pwm-pca9685.c`(Yocto `tmp/work-shared/raspberrypi4-64/kernel-source`, `e442e5c1ab6b`)는 L409에서 `DIV_ROUND_UP_ULL`로 올림해 308을 쓰고, `MODE1_AI` 정의가 없어 probe(L558)에서 ALLCALL·SUB 비트만 지운다(MODE1 `0x00`). 6.18은 probe에서 `MODE1_AI`를 켠다(`external/linux/drivers/pwm/pwm-pca9685.c` L477). LED0 1카운트와 MODE1 차이는 드라이버 버전 차이다.
 
 ## 5. 재현
 선행 조건: 12단계 빌드 디렉터리 `~/yocto/build`(데스크톱), 레이어 추가와 meta-openembedded는 [작업 노트 3단계](../tasks/18-integration.md#3-데스크톱-meta-openembedded-추가).
@@ -144,6 +144,5 @@ explorer.exe "$(wslpath -w out/cam18)"
 | 빌드 중 WARNING: v4l-utils `git.linuxtv.org` 받기 실패 | 원본 저장소 접속 실패 | 미러에서 받아 빌드 계속됨. 조치 없음 |
 
 - 미검증:
-  - PCA9685 6.6 드라이버의 duty 계산(올림 여부)과 MODE1 AI 처리는 6.6 소스 확인이 필요하다.
   - 초음파를 자로 잰 거리와 비교하지 않았다. 거리 변화를 따라가는 것만 확인했다.
   - TCP 스트림 선택 확인은 실행하지 않았다. 모터 PWM 기준값 비교는 17단계 이후에 한다.
