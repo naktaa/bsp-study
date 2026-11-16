@@ -42,16 +42,15 @@ HDMI 모니터를 연결해 부팅한다. `yocto`는 노트북 `~/.ssh/config`�
 
 ```bash
 # [Pi] root@raspberrypi4-64 — 기준값을 /tmp/before에 모음
-mkdir -p /tmp/before /mnt/boot
+mkdir -p /tmp/before
 cat /proc/cmdline > /tmp/before/cmdline.txt
 devcheck all > /tmp/before/devcheck.txt 2>&1; echo "devcheck=$?"
 ls /proc/device-tree/chosen/ > /tmp/before/chosen-list.txt
 tar -C /sys/firmware/devicetree/base -cf /tmp/before/dt.tar .
-mount -o ro /dev/mmcblk0p1 /mnt/boot
-ls -l /mnt/boot > /tmp/before/bootpart-ls.txt
-cp /mnt/boot/config.txt /tmp/before/boot-config.txt
-cp /mnt/boot/cmdline.txt /tmp/before/boot-cmdline.txt
-umount /mnt/boot
+B=$(awk '$1=="/dev/mmcblk0p1" {print $2}' /proc/mounts); echo "boot=$B"   # Yocto는 부트 파티션을 이미 마운트함(18-2 1단계 실측)
+ls -l $B > /tmp/before/bootpart-ls.txt
+cp $B/config.txt /tmp/before/boot-config.txt
+cp $B/cmdline.txt /tmp/before/boot-cmdline.txt
 ls -l /tmp/before
 ```
 
@@ -137,19 +136,18 @@ HDMI에서 볼 것: `U-Boot 2024.01` 배너 → `Hit any key to stop autoboot`(�
 
 ```bash
 # [Pi] root@raspberrypi4-64 — U-Boot 후 같은 항목을 /tmp/after에 모음
-mkdir -p /tmp/after /mnt/boot
+mkdir -p /tmp/after
 tr -d '\0' < /proc/device-tree/chosen/u-boot,version; echo     # 판정 근거 1(코드가 있을 때)
 cat /proc/cmdline > /tmp/after/cmdline.txt
 devcheck all > /tmp/after/devcheck.txt 2>&1; echo "devcheck=$?"
 ls /proc/device-tree/chosen/ > /tmp/after/chosen-list.txt
 tar -C /sys/firmware/devicetree/base -cf /tmp/after/dt.tar .
-mount -o ro /dev/mmcblk0p1 /mnt/boot
-ls -l /mnt/boot > /tmp/after/bootpart-ls.txt
-strings /mnt/boot/kernel8.img | grep -m1 'U-Boot 2024.01'       # 대체 근거
-ls /mnt/boot/uboot.env                                           # 없어야 함
-cp /mnt/boot/config.txt /tmp/after/boot-config.txt
-cp /mnt/boot/cmdline.txt /tmp/after/boot-cmdline.txt
-umount /mnt/boot
+B=$(awk '$1=="/dev/mmcblk0p1" {print $2}' /proc/mounts); echo "boot=$B"   # Yocto는 부트 파티션을 이미 마운트함(18-2 1단계 실측)
+ls -l $B > /tmp/after/bootpart-ls.txt
+strings $B/kernel8.img | grep -m1 'U-Boot 2024.01'       # 대체 근거
+ls $B/uboot.env                                           # 없어야 함
+cp $B/config.txt /tmp/after/boot-config.txt
+cp $B/cmdline.txt /tmp/after/boot-cmdline.txt
 readlink /sys/bus/i2c/devices/1-0068/driver                       # mpu6050-iio-study
 ```
 
