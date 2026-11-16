@@ -128,7 +128,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 ## 11. U-Boot 부팅
 - 부팅용 SD 카드를 쓴다(T-B01은 카드가 한 장이라 기존 카드에서 진행). 변경 전에 부트 파티션 백업과 복구 절차(SD 리더기로 `config.txt`·부팅 파일 되돌리기)를 먼저 확인한다.
 - Pi firmware가 `config.txt`에 따라 U-Boot를 읽고, 기본 DTB에 `dtoverlay`를 적용한 DT를 U-Boot에 넘긴다. U-Boot가 이 DT를 커널에 그대로 넘기는지 커널의 `/proc/device-tree`에서 overlay 노드로 대조한다.
-- 작업 노트: [T-B01](tasks/T-B01-uboot-boot.md) · 학습 문서: [U-Boot 문서](learning/11-uboot-boot.md)
+- 작업 노트: [T-B01](tasks/T-B01-uboot-boot.md), Yocto 이미지 적용 [18-2-uboot](tasks/18-2-uboot.md) · 학습 문서: [U-Boot 문서](learning/11-uboot-boot.md)
 - 확인할 계층: firmware → U-Boot → 커널 → rootfs. 실패 시 어느 단계에서 멈췄는지 시리얼·화면 출력으로 구분한다(시리얼 콘솔 준비 여부 확인 필요).
 
 ## 12. Yocto 최소 이미지
@@ -170,7 +170,7 @@ BSP 구성과 저수준 드라이버 구현·데이터 수집을 필수 목표�
 - 완료 표기는 "포팅·신호 검증 완료, 실구동 미검증"으로 구분한다.
 
 ## 18. 통합
-- 작업 노트: [18-integration](tasks/18-integration.md) · 학습 문서: [통합 문서](learning/18-integration.md)
+- 작업 노트: [18-integration](tasks/18-integration.md), [18-2-uboot](tasks/18-2-uboot.md) · 학습 문서: [통합 문서](learning/18-integration.md), [U-Boot 문서](learning/11-uboot-boot.md#4-5-yocto-이미지의-u-boot18-2)
 - 12단계 최소 이미지에 IMU(IIO 모듈·overlay·수집 앱)와 13~17단계 장치의 모듈·overlay·설정·검증 도구를 `meta-bsp-study` 레시피로 한 번에 추가한다.
 - 커널은 12단계 이미지의 기본 `linux-raspberrypi` 6.6.63에 맞춘다(2026-11-13 결정). 6.18.59 카드에서 확인한 직접 작성 드라이버·overlay를 6.6에서 out-of-tree 모듈 레시피(`inherit module`)로 다시 빌드하고, 6.6과 6.18 사이 API·binding 차이는 이 단계 계획에서 소스로 확인한다.
 - 장치를 모두 켠 상태에서 핀(I2S GPIO18~21과 PWM, I2C1 공유)·I2C 주소·전원 충돌을 확인한다.
