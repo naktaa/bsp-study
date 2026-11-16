@@ -2,11 +2,11 @@
 
 ## 1. 한눈에 보기
 - **목적:** VEDA Final에서 쓴 카메라 모듈을 커스텀 커널 6.18.59에서 대상 커널 드라이버로 연결하고, VEDA 앱이 libcamera로 하던 노출 설정과 타임스탬프 읽기가 커널의 어느 코드로 이어지는지 확인한다.
-- **기능:** 13단계는 rpi `imx219` overlay로 `imx219` 센서 드라이버와 unicam CSI-2 수신 드라이버를 연결하고 `rpicam-apps`(libcamera)로 사진·영상을 받는다. 13-2단계는 libcamera 없이 subdev 컨트롤과 직접 작성한 V4L2 캡처 앱으로 같은 일을 한다. 13-3단계는 mainline `imx219` 대신 직접 작성한 고정 모드 센서 드라이버 `imx219_study`를 unicam에 붙여 13-2와 같은 측정을 하고, 13-4단계는 같은 드라이버를 libcamera가 받아들이게 해 ISP를 거친 사진·실시간 미리보기를 받는다.
+- **기능:** 13단계는 rpi `imx219` overlay로 `imx219` 센서 드라이버와 unicam CSI-2 수신 드라이버를 연결하고 `rpicam-apps`(libcamera)로 사진·영상을 받는다. 13-2단계는 libcamera 없이 subdev 컨트롤과 직접 작성한 V4L2 캡처 앱으로 같은 일을 한다. 13-3단계는 mainline `imx219` 대신 직접 작성한 고정 모드 센서 드라이버 `imx219_study`를 unicam에 붙여 13-2와 같은 측정을 하고, 13-4단계는 같은 드라이버를 libcamera가 받아들이게 해 ISP를 거친 사진·실시간 미리보기를 받는다. 18-2단계에서 이 드라이버를 Yocto 이미지(6.6.63)에 넣어 mainline 대신 쓰게 했다.
 - **직접 작성 / 가져다 쓴 것:** 13·13-2는 커널 드라이버·overlay(`imx219.c`, `bcm2835-unicam.c`, `imx219-overlay.dts`)를 그대로 쓰고, 13-2의 V4L2 캡처 앱 [v4l2_capture.c](../../examples/camera/v4l2_capture.c)와 RAW 확인 도구 [raw_tool.py](../../examples/camera/raw_tool.py)를 직접 작성했다. 13-3·13-4는 센서 드라이버 [imx219_study.c](../../examples/camera_sensor/imx219_study.c)와 overlay [imx219-study-overlay.dts](../../examples/camera_sensor/imx219-study-overlay.dts)를 직접 작성했고, 레지스터 값은 6.18 `imx219.c`에서 가져왔다. unicam·ISP는 그대로 쓴다.
-- **결과(실측):** 노출 12000µs 요청 → 11984µs 적용, 20fps 프레임 간격 평균 49.985ms. 13-2에서 libcamera 없이 같은 노출이 634라인, `vertical_blanking=181`에서 50.000ms·`sequence_gaps=0`. 13-3 직접 작성 드라이버도 634라인·50.001ms·컬러바 채널 평균 479.5로 mainline과 같았고, 13-4에서 libcamera가 이 드라이버를 `imx219`로 인식해 flip·자동 노출이 적용된 사진과 미리보기가 mainline처럼 나왔다. 상세는 [6장](#6-트러블슈팅과-한계).
+- **결과(실측):** 노출 12000µs 요청 → 11984µs 적용, 20fps 프레임 간격 평균 49.985ms. 13-2에서 libcamera 없이 같은 노출이 634라인, `vertical_blanking=181`에서 50.000ms·`sequence_gaps=0`. 13-3 직접 작성 드라이버도 634라인·50.001ms·컬러바 채널 평균 479.5로 mainline과 같았고, 13-4에서 libcamera가 이 드라이버를 `imx219`로 인식해 flip·자동 노출이 적용된 사진과 미리보기가 mainline처럼 나왔다. Yocto 6.6.63에서도 자동 적재되고 HDMI 미리보기·사진이 바른 방향·정상 색이었다(18-2). 상세는 [6장](#6-트러블슈팅과-한계).
 - **범위 밖:** 커널 config 변경, 직접 작성 드라이버의 여러 모드·binning·embedded data, 직접 작성 드라이버로 송출, 자동 노출·화이트밸런스, 화질 처리(ISP), 다른 장치와 동시 사용(→ [18](18-integration.md)).
-- **관련 파일:** 작업 노트 [13-camera](../tasks/13-camera.md), [13-2-camera-ctrl](../tasks/13-2-camera-ctrl.md)·[Codex 지시서](../tasks/13-2-camera-ctrl.codex.md), [13-3-camera-sensor](../tasks/13-3-camera-sensor.md)·[Codex 지시서](../tasks/13-3-camera-sensor.codex.md), [13-4-camera-libcamera](../tasks/13-4-camera-libcamera.md)·[Codex 지시서](../tasks/13-4-camera-libcamera.codex.md), [Makefile](../../examples/camera/Makefile), [13-3 Makefile](../../examples/camera_sensor/Makefile). 커널 소스는 `external/linux`(Git 대상 아님)의 `drivers/media/i2c/imx219.c`, `drivers/media/platform/bcm2835/bcm2835-unicam.c`, `arch/arm/boot/dts/overlays/imx219-overlay.dts`. VEDA 비교는 `../VEDA_Final_Project/tank/src/libcamera_capture.cpp`
+- **관련 파일:** 작업 노트 [13-camera](../tasks/13-camera.md), [13-2-camera-ctrl](../tasks/13-2-camera-ctrl.md)·[Codex 지시서](../tasks/13-2-camera-ctrl.codex.md), [13-3-camera-sensor](../tasks/13-3-camera-sensor.md)·[Codex 지시서](../tasks/13-3-camera-sensor.codex.md), [13-4-camera-libcamera](../tasks/13-4-camera-libcamera.md)·[Codex 지시서](../tasks/13-4-camera-libcamera.codex.md), [Makefile](../../examples/camera/Makefile), [13-3 Makefile](../../examples/camera_sensor/Makefile), 6.6 빌드용 [imx219_compat.h](../../examples/camera_sensor/imx219_compat.h)(18-2). 커널 소스는 `external/linux`(Git 대상 아님)의 `drivers/media/i2c/imx219.c`, `drivers/media/platform/bcm2835/bcm2835-unicam.c`, `arch/arm/boot/dts/overlays/imx219-overlay.dts`. VEDA 비교는 `../VEDA_Final_Project/tank/src/libcamera_capture.cpp`
 
 ## 2. 구조
 
@@ -59,7 +59,7 @@ probe 첫 단계 `imx219_check_hwcfg()`(`imx219.c` L1104)가 센서 endpoint 값
 세 값이 맞물려 2레인 × 456MHz × 2(DDR) / 10bit = 182.4M 픽셀/s가 되고, 13-2의 노출 µs 환산과 프레임 간격이 이 값으로 실측과 맞았다.
 
 ### 센서 전원·클럭은 어떤 순서로 켜지는가
-`imx219_power_on()`(L1017)은 전원(regulator) → 클럭(xclk) → XCLR(리셋 해제) → 6.2ms 대기 순이고, 끌 때(L1054)는 XCLR → 전원 → 클럭이다. Pi 4에서 `VANA`(2.8V)는 GPIO 확장기 5번 핀으로 켜는 `cam1_reg`(`bcm2711-rpi-4-b.dts` L27)이고, overlay에는 `reset-gpios`가 없다. 센서는 `power_on` 동안에만 전원이 들어가므로 드라이버가 없을 때 `i2cdetect -y 10`에 `0x10`이 안 보이는 것은 정상일 수 있다. 13-3 드라이버는 reset GPIO 없이 regulator → xclk → 6.2ms만 하고([imx219_study.c#L133](../../examples/camera_sensor/imx219_study.c#L133)), probe에서 chip ID만 읽은 뒤 끄고 스트림 동안만 켠다.
+`imx219_power_on()`(L1017)은 전원(regulator) → 클럭(xclk) → XCLR(리셋 해제) → 6.2ms 대기 순이고, 끌 때(L1054)는 XCLR → 전원 → 클럭이다. Pi 4에서 `VANA`(2.8V)는 GPIO 확장기 5번 핀으로 켜는 `cam1_reg`(`bcm2711-rpi-4-b.dts` L27)이고, overlay에는 `reset-gpios`가 없다. 센서는 `power_on` 동안에만 전원이 들어가므로 드라이버가 없을 때 `i2cdetect -y 10`에 `0x10`이 안 보이는 것은 정상일 수 있다. 13-3 드라이버는 reset GPIO 없이 regulator → xclk → 6.2ms만 하고([imx219_study.c#L135](../../examples/camera_sensor/imx219_study.c#L135)), probe에서 chip ID만 읽은 뒤 끄고 스트림 동안만 켠다.
 
 ## 4. 구현 흐름
 
@@ -97,21 +97,22 @@ unicam(레거시)이 센서에서 쓰는 것은 source pad 수, `get_fmt`, `vide
 
 | 순서 | 하는 일 | 코드 |
 | --- | --- | --- |
-| 1 | 엔티티 이름을 `imx219 10-0010`으로(드라이버 이름·compatible은 `imx219-study`) | [L465](../../examples/camera_sensor/imx219_study.c#L465) |
-| 2 | endpoint가 2레인·456MHz인지, xclk 24MHz인지 확인 | [L96](../../examples/camera_sensor/imx219_study.c#L96), [L479](../../examples/camera_sensor/imx219_study.c#L479) |
-| 3 | 전원 on → chip ID `0x0219` → 전원 off | [L490](../../examples/camera_sensor/imx219_study.c#L490) |
-| 4 | 컨트롤 11개(노출·게인·vblank·hblank·pixel_rate·link_freq·test_pattern·hflip·vflip + DT rotation·orientation), source pad 1개, `v4l2_async_register_subdev_sensor` → unicam `.complete`가 `/dev/video0` 등록 | [L504](../../examples/camera_sensor/imx219_study.c#L504), [L262](../../examples/camera_sensor/imx219_study.c#L262) |
-| 5 | `get_fmt`·`set_fmt`는 state 없이 고정 크기와 현재 flip에 맞는 Bayer 코드 반환 | [L322](../../examples/camera_sensor/imx219_study.c#L322), [L376](../../examples/camera_sensor/imx219_study.c#L376) |
-| 6 | `get_selection`: crop (8, 8, 3280, 2464), native 3296×2480 | [L404](../../examples/camera_sensor/imx219_study.c#L404) |
-| 7 | `s_stream(1)`: 컨트롤 lock 안에서 전원 on → 레지스터 44개 → 저장된 컨트롤 적용 → MODE_SELECT 1 → flip 변경 잠금 | [L271](../../examples/camera_sensor/imx219_study.c#L271) |
-| 8 | `s_ctrl`: 전원이 켜져 있을 때만 I2C 쓰기, 꺼져 있으면 값만 저장 | [L160](../../examples/camera_sensor/imx219_study.c#L160) |
+| 1 | 엔티티 이름을 `imx219 10-0010`으로(드라이버 이름·compatible은 `imx219-study`) | [L467](../../examples/camera_sensor/imx219_study.c#L467) |
+| 2 | endpoint가 2레인·456MHz인지, xclk 24MHz인지 확인 | [L98](../../examples/camera_sensor/imx219_study.c#L98), [L481](../../examples/camera_sensor/imx219_study.c#L481) |
+| 3 | 전원 on → chip ID `0x0219` → 전원 off | [L492](../../examples/camera_sensor/imx219_study.c#L492) |
+| 4 | 컨트롤 11개(노출·게인·vblank·hblank·pixel_rate·link_freq·test_pattern·hflip·vflip + DT rotation·orientation), source pad 1개, `v4l2_async_register_subdev_sensor` → unicam `.complete`가 `/dev/video0` 등록 | [L506](../../examples/camera_sensor/imx219_study.c#L506), [L264](../../examples/camera_sensor/imx219_study.c#L264) |
+| 5 | `get_fmt`·`set_fmt`는 state 없이 고정 크기와 현재 flip에 맞는 Bayer 코드 반환 | [L324](../../examples/camera_sensor/imx219_study.c#L324), [L378](../../examples/camera_sensor/imx219_study.c#L378) |
+| 6 | `get_selection`: crop (8, 8, 3280, 2464), native 3296×2480 | [L406](../../examples/camera_sensor/imx219_study.c#L406) |
+| 7 | `s_stream(1)`: 컨트롤 lock 안에서 전원 on → 레지스터 44개 → 저장된 컨트롤 적용 → MODE_SELECT 1 → flip 변경 잠금 | [L273](../../examples/camera_sensor/imx219_study.c#L273) |
+| 8 | `s_ctrl`: 전원이 켜져 있을 때만 I2C 쓰기, 꺼져 있으면 값만 저장 | [L162](../../examples/camera_sensor/imx219_study.c#L162) |
 
-- 레지스터 테이블([L44](../../examples/camera_sensor/imx219_study.c#L44))은 6.18 `imx219.c`의 `imx219_common_regs` 23개(0x3000 이상 접근 해제, 문서화되지 않은 값 포함), 2레인 PLL 8개, `imx219_set_framefmt()`가 3280×2464 RAW10에서 계산하는 값 13개다. mainline은 크기마다 계산하고, 이 드라이버는 그 결과 하나를 고정했다.
+- 레지스터 테이블([L46](../../examples/camera_sensor/imx219_study.c#L46))은 6.18 `imx219.c`의 `imx219_common_regs` 23개(0x3000 이상 접근 해제, 문서화되지 않은 값 포함), 2레인 PLL 8개, `imx219_set_framefmt()`가 3280×2464 RAW10에서 계산하는 값 13개다. mainline은 크기마다 계산하고, 이 드라이버는 그 결과 하나를 고정했다.
 - `s_ctrl`이 `streaming`이 아니라 `powered`를 보는 이유: 스트림 시작 중 `__v4l2_ctrl_handler_setup()`이 부를 때는 아직 `streaming`이 false라, 그 플래그를 보면 미리 설정한 노출·flip이 센서에 들어가지 않는다.
 - libcamera 조건(rpi libcamera `670581c` 읽기 확인):
   - 엔티티 이름의 첫 단어로 모델을 정하고 그 이름으로 CamHelper·튜닝 파일 `imx219.json`을 고른다(`v4l2_subdevice.cpp` L1727). `imx219-study`로는 실패하므로 이름만 맞췄다.
   - 필수 컨트롤은 GAIN·EXPOSURE·HBLANK·PIXEL_RATE·VBLANK이다(`camera_sensor_legacy.cpp` L455).
   - DT `rotation` 180을 읽고, `MODIFY_LAYOUT`이 붙은 flip을 켠 뒤 바뀐 Bayer 코드(`SBGGR10`)로 `set_fmt`를 부른다(L366·L614·L775). 드라이버는 수단만 주고 방향은 libcamera가 정하므로 장착 방향이 다른 보드에서도 그대로 쓸 수 있다.
+- 6.6 빌드(18-2): `devm_v4l2_sensor_clk_get()`이 6.18부터 있어 [imx219_compat.h](../../examples/camera_sensor/imx219_compat.h)가 6.6에서만 `devm_clk_get()`으로 대신한다. 6.6 unicam은 DT `brcm,media-controller`가 있을 때만 media controller 모드라 overlay에 한 줄([L67](../../examples/camera_sensor/imx219-study-overlay.dts#L67))을 더했다. 6.18은 compatible의 match data로 항상 켠다(`bcm2835-unicam.c` L3303).
 - mainline 표준과의 차이: mainline은 `init_state` + `v4l2_subdev_init_finalize()`로 포맷·crop을 코어 state에 두고 `enable_streams`를 `v4l2_subdev_s_stream_helper`로 잇는다. 이 드라이버는 모드가 하나라 상태 API 없이 `.s_stream`을 직접 구현했다(새 upstream 드라이버는 상태 API가 표준). 모드가 하나라 1640×1232 요청에도 3280×2464(최대 21.19fps)를 쓴다.
 
 ## 5. 재현
@@ -203,7 +204,7 @@ PNG는 WSL에서 `scp 'pi:bsp/cam2/*.png' out/cam2/`로 가져와 본다. 원복
 | 13-4 렌즈를 가려도 `exposure`·`analogue_gain`이 그대로 | 어두운 방에서 이미 최대(2492 = vblank 32 기준 최대, 230 ≈ 9.85배) | 플래시로 밝혀 감소를 확인(2492/230 → 542~932/128) |
 | 노출 6배인데 밝기 비가 3.39·3.68로 작음 | 긴 노출 쪽 포화(11%), 어두운 장면은 black level을 빼고 0으로 자르면 낮은 값의 평균이 커짐 | 두 장 모두 포화·잘림이 없는 픽셀만 사용 → 5.31~5.47 |
 
-**현재 버전 검증 (13: 2026-11-11, 13-2: 2026-11-15, 13-3·13-4: 2026-11-16)**
+**현재 버전 검증 (13: 2026-11-11, 13-2: 2026-11-15, 13-3·13-4·18-2: 2026-11-16)**
 
 | 항목 | 결과 |
 | --- | --- |
@@ -217,9 +218,10 @@ PNG는 WSL에서 `scp 'pi:bsp/cam2/*.png' out/cam2/`로 가져와 본다. 원복
 | 13-3 측정 | 첫 스트림부터 수신(LP-11 토글 없음), 기본 66.651ms, `vertical_blanking=181`에서 50.001ms, 12000µs → 634라인, 컬러바 479.5·포화 50%, `sequence_gaps=0` → 13-2 mainline과 같음 |
 | 13-3 v4l2-compliance | `-u /dev/v4l-subdev0` 46개 중 45 통과. 실패 1: 컨트롤 이벤트 구독(`V4L2_SUBDEV_FL_HAS_EVENTS`·`subscribe_event` 없음) |
 | 13-4 libcamera | `imx219 [3280x2464 10-bit RGGB]` 모드 1개(21.19fps), 경고·오류 없음, 센서 포맷 `SBGGR10_1X10`, 실행 중 rotation 180·hflip 1·vflip 1, 플래시로 자동 노출 감소, 사진·VNC 미리보기 바른 방향·정상 색 |
+| 18-2 Yocto 6.6.63 | 6.6 빌드 경고 0, 6.18 재빌드 경고 0. `imx219_study`·`v4l2_cci` 자동 적재(mainline `imx219` 미적재), `imx219 [3280x2464 10-bit RGGB]` 모드 1개, `SBGGR10_1X10`, HDMI 미리보기·사진 바른 방향·정상 색 |
 
-- 미검증: libcamera 동작 중 subdev 컨트롤 값 변화(메타데이터로만 판단), 사진 방향·초점, 장시간 스트림과 프레임 누락, 노출 선형성의 정확한 비(5.3~5.5 vs 6.0), `analogue_gain` 코드와 실제 배율, mainline `imx219`의 v4l2-compliance 결과, 직접 작성 드라이버로 640×480·20fps 연속 프레임 간격과 6.6.63(Yocto) 빌드.
-- 한계: 13-2·13-3 RAW 확인은 2×2 디베이어·선형 PNG까지다. 직접 작성 드라이버는 모드 1개(최대 21.19fps)라 작은 해상도도 ISP가 8MP에서 축소하고, 엔티티 이름을 `imx219`로 맞춰 libcamera가 mainline 튜닝을 그대로 쓴다. Yocto 이미지(6.6.63)의 libcamera 0.4.0·rpicam-apps 1.4.2 통합과 HDMI 미리보기는 [18 문서](18-integration.md)에서 확인했다.
+- 미검증: libcamera 동작 중 subdev 컨트롤 값 변화(메타데이터로만 판단), 사진 방향·초점, 장시간 스트림과 프레임 누락, 노출 선형성의 정확한 비(5.3~5.5 vs 6.0), `analogue_gain` 코드와 실제 배율, mainline `imx219`의 v4l2-compliance 결과, 직접 작성 드라이버로 640×480·20fps 연속 프레임 간격(6.18·Yocto 모두).
+- 한계: 13-2·13-3 RAW 확인은 2×2 디베이어·선형 PNG까지다. 직접 작성 드라이버는 모드 1개(최대 21.19fps)라 작은 해상도도 ISP가 8MP에서 축소하고, 엔티티 이름을 `imx219`로 맞춰 libcamera가 mainline 튜닝을 그대로 쓴다. Yocto 이미지(6.6.63)의 libcamera 0.4.0·rpicam-apps 1.4.2 통합과 HDMI 미리보기는 [18 문서](18-integration.md)에서 확인했고, 18-2부터 이 드라이버로 동작한다.
 
 **더 보기**
 - 왜 `bcm2835_unicam_legacy` 모듈이 붙는가 → 기본 DT의 `brcm,bcm2835-unicam`(`bcm283x.dtsi` L458)에 rpi 커널 드라이버(`bcm2835-unicam.c` L3425)가 매칭된다. upstream 드라이버는 rpi 커널에서 `brcm,bcm2835-unicam-upstream`에만 매칭된다

@@ -13,6 +13,8 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
 
+#include "imx219_compat.h"
+
 #define IMX219_WIDTH		3280
 #define IMX219_HEIGHT		2464
 #define IMX219_FRAME_LENGTH	3526

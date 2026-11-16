@@ -1,0 +1,5 @@
+# firmware가 만든 DT와 bootargs를 그대로 사용한다.
+# 카드에 환경을 저장하지 않도록 기본 스크립트의 환경 저장 줄을 뺐다.
+fdt addr ${fdt_addr} && fdt get value bootargs /chosen bootargs
+fatload @@BOOT_MEDIA@@ 0:1 ${kernel_addr_r} @@KERNEL_IMAGETYPE@@
+@@KERNEL_BOOTCMD@@ ${kernel_addr_r} - ${fdt_addr}

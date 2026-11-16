@@ -3,11 +3,12 @@
 ## 1. 한눈에 보기
 
 - **목적:** 일반 임베디드 SoC처럼 부트로더 단계를 직접 구성해, 부팅 시 커널이 무엇을 어떻게 받는지 계층별로 설명할 수 있게 한다. 12단계 Yocto 부팅 경로의 기반이다.
-- **기능:** Pi 4 firmware가 커널 대신 U-Boot(`u-boot.bin`)를 실행하게 하고, U-Boot가 [boot.cmd](../../boot/uboot/boot.cmd)로 만든 `boot.scr`에 따라 기존 커스텀 커널 `6.18.59-v8-bsp-study01`과 initramfs를 올린다. firmware가 `config.txt`의 `dtparam`·`dtoverlay`를 적용해 만든 DT를 U-Boot가 **바꾸지 않고** 커널에 넘긴다.
+- **기능:** Pi 4 firmware가 커널 대신 U-Boot(`u-boot.bin`)를 실행하게 하고, U-Boot가 [boot.cmd](../../boot/uboot/boot.cmd)로 만든 `boot.scr`에 따라 기존 커스텀 커널 `6.18.59-v8-bsp-study01`과 initramfs를 올린다. firmware가 `config.txt`의 `dtparam`·`dtoverlay`를 적용해 만든 DT를 U-Boot가 그대로 커널에 넘긴다. 장치·overlay 노드는 바꾸지 않고, U-Boot가 더하는 것은 `/chosen/u-boot,version`과 비활성 `framebuffer` 노드뿐이다([4-5](#4-5-yocto-이미지의-u-boot18-2)).
+- **Yocto 이미지(18-2):** 같은 구조를 18단계 통합 이미지에 meta-raspberrypi 방식(`RPI_USE_U_BOOT`, U-Boot 2024.01)으로 넣었다.
 - **직접 작성 / 가져다 쓴 것:** 부트 스크립트 [boot.cmd](../../boot/uboot/boot.cmd)(→ `boot.scr`)와 [Makefile](../../boot/uboot/Makefile), `config.txt`의 `kernel=` 변경은 직접 했다. U-Boot `v2026.10`(`rpi_arm64_defconfig`, 소스 수정 없음)·Pi firmware·[07](07-kernel-build.md)의 커스텀 커널은 가져다 썼다.
-- **결과:** U-Boot 경유 부팅, `/chosen/u-boot,version` = `2026.10`, cmdline 동일, overlay 노드 전달, 원복을 보드에서 확인했다([6장](#6-트러블슈팅과-한계)).
+- **결과:** U-Boot 경유 부팅, `/chosen/u-boot,version` = `2026.10`, cmdline 동일, overlay 노드 전달, 원복을 보드에서 확인했다. 18-2 Yocto 이미지에서도 `2024.01`, cmdline 동일, 전체 DT diff, `devcheck all` 6개 PASS를 확인했다([6장](#6-트러블슈팅과-한계)).
 - **범위:** U-Boot `v2026.10`, `rpi_arm64_defconfig`, 소스 수정 없음, `saveenv` 없음(SD 카드에 환경을 쓰지 않음). 부트 파티션에 `u-boot.bin`·`boot.scr`를 추가하고 `config.txt`의 `kernel=` 한 줄만 바꾼다. 네트워크 부팅·부팅 메뉴·시리얼 콘솔은 하지 않았다.
-- **관련 파일:** [boot.cmd](../../boot/uboot/boot.cmd), [Makefile](../../boot/uboot/Makefile), 진행 기록 [T-B01](../tasks/T-B01-uboot-boot.md). U-Boot 소스는 `external/u-boot`(Git 대상 아님)
+- **관련 파일:** [boot.cmd](../../boot/uboot/boot.cmd), [Makefile](../../boot/uboot/Makefile), 진행 기록 [T-B01](../tasks/T-B01-uboot-boot.md). Yocto(18-2): [bsp-study-devices.inc](../../yocto/meta-bsp-study/conf/bsp-study-devices.inc), [rpi-u-boot-scr.bbappend](../../yocto/meta-bsp-study/recipes-bsp/rpi-u-boot-scr/rpi-u-boot-scr.bbappend), [boot.cmd.in](../../yocto/meta-bsp-study/recipes-bsp/rpi-u-boot-scr/files/boot.cmd.in), 진행 기록 [18-2-uboot](../tasks/18-2-uboot.md). U-Boot 소스는 `external/u-boot`(Git 대상 아님)
 
 ## 2. 구조
 
@@ -37,7 +38,7 @@ Pi는 firmware가 커널까지 직접 올릴 수 있어서 U-Boot가 없어도 �
 
 - 대부분의 임베디드 SoC(i.MX, TI, Rockchip 등)에서 커널·DT·initramfs를 고르고 올리는 역할을 U-Boot가 맡는다. 이 단계를 직접 구성해 봐야 "커널이 무엇을 어떻게 받는가"를 계층별로 설명할 수 있다.
 - 부트 스크립트로 커널 주소·initramfs·DT·bootargs를 명시하게 되므로, firmware가 알아서 하던 일이 눈에 보인다.
-- 12단계 Yocto(meta-raspberrypi)도 U-Boot를 이미지에 넣는 구성을 지원한다. 그 전에 수동으로 동작을 확인해 둔다.
+- 12단계 Yocto(meta-raspberrypi)도 U-Boot를 이미지에 넣는 구성을 지원한다. 수동으로 먼저 확인하고, 18-2에서 Yocto 이미지에 넣었다.
 
 ### 왜 DTB 파일을 다시 읽지 않고 firmware DT를 쓰는가
 
@@ -62,7 +63,7 @@ Pi는 firmware가 `config.txt`의 `dtparam`·`dtoverlay`를 적용해 DT를 완�
 
 ### U-Boot를 거쳤는지 리눅스에서 어떻게 아는가
 
-U-Boot는 `booti` 직전 `fdt_chosen()`에서 `/chosen/u-boot,version`을 항상 넣는다(`boot/fdt_support.c` L390). U-Boot 경유 부팅에서는 이 값이 `2026.10`이었고 원복 후에는 없었다. 화면 출력이 아니라 리눅스 쪽 증거로 판정한다.
+U-Boot는 `booti` 직전 `fdt_chosen()`에서 `/chosen/u-boot,version`을 항상 넣는다(`boot/fdt_support.c` L390). U-Boot 경유 부팅에서는 이 값이 `2026.10`이었고 원복 후에는 없었다. Yocto의 2024.01도 같은 함수(`fdt_support.c` L324)가 넣어 `2024.01`이 보였다. 화면 출력이 아니라 리눅스 쪽 증거로 판정한다.
 
 ### 왜 SD 카드 한 장으로도 안전하게 시험할 수 있었는가
 
@@ -109,6 +110,24 @@ booti ${kernel_addr_r} ${ramdisk_addr_r}:${filesize} ${fdt_addr}
 firmware DT는 firmware가 정한 위치(RAM 상단 쪽)에 있고 `fdt_addr`로만 참조한다.
 
 커널 헤더 flags의 bit 3이 켜져 있어(`0xa`) `booti`는 커널을 2MB 경계(`0x200000`)로 옮긴다(`arch/arm/lib/image.c`). 끝 주소가 `scriptaddr`·initramfs 영역보다 아래라 겹치지 않는다.
+
+### 4-5. Yocto 이미지의 U-Boot(18-2)
+
+18단계 통합 이미지에는 meta-raspberrypi 방식으로 넣었다. [bsp-study-devices.inc#L16](../../yocto/meta-bsp-study/conf/bsp-study-devices.inc#L16)의 `RPI_USE_U_BOOT = "1"`이 부트 파일을 `Image`, `u-boot.bin;kernel8.img`, `boot.scr`로 바꾼다(meta-raspberrypi `rpi-base.inc` L166~170). 기본 스크립트는 첫 부팅에 `saveenv`를 하므로, 그 줄만 뺀 [boot.cmd.in](../../yocto/meta-bsp-study/recipes-bsp/rpi-u-boot-scr/files/boot.cmd.in)을 bbappend로 쓴다.
+
+| 항목 | 11 수동(64GB 카드) | 18-2 Yocto(32GB 카드) |
+| --- | --- | --- |
+| U-Boot | v2026.10 직접 빌드 | poky `u-boot_2024.01.bb`, `rpi_arm64_config` |
+| firmware가 실행하는 파일 | `config.txt`의 `kernel=u-boot.bin` | 이름이 `kernel8.img`인 U-Boot(621,144 B), `kernel=` 줄 없음 |
+| 스크립트 | `boot.cmd` 5줄, `load ${devtype} ...` | `boot.cmd.in` 3줄, `fatload mmc 0:1 ${kernel_addr_r} Image` |
+| initramfs | 로드해서 전달 | 없음(`-`), `root=/dev/mmcblk0p2` |
+| 같은 점 | firmware DT(`fdt_addr`), `/chosen/bootargs` 복사, `booti`, `bootflow scan`, `rpi.env` 주소, `saveenv` 없음 | 같음 |
+
+18-2에서는 U-Boot 전후 DT 전체를 diff했다. 바뀐 줄 45개는 대부분 phandle 재번호이고, 장치 overlay 노드의 속성은 같았다. U-Boot가 더한 것은 두 가지다.
+- `/chosen/u-boot,version = "2024.01"`
+- 루트 `framebuffer`(`simple-framebuffer`, `status = "disabled"`): rpi 보드 코드 `ft_board_setup()`이 DT에 simple-framebuffer 노드가 없으면 추가한다(`board/raspberrypi/rpi/rpi.c` L655, v2026.10 읽기 확인). 11단계는 overlay 노드만 비교해서 이 노드를 보지 못했다.
+
+Yocto 커널 `Image`는 27,400,704 B로 `CONFIG_SYS_BOOTM_LEN`(16MB)보다 크지만 정상 부팅했다. 2024.01 `boot/image.c` L459~466은 비압축 이미지가 이미 제자리에 있으면 크기 검사 없이 지나간다.
 
 ## 5. 재현
 
@@ -258,7 +277,8 @@ diff ~/bsp/cmdline-before-tb01.txt /proc/cmdline && echo same
 ### 6-2. 실측과 미검증
 
 - **실측(사용자 실행):** U-Boot 경유 부팅, `u-boot,version` = `2026.10`, cmdline 동일, firmware overlay 노드·`interrupt-parent` 전달과 드라이버 바인딩, 원복 후 직접 부팅. HDMI에서 `Hit any key to stop autoboot`를 확인해 현재 화면 설정(`vc4-kms-v3d`, `disable_fw_kms_setup=1`)에서도 U-Boot 화면 출력이 됨을 봤다.
+- **실측(18-2, 사용자 실행):** Yocto 이미지에서 U-Boot 2024.01 경유 부팅, `u-boot,version` = `2024.01`, `/proc/cmdline`·`cmdline.txt` 동일, `uboot.env` 없음, 전체 DT diff([4-5](#4-5-yocto-이미지의-u-boot18-2)), `devcheck all` 6개 PASS. HDMI에서 배너 문자열은 읽지 못했다.
 - **간접 근거:** `boot.scr` 실행은 화면이 아니라, firmware가 initramfs를 올리지 않았는데 initramfs로 부팅됐다는 점으로 판단했다.
-- **미검증:** PC SD 리더로 `config.txt`를 되돌리는 복구(이번에는 Pi 안에서 원복), U-Boot 프롬프트에서 USB 키보드 입력, 시리얼 콘솔, U-Boot 경유 상태에서 장시간 운용과 IIO 버퍼 수집.
+- **미검증:** PC SD 리더로 `config.txt`를 되돌리는 복구(이번에는 Pi 안에서 원복), 18-2 Yocto 카드의 `kernel8.img` 교체 원복(준비만 함), 2024.01 `rpi.c`의 `framebuffer` 추가 코드 줄 번호, U-Boot 프롬프트에서 USB 키보드 입력, 시리얼 콘솔, U-Boot 경유 상태에서 장시간 운용과 IIO 버퍼 수집.
 - **한계:** 커널·initramfs 파일 이름이 `boot.cmd`에 고정되어 있다. 커널 이름을 바꾸면 스크립트도 바꿔야 한다. 부팅 실패 시 화면만으로는 로그를 남기기 어렵다. 반복 시험이 많아지면 3.3V USB-UART 시리얼 콘솔이 낫다.
 - **VEDA 강의와 이 실습의 범위:** 강의에서는 U-Boot 빌드와 프롬프트의 `setenv`·`fatload`·`booti`·`saveenv`로 기본 커널을 부팅했다. 이 실습은 스크립트(`boot.scr`) 방식, firmware DT·bootargs 유지, initramfs 로드, U-Boot 경유·DT 전달·원복을 리눅스 쪽 증거로 검증한 것이다.

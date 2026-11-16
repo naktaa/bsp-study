@@ -20,6 +20,7 @@ IMAGE_INSTALL:append = " \
     bsp-study-wifi \
     mpu6050-iio \
     inmp441-codec \
+    imx219-study \
     devcheck \
     libcamera \
     libcamera-apps \
