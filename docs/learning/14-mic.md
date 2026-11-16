@@ -159,17 +159,7 @@ make && make deploy                      # mic_capture, mic_plot.py → pi:bsp/a
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| 녹음 시작 직후 0~150ms 값이 큼 | 녹음마다 Pi가 클럭을 새로 내보내 마이크가 깨어나는 구간 | 레벨 측정에는 앞 150~200ms 제외 |
-| 하위 8비트가 0이 아님 | 24비트 뒤 SD tri-state 구간을 읽음 | `>> 8`로 상위 24비트만 사용 |
-| `supply IOVDD not found, using dummy regulator`(A) | overlay에 코덱 전원 노드가 없음 | 조치 없음. 마이크는 3.3V 핀에서 직접 전원 |
-| C: 재부팅 후 카드 없음, `parse error` | 외부 코덱 모듈이 `/lib/modules`에 없음 | `insmod`하거나 `extra/`에 설치 후 `depmod -a` |
-| C: `rmmod: Module inmp441_codec is in use` | 카드가 코덱 모듈 참조를 잡고 있음 | `asoc-simple-card/unbind` 후 `rmmod` |
-| C: 코덱 없이 `asoc-simple-card/bind`가 `I/O error` | probe가 `-EPROBE_DEFER`로 끝난 것으로 봄 | 코덱 적재 후 자동으로 다시 probe됨 |
-| 녹음 소리가 작음 | 감도 −26 dBFS(94 dB SPL)라 말소리가 최대치의 수 %, 증폭 단계 없음 | D단계 `-g 8`(말소리 peak 2.8만 × 8 ≈ 23만, 한계 838만) |
-| D: 그래프 실행 직후 `[XRUN]` 2회 | python이 창을 띄우는 동안 stdin을 안 읽어 파이프가 참 | 창이 뜬 뒤에는 늘지 않음 |
-| 재부팅 직후 첫 녹음 `a-quiet`가 ch0·ch1 모두 최대치("뿌직") | ch1까지 최대치라 마이크 소리가 아니라 데이터가 잘못 읽힘. 재부팅 직후 프레임 어긋남·접촉 불량 의심 | 이어진 녹음은 정상, 재현 안 됨. 원인 미확인 |
+트러블슈팅: [mic 6장](../components/mic.md#6-트러블슈팅)
 
 **현재 버전 검증 (A·B·C 2026-11-11, D 2026-11-12)**
 

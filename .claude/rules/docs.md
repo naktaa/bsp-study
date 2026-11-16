@@ -17,13 +17,26 @@ paths:
 - 예외: bringup.md와 hardware.md의 장치별 섹션은 배선·사양이 바뀐 브랜치에서 고친다(핀 충돌은 알아야 하는 충돌이다).
 - docs/worklog.md: main에서만 갱신하고 '다음 작업' 3~5줄만 둔다. 머지할 때와 브랜치를 시작·대기로 돌릴 때 고친다. 미검증·한계는 해당 학습 문서에 둔다.
 - docs/roadmap.md: 학습 순서·단계 상태·완료 기준. 상태 표에는 머지된 단계의 `완료`만 적고 `진행`은 적지 않는다. 단계 본문에는 완료 요약을 쌓지 않고 `작업 노트: [..] · 학습 문서: [..]` 링크 한 줄만 둔다.
-- README: 프로젝트 개요·문서 진입점. docs/bringup.md: 환경·장비·배선. docs/hardware.md: 장치 사양·데이터시트·커널 대응.
+- README: 프로젝트 개요·문서 진입점(구조는 `readme` skill). docs/bringup.md: 환경·장비·배선. docs/hardware.md: 장치 사양·데이터시트·커널 대응.
+
+## 역할 구분
+- 학습 문서(`docs/learning/`): **왜·어떻게 만들었나**(학습·면접 복습).
+- 컴포넌트 문서(`docs/components/`): **지금 어떻게 돌아가고, 어디를 고치고, 문제가 생기면 어떻게 조치하나**(운영).
+- 같은 내용을 두 곳에 두지 않는다. 컴포넌트 문서는 개념을 학습 문서 링크로, 사양·배선을 hardware·bringup 링크로 대신한다.
+
+## 컴포넌트 문서
+- 위치는 `docs/components/<컴포넌트>.md`, 형식은 `docs/components/_template.md`(1 요약 → 2 구성 → 3 빌드·배포 → 4 정상 동작 확인 → 5 변경 가이드 → 6 트러블슈팅 → 7 알려진 제한)다. 공통 점검 순서와 목록은 `docs/components/README.md`에 둔다. 01·03·05 기초 실습은 컴포넌트 문서를 만들지 않는다.
+- 분량은 150줄 안팎, 코드 블록 30% 이하. 2장 표는 64GB 카드와 Yocto 카드를 칸으로 나눠 차이를 드러낸다.
+- 6장 트러블슈팅 표는 색인이다. 열은 `계층 | 증상 | 먼저 확인 | 원인 | 조치`이고 계층은 공통 점검 순서 번호(1 빌드 ~ 8 사용자 공간)를 쓴다. 복구·조치 순서가 있는 사례는 표 아래 "조치 절차: 이름" 블록(번호 목록 + 명령 3~5줄)으로 두고 표에서 링크한다.
+- 트러블슈팅에는 커널·드라이버·빌드 시스템 동작에서 나온 실제 사례만 둔다. 원인이 사용자 명령·실행 위치·연결 상태 실수인 것은 쓰지 않고, 필요하면 4장 확인 명령을 올바르게 쓰는 것으로 대신한다. 겪지 않은 문제는 "점검 포인트" 2~3줄로만 둔다.
+- 드라이버·overlay·레시피·config·배포 경로가 바뀌면 해당 컴포넌트 문서의 2·3·5장을 함께 고친다.
 
 ## 학습 문서
 - 위치는 `docs/learning/NN-주제.md`(NN = roadmap 단계 번호, 여러 단계를 다루면 대표 단계)이고 코드는 `examples/`·`boot/`·`yocto/`에 그대로 둔다. 형식은 `docs/learning/_template.md`를 따른다(1 한눈에 보기 → 2 구조 → 3 알아야 할 개념 → 4 구현 흐름 → 5 재현 → 6 트러블슈팅과 한계). 기준 예시는 `docs/learning/06-mpu6050.md`다. 처음 네 섹션만 읽어도 구조·파이프라인·직접 작성한 것·왜 그렇게 했는지 이해되게 쓰고, 복잡하게 만들지 않는다.
 - 분량 기준: 코드 블록 비율 30% 이하. 파일 전체·함수 전체를 붙이지 않는다. 발췌는 블록당 15줄 이내, 나머지는 줄 링크.
 - "알아야 할 개념"은 5개 이내. 넘치면 6장 "더 보기"에 한 줄 질문 + 링크로 둔다.
 - 검증은 현재 버전 결과 표 1개. 버전별 이력·과거 실측은 작업 노트에만 둔다.
+- 6장에는 현재 버전 검증 표, 미검증·한계, 더 보기와 트러블슈팅을 담은 컴포넌트 문서 링크만 둔다. 트러블슈팅 표는 컴포넌트 문서 6장에 둔다(컴포넌트 문서가 없는 01·03·05는 학습 문서에 남긴다).
 - 한 문단 3문장 이내. 단서·주의가 3개를 넘으면 목록으로 쓴다. "~를 보장하지 않는다" 같은 단서는 6장 미검증·한계에 모은다.
 - 재현(5장)은 `<details>`로 접는다. 절차 자체가 주제인 문서(07 커널 빌드)는 예외로 펼쳐 둔다.
 - 02·03·05에서 설명한 기초(Makefile·Kbuild, 매칭 테이블, file_operations, printf 형식 등)는 뒤 문서에서 반복하지 않고 링크한다.
@@ -55,3 +68,12 @@ paths:
 - docs/learning/15-pca9685.md: PCA9685 PWM, 업스트림 `pwm-pca9685`와 직접 작성 provider 비교
 - docs/learning/16-ultrasonic.md: HC-SR04 초음파, 업스트림 IIO `srf04`·overlay, 거리 값 확인
 - docs/learning/18-integration.md: Yocto 6.6 통합 레이어, 직접 작성 모듈 자동 적재·6.6/6.18 compat, devcheck로 두 카드 비교, HDMI DRM 미리보기
+- docs/components/README.md: 공통 점검 순서(계층 1~8), devcheck, 컴포넌트 목록
+- docs/components/kernel.md: 6.18 커널 빌드·설치·복구, config fragment(`configs/bsp-study.config`와 Yocto `bsp-study.cfg`), 외부 모듈 빌드·vermagic
+- docs/components/uboot.md: U-Boot·`boot.scr`, 64GB 수동 경로와 Yocto(`RPI_USE_U_BOOT`) 경로, 원복
+- docs/components/yocto.md: `meta-bsp-study` 레이어·이미지·모듈 레시피·Wi-Fi, overlay·장치 추가 시 고칠 곳, 빌드 장애
+- docs/components/imu.md: MPU6050 misc·IIO 드라이버 운영
+- docs/components/camera.md: IMX219 `imx219_study`·unicam·libcamera 운영
+- docs/components/mic.md: INMP441 ASoC 코덱·overlay·캡처 운영
+- docs/components/pwm.md: PCA9685와 모터 PWM(`pwm-2chan`) 운영
+- docs/components/ultrasonic.md: HC-SR04 `srf04` 운영

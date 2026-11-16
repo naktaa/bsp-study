@@ -156,7 +156,6 @@ sudo rm /dev/char_drv
 | 증상 | 원인 | 해결 |
 | --- | --- | --- |
 | 모듈을 다시 올린 뒤 앱 open 실패 | 동적 major가 바뀌었는데 옛 번호의 노드가 남음 | `/proc/devices`의 major와 `ls -l /dev/char_drv`를 대조하고 다르면 지우고 다시 mknod |
-| 새 `.ko`를 보냈는데 동작이 그대로 | 파일을 덮어써도 로드된 코드는 바뀌지 않음 | 앱을 끝내고 rmmod → insmod |
 
 **현재 버전 검증 (2026-11-04)**
 

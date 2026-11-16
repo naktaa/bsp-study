@@ -126,12 +126,7 @@ sudo reboot
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `make .../srf04.ko`에서 `modpost: "devm_iio_device_alloc" ... undefined!` | 단일 모듈 빌드의 modpost가 `industrialio.ko` 기호를 모름 | `make modules` 증분 빌드 |
-| 단일 빌드 실패 뒤 `modules.order`가 1줄 | 단일 빌드가 목록을 덮어씀 | `make modules`가 다시 만듦(1918줄). 그 전에 `modules_install` 금지 |
-| 재부팅 후 `cat: /in_distance_raw: No such file` | 새 셸이라 `D` 변수가 비어 있음 | `D=...` 줄을 다시 실행 |
-| probe 성공인데 dmesg에 `srf04` 로그 없음 | 드라이버가 성공 시 로그를 남기지 않음 | `lsmod`·IIO `name`·`/proc/interrupts`로 확인 |
+트러블슈팅: [ultrasonic 6장](../components/ultrasonic.md#6-트러블슈팅), 빌드 쪽은 [kernel 6장](../components/kernel.md#6-트러블슈팅)
 
 - **미검증:** 거리별 정확도(줄자 비교), 범위 밖 `-EIO`/`-ETIMEDOUT`(측정 때 앞에 물체가 있었음), 부팅 직후 IRQ 2회의 원인, 분압 저항 값과 실물 모듈 표기(VEDA 기록상 HC-SR04), VEDA busy-wait 방식과의 오차 비교.
 - **한계:** 측정이 sysfs 읽기에 묶여 있어 일정 주기 수집은 사용자 공간이 맡는다. 음속은 20°C 고정(343.5m/s)이다. Pi의 `configs.ko`(`/proc/config.gz`)는 갱신하지 않아 이전 설정으로 보인다.

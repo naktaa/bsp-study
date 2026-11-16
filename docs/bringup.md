@@ -27,7 +27,7 @@
 | 루트 / 부트 | `/dev/mmcblk0p2` ext4 `/`, `/dev/mmcblk0p1` FAT `/boot/firmware` |
 | 부팅 설정 | 실제 파일 `/boot/firmware/config.txt`. `/boot/config.txt`는 이동 안내. 2026-11-04 사용자 제공 전문 확인 ([활성 설정](learning/07-kernel-build.md#7-부팅-선택검증)) |
 | 새 부팅 파일 | kernel8-bsp-study01.img, bcm2711-rpi-4-b-bsp-study01.dtb, overlays-bsp-study01/, initramfs8-bsp-study01 존재 확인 |
-| 화면 / overlay 매핑 | 매핑 누락으로 미출력 발생 후 기존 overlays의 overlay_map.dtb 복사·재부팅으로 사용자가 정상 출력 확인. 현재 매핑은 이 복구 파일이며 같은 소스 빌드 결과로 정상 재배포하는 절차는 아직 미실행 ([상세](learning/07-kernel-build.md#ssh는-되지만-커스텀-커널-화면이-나오지-않음)) |
+| 화면 / overlay 매핑 | 매핑 누락으로 미출력 발생 후 기존 overlays의 overlay_map.dtb 복사·재부팅으로 사용자가 정상 출력 확인. 현재 매핑은 이 복구 파일이며 같은 소스 빌드 결과로 정상 재배포하는 절차는 아직 미실행 ([상세](learning/07-kernel-build.md#사례-분석-ssh는-되지만-커스텀-커널-화면이-나오지-않음)) |
 | libc / 로더 | glibc 2.41, `/lib/ld-linux-aarch64.so.1` 경로 확인 및 hello 실행 성공 |
 | 복구 수단 | SD카드 리더기와 최초 부팅 백업 보유. 화면 장애 복구는 확인했으며 기존 커널로 되돌리는 시험은 미수행 |
 

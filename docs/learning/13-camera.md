@@ -190,19 +190,7 @@ PNG는 WSL에서 `scp 'pi:bsp/cam2/*.png' out/cam2/`로 가져와 본다. 원복
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `lsmod \| grep '^bcm2835_unicam '`에 출력 없음 | 실제 모듈 이름이 `bcm2835_unicam_legacy` | 패턴을 모듈 이름에 맞춤(아래 더 보기) |
-| `find /proc/device-tree -name 'imx219@10'` 출력 없음 | `/proc/device-tree`는 심볼릭 링크라 find가 따라가지 않음 | 끝에 `/`를 붙임 |
-| 재부팅 뒤 unicam이 `/dev/media2` → `/dev/media0` | media 번호는 probe 순서에 따라 바뀜 | `media-ctl -p`의 driver 이름으로 찾음 |
-| 부팅 로그 `Fixed dependency cycle(s)` (csi ↔ imx219) | endpoint 상호 참조를 fw_devlink가 정리한 정보 메시지 | 조치 없음 |
-| `--shutter 12000` 사진·13-2 RAW가 매우 어두움 | 실내 조명에 비해 노출·게인 부족(자동 노출은 66.7ms·9.85), PNG는 감마 없는 선형 | 정상. 게인·노출을 올리거나 밝은 장면 |
-| `v4l2-ctl --set-ctrl hblank=...`에 `unknown control` | 이름은 `horizontal_blanking`·`vertical_blanking` | `v4l2-ctl -l`로 확인 |
-| 13-3 `rmmod imx219_study`가 `Module imx219_study is in use` | unicam에 등록될 때 V4L2 코어가 센서 모듈에 `try_module_get`(`v4l2-device.c` L130) | unicam을 먼저 내림 |
-| 13-3 v4l2-compliance 뒤 찍은 장면이 컬러바와 md5까지 같음 | compliance가 컨트롤을 시험하며 `test_pattern`을 켠 채 남긴 것으로 추정(확인 안 함) | `--set-ctrl test_pattern=0`을 명시하고 다시 찍음 |
-| 13-3 RAW 장면이 어둡고 초록빛이며 상하 반전 | ISP(화이트 밸런스·감마) 없음, flip 미구현(모듈은 `rotation` 180) | 13-4에서 flip·rotation 컨트롤을 더하고 libcamera로 받으면 정상 |
-| 13-4 렌즈를 가려도 `exposure`·`analogue_gain`이 그대로 | 어두운 방에서 이미 최대(2492 = vblank 32 기준 최대, 230 ≈ 9.85배) | 플래시로 밝혀 감소를 확인(2492/230 → 542~932/128) |
-| 노출 6배인데 밝기 비가 3.39·3.68로 작음 | 긴 노출 쪽 포화(11%), 어두운 장면은 black level을 빼고 0으로 자르면 낮은 값의 평균이 커짐 | 두 장 모두 포화·잘림이 없는 픽셀만 사용 → 5.31~5.47 |
+트러블슈팅: [camera 6장](../components/camera.md#6-트러블슈팅)
 
 **현재 버전 검증 (13: 2026-11-11, 13-2: 2026-11-15, 13-3·13-4·18-2: 2026-11-16)**
 

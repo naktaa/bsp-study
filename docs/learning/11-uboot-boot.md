@@ -261,10 +261,7 @@ diff ~/bsp/cmdline-before-tb01.txt /proc/cmdline && echo same
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `kernel=u-boot.bin` 전환 후 부팅 초기 "no match initramfs" 메시지 | `auto_initramfs=1`이 `u-boot.bin`과 짝이 되는 initramfs 이름을 찾지 못함 | 조치 없음. U-Boot가 initramfs를 직접 올림([6-1](#6-1-firmware-단계의-no-match-initramfs-메시지)) |
-| 부팅이 멈춤 | (이번에는 발생하지 않음) | PC SD 리더로 `config.txt.bak-tb01`을 `config.txt`로 덮어씀([5-6](#5-6-원복)) |
+트러블슈팅과 복구 절차: [uboot 6장](../components/uboot.md#6-트러블슈팅). 아래 6-1은 그중 한 사례의 분석이다.
 
 ### 6-1. firmware 단계의 "no match initramfs" 메시지
 

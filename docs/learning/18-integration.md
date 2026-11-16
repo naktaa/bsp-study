@@ -151,18 +151,7 @@ explorer.exe "$(wslpath -w out/cam18)"
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| 64GB 카드 `insmod mpu6050_iio.ko`가 `Unknown symbol in module` | `insmod`는 의존 모듈을 올리지 않음 | `sudo modprobe industrialio_triggered_buffer` 후 `insmod`. Yocto는 `depmod`된 자동 적재라 필요 없음 |
-| `rpicam-hello` 로그가 매우 김 | 프레임마다 `#N (fps)` 줄을 찍음 | `rpicam-hello -t 10000 -v 1 2>&1 \| grep -v '^#'` |
-| 64GB 카드 `Preview window unavailable` | HDMI를 연결하지 않고 진행함 | 미리보기는 Yocto 카드에서 HDMI를 연결해 확인. 64GB 카드 미리보기는 확인하지 않음 |
-| `scp yocto:/tmp/test.jpg`가 `Error resolving 'yocto'` | Pi 셸에서 실행. `yocto`는 노트북 `~/.ssh/config` 별칭 | 노트북 WSL 터미널에서 실행 |
-| `rpicam` 경고 `Mismatch between Unicam and CamHelper for embedded data usage!` | imx219가 embedded data 패드를 내지 않음(13-2와 같음) | 영상·사진 정상이라 그대로 둠 |
-| `.img`가 예상(0.9~1.0GB)보다 큰 1.2GB | wic(`scripts/lib/wic/partition.py` L280 `get_rootfs_size()`)가 bitbake `ROOTFS_SIZE`(798720KB, 이미 ×1.3 + 여유 512MB)를 받은 뒤 기본 `--overhead-factor` 1.3(`ksparser.py` L136)을 한 번 더 곱함 → ext4 1014MiB | 32GB 카드라 그대로 둠 |
-| 빌드 중 WARNING: v4l-utils `git.linuxtv.org` 받기 실패 | 원본 저장소 접속 실패 | 미러에서 받아 빌드 계속됨. 조치 없음 |
-| 18-2 증분 빌드에서 `mpu6050-iio`·`inmp441-codec` `do_configure`가 `No rule to make target 'clean'` | 해시가 바뀐 레시피는 `base_do_configure`가 `oe_runmake clean`을 먼저 부름(poky `base.bbclass` L335~341). 18단계 첫 빌드는 이전 configure 기록이 없어 드러나지 않음 | 레시피용 Makefile에 `clean` 타깃 추가 |
-| 위 수정 뒤 `do_package`가 pseudo `inode mismatch`·`path mismatch`로 abort(exit 134) | `clean`이 Kbuild clean(`M=${WORKDIR}`)을 불러 하위 `image/`·`package/`의 `.ko.xz`까지 pseudo 밖에서 지움 | `clean`을 현재 폴더만 지우는 `rm -f`로 바꿈([Makefile#L11](../../yocto/meta-bsp-study/recipes-kernel/imx219-study/files/Makefile#L11)), 세 레시피 `bitbake -c clean` 후 다시 빌드 |
-| Yocto 카드에서 `mount /dev/mmcblk0p1 /mnt/boot`가 `Device or resource busy` | Yocto rootfs가 부트 파티션을 이미 `/boot`에 마운트함 | `/proc/mounts`에서 경로를 찾아 씀 |
+트러블슈팅: 빌드·이미지는 [yocto 6장](../components/yocto.md#6-트러블슈팅), 장치별은 [components](../components/README.md#컴포넌트-목록) 각 문서 6장
 
 - 미검증:
   - 초음파를 자로 잰 거리와 비교하지 않았다. 거리 변화를 따라가는 것만 확인했다.

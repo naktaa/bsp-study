@@ -145,7 +145,6 @@ sudo rmmod platform_drv && ls -ld /sys/bus/platform/drivers/platform-demo   # �
 
 | 증상 | 원인 | 해결 |
 | --- | --- | --- |
-| I2C adapter를 `/sys/class/i2c-adapter`에서 못 찾음 | 대상 커널에서 쓸 경로가 아님 | `/sys/bus/i2c/devices/i2c-1`로 확인. 존재 확인은 `readlink -f` 대신 `-e`(없는 끝 경로도 출력하지 않음) |
 | sysfs 속성 `ls -l` 크기가 4096 | sysfs가 보고하는 고정 크기 | 실제 문자열 길이가 아니다. `cat`으로 값을 본다 |
 
 **현재 버전 검증 (2026-11-05, sysfs 버전)**

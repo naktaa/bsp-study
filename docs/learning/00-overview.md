@@ -24,14 +24,16 @@ user space   /dev/iio:devN   /dev/video0       /dev/snd/pcmC*c   /sys/class/pwm 
 
 ## 2. 장치 표
 
-| 장치 | 서브시스템 | 드라이버 (직접 / 업스트림) | 사용자 인터페이스 | 문서 |
-| --- | --- | --- | --- | --- |
-| IMU MPU6050 | I2C + IRQ, misc → IIO | 직접: misc FIFO 드라이버(06), IIO 드라이버 `mpu6050_iio`(09). 비교: mainline `inv_mpu6050` | `/dev/mpu6050`(06), `/dev/iio:deviceN` + sysfs(09) | [06](06-mpu6050.md), [09](09-iio-direct.md) |
-| 카메라 IMX219 | V4L2 + media controller | 업스트림 unicam. 직접: 센서 드라이버 `imx219_study`(13-3·13-4, Yocto는 18-2부터), V4L2 캡처 앱. 비교: mainline `imx219` | `/dev/video0`, `/dev/v4l-subdev0`, libcamera `rpicam-*` | [13](13-camera.md) |
-| 마이크 INMP441 | ALSA ASoC | 업스트림 `bcm2835-i2s`·`simple-audio-card`. 직접: 코덱 `inmp441_codec`, alsa-lib 앱 | `/dev/snd/pcmC*D0c`, `arecord`, `mic_capture` | [14](14-mic.md) |
-| PCA9685 | PWM | 업스트림 `pwm-pca9685`. 직접: 비교용 provider `pca9685_simple` | `/sys/class/pwm/pwmchipN` | [15](15-pca9685.md) |
-| 초음파 HC-SR04 | IIO | 업스트림 `srf04`(config fragment로 켬). 직접: overlay | `in_distance_raw`(mm) | [16](16-ultrasonic.md) |
-| 모터 PWM | PWM | 업스트림 `pwm-bcm2835`, 커널 트리 `pwm-2chan` | `/sys/class/pwm/pwmchip0` ch0·ch1 | [18](18-integration.md) |
+| 장치 | 서브시스템 | 드라이버 (직접 / 업스트림) | 사용자 인터페이스 | 학습 문서 | 운영 문서 |
+| --- | --- | --- | --- | --- | --- |
+| IMU MPU6050 | I2C + IRQ, misc → IIO | 직접: misc FIFO 드라이버(06), IIO 드라이버 `mpu6050_iio`(09). 비교: mainline `inv_mpu6050` | `/dev/mpu6050`(06), `/dev/iio:deviceN` + sysfs(09) | [06](06-mpu6050.md), [09](09-iio-direct.md) | [imu](../components/imu.md) |
+| 카메라 IMX219 | V4L2 + media controller | 업스트림 unicam. 직접: 센서 드라이버 `imx219_study`(13-3·13-4, Yocto는 18-2부터), V4L2 캡처 앱. 비교: mainline `imx219` | `/dev/video0`, `/dev/v4l-subdev0`, libcamera `rpicam-*` | [13](13-camera.md) | [camera](../components/camera.md) |
+| 마이크 INMP441 | ALSA ASoC | 업스트림 `bcm2835-i2s`·`simple-audio-card`. 직접: 코덱 `inmp441_codec`, alsa-lib 앱 | `/dev/snd/pcmC*D0c`, `arecord`, `mic_capture` | [14](14-mic.md) | [mic](../components/mic.md) |
+| PCA9685 | PWM | 업스트림 `pwm-pca9685`. 직접: 비교용 provider `pca9685_simple` | `/sys/class/pwm/pwmchipN` | [15](15-pca9685.md) | [pwm](../components/pwm.md) |
+| 초음파 HC-SR04 | IIO | 업스트림 `srf04`(config fragment로 켬). 직접: overlay | `in_distance_raw`(mm) | [16](16-ultrasonic.md) | [ultrasonic](../components/ultrasonic.md) |
+| 모터 PWM | PWM | 업스트림 `pwm-bcm2835`, 커널 트리 `pwm-2chan` | `/sys/class/pwm/pwmchipN` ch0·ch1 | [18](18-integration.md) | [pwm](../components/pwm.md) |
+
+학습 문서는 왜·어떻게 만들었는지, 운영 문서([components](../components/README.md))는 정상 확인·수정 위치·장애 조치를 다룬다. 커널·U-Boot·Yocto 운영 문서는 [kernel](../components/kernel.md)·[uboot](../components/uboot.md)·[yocto](../components/yocto.md)다.
 
 핀·주소 공유: I2C1에 IMU(0x68)와 PCA9685(0x40)가 같이 있고, I2S가 GPIO18~21을 쓰므로 모터 PWM은 GPIO12/13으로 옮겼다. 상세 배선은 [bringup](../bringup.md#40핀-한눈에-보기).
 

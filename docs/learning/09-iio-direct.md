@@ -447,10 +447,7 @@ ls -ld /sys/bus/i2c/devices/1-0068               # No such file or directory
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| 앱 없이 버퍼를 켜 둔 동안 `sample dropped: -16` | 읽는 쪽이 없어 kfifo(length 128)가 가득 참 | 앱 하나로 버퍼를 켜고 끔([6-1](#6-1-앱-없이-버퍼를-켜-두어-sample-dropped--16)) |
-| 실행 중 `dtoverlay`로 적용한 mainline 장치에 buffer·trigger 없음 | `interrupt-parent` 미해결로 IRQ 없음 → 드라이버가 buffer 없이 probe | `config.txt`로 부팅 시 적용([6-2](#6-2-실행-중-dtoverlay로-적용한-mainline-장치에-buffer가-없음)) |
+트러블슈팅: [imu 6장](../components/imu.md#6-트러블슈팅). 아래 6-1·6-2는 그중 두 사례의 분석(확인한 계층 → 원인 → 조치)이다.
 
 ### 6-1. 앱 없이 버퍼를 켜 두어 `sample dropped: -16`
 

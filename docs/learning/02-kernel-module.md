@@ -125,10 +125,7 @@ sudo rmmod hello && sudo dmesg | grep -F 'hello:' | tail -2   # hello: loaded / 
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `lsmod \| grep '^hello '`가 종료 상태 1 | 해제 뒤 항목이 없어 grep이 못 찾음 | 해제 실패가 아니다. 출력이 없는지만 본다 |
-| 새 `.ko`를 보냈는데 로그가 그대로 | 파일 전송만으로 로드된 코드는 바뀌지 않음 | rmmod → insmod |
+트러블슈팅(외부 모듈 빌드·vermagic): [kernel 6장](../components/kernel.md#6-트러블슈팅)
 
 **현재 버전 검증 (2026-11-03, 이름 변경 전 `bsp_hello`)**
 

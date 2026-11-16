@@ -73,10 +73,6 @@ ssh pi 'mkdir -p ~/bsp/apps' && scp /tmp/bsp-study/hello-arm64 pi:bsp/apps/
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| 컴파일 시 소스를 못 찾고, 이어서 `file`도 파일 없음 | 저장소 상위 `~/bspworkspace`에서 상대 경로 `examples/hello/hello.c`로 빌드함 | `~/bspworkspace/bsp-study`로 이동해 빌드. 재현 블록 첫 줄에 작업 디렉터리를 적는 이유 |
-
 **현재 버전 검증 (2026-11-02, 배포판 커널)**
 
 | 항목 | 결과 |

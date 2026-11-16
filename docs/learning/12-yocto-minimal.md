@@ -137,15 +137,7 @@ ip addr show wlan0
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| wlan0은 있는데 `iw dev wlan0 link`가 Not connected, `udhcpc`가 discover만 반복 | `wifi-secret.conf`의 SSID 대소문자 오류. 이미지에는 SSID가 hex로 들어가 눈으로 비교하기 어려움 | `iw dev wlan0 scan \| grep SSID:`와 설정 SSID(hex → 글자)를 비교. `wifi-secret.conf` 수정 → 재빌드(rootfs만, 2분) → 카드 다시 쓰기 |
-| 템플릿에 줄을 더했는데 `bitbake -e`에 안 보임 | `build/conf`는 처음 한 번만 템플릿에서 복사됨 | `build/conf/local.conf`에 같은 줄을 직접 더하거나 `build/conf`를 지우고 다시 만듦(병렬도도 다시) |
-| 1차 이미지에 `/lib/modules`가 없음 | `kernel-modules`가 `MACHINE_EXTRA_RRECOMMENDS`에 있고 core-image-minimal은 그 목록을 쓰지 않음 | 이미지 레시피에 `kernel-modules`를 직접 넣음(2차) |
-| `logread`가 비어 있음 | busybox syslog `DESTINATION=file`이라 메모리 버퍼가 아니라 `/var/log/messages`에 씀 | `grep bsp-study-wifi /var/log/messages` |
-| `ip -br`, `head -3`, `/etc/os-release`가 없음 | busybox 애플릿 옵션이 적고 core-image-minimal에 os-release 패키지가 없음 | `ip addr show`, `head -n 3`, `cat /etc/issue` |
-| `p2p-dev-wlan0` 생성 실패 메시지 | Wi-Fi Direct용 가상 인터페이스. 이 실습에서는 쓰지 않음 | 무시 |
-| 첫 빌드 경고 3개(`Failed to fetch URL ...`) | 원래 주소에서 받지 못해 미러에서 받음 | `downloads`에 `.done`이 생기면 다음부터 나오지 않음 |
+트러블슈팅: [yocto 6장](../components/yocto.md#6-트러블슈팅)
 
 - 커널 버전이 다르다: 이 이미지는 `linux-raspberrypi` 6.6.63, 기존 장치 작업 카드는 6.18.59다. 18단계는 Yocto 기본 커널에 맞춰 직접 만든 드라이버·overlay를 레시피로 다시 빌드하는 방향으로 진행한다.
 - 이미지와 카드에는 Wi-Fi `psk`(PBKDF2 값)가 들어 있어 그 값만으로 그 Wi-Fi에 접속할 수 있다. 학습용 보드라 비밀번호 없는 root SSH와 함께 보안은 고려하지 않았다.

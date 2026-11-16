@@ -202,12 +202,9 @@ ls -ld /lib/modules/"$(uname -r)"
 
 ## 6. 트러블슈팅과 한계
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `.config`는 바뀌었는데 `kernelrelease`가 이전 `6.18.59-v8` | 버전 생성에 쓰이는 `include/config/auto.conf`가 아직 이전 값(`olddefconfig`는 `No change`) | `prepare`로 동기화 |
-| SSH는 되는데 커스텀 커널에서 화면이 안 나옴 | 배포에서 `overlay_map.dtb` 누락 | [아래](#ssh는-되지만-커스텀-커널-화면이-나오지-않음) |
+트러블슈팅: [kernel 6장](../components/kernel.md#6-트러블슈팅). 아래는 그중 화면 장애의 사례 분석이다.
 
-### SSH는 되지만 커스텀 커널 화면이 나오지 않음
+### 사례 분석: SSH는 되지만 커스텀 커널 화면이 나오지 않음
 - **증상:** `overlay_prefix=overlays-bsp-study01/`, `dtoverlay=vc4-kms-v3d` 구성에서 화면 없음. 새 디렉터리에 `vc4-kms-v3d.dtbo`·`vc4-kms-v3d-pi4.dtbo`는 있고 `overlay_map.dtb`만 없었다. 사용자 제공 로그 발췌: `dterror: can't find symbol 'i2c2'`, `Failed to resolve overlay 'vc4-kms-v3d'`.
 - **원인:** 선택 커밋의 `arch/arm/boot/dts/overlays/overlay_map.dts`에 `vc4-kms-v3d { bcm2711 = "vc4-kms-v3d-pi4"; ... }` 규칙이 있다. 최초 배포 명령이 `*.dtbo`와 README만 복사해 이 매핑 파일이 빠졌다. 빌드 출력에는 `overlay_map.dtb`가 이미 있었으므로 **컴파일 누락이 아니라 배포 파일 선택에서 빠진 것**이다.
 - **당시 복구:** 기존 `/boot/firmware/overlays/overlay_map.dtb`를 `overlays-bsp-study01/`로 복사하고 재부팅 → 사용자가 정상 화면을 확인했다. 커널은 다시 빌드하지 않았다.

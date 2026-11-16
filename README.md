@@ -1,76 +1,63 @@
 # bsp-study
 
-Raspberry Pi 4 기반 BSP 학습 저장소. VEDA에서 배운 내용을 실제 환경과 비교하며 커널·Device Tree·드라이버를 직접 구성하고 센서 데이터를 수집·검증한다.
+Raspberry Pi 4에서 장치 6개를 커널 드라이버·Device Tree로 연결하고 U-Boot·Yocto 이미지로 통합한 BSP 학습 저장소
 
-## 필수 목표
-- 개발 PC에서 빌드한 프로그램과 커널·모듈을 보드에서 실행하고 부팅·복구 과정 이해
-- 문자 디바이스로 사용자/커널 경계와 데이터 전달 실습
-- 센서 데이터시트를 읽고 I2C 레지스터 접근 및 최소 센서 드라이버 직접 구현
-- Device Tree 매칭, probe/remove, 오류 처리와 자원 수명 이해
-- 인터럽트·FIFO와 IIO 버퍼를 통한 연속 수집 및 단위·축·주기·시간 검증
-- 문제 발생 시 로그·설정·코드·측정 결과로 원인을 좁히고 재현 절차 기록
-
-센서는 MPU-6050을 기준으로 계획하되 실제 모델·보유 여부부터 확인한다. 기존 프로젝트는 센서 사용 사례와 비교 기준으로 활용한다.
-
-## 최종 목표
-VEDA Final 프로젝트에서 사용한 모듈·센서(IMU, 카메라, I2S 마이크, PCA9685 팬·틸트, 초음파, 모터)를 BSP 관점에서 처리하고 U-Boot·Yocto로 묶는다. 필수 목표 이후 [roadmap 2부](docs/roadmap.md#2부-부팅-체계와-장치-확장)에서 부팅 체계(U-Boot → Yocto 최소 이미지)를 먼저 갖추고, 카메라부터 모터까지 장치를 하나씩 추가한다. EIS 보완은 현재 범위에서 제외한다.
-
-## 현재 상태
-
-WSL에서 크로스 빌드한 커널 `6.18.59-v8-bsp-study01`(64GB 카드, Debian 13)에서 모듈·문자 디바이스·Device Tree를 거쳐 MPU6050 드라이버를 misc FIFO 방식과 IIO 방식으로 직접 작성하고, 카메라·마이크·PCA9685·초음파를 하나씩 연결했다. 2부에서는 U-Boot 경유 부팅을 확인하고, 직접 만든 `meta-bsp-study` 레이어로 Yocto 이미지(커널 6.6.63, 32GB 카드)를 만들었다. 18단계에서 6개 장치를 이 이미지에 통합해 부팅만으로 자동 적재되게 했고, 테스트 앱 `devcheck`로 두 카드의 값을 비교했다(6개 PASS). 18-2에서 이 이미지가 U-Boot 2024.01을 거쳐 부팅하게 하고, 카메라를 직접 작성한 센서 드라이버 `imx219_study`로 바꿨다. 서보·모터 실구동, 10단계 회전 검증 등 남은 항목은 [전체 지도](docs/learning/00-overview.md)와 각 학습 문서 6장에 정리했다.
-
-## 복습·재현
-
-학습 문서는 [docs/learning/](docs/learning/)에 roadmap 단계 번호 순으로 모았다.
-
-- 00 [전체 지도: 장치·서브시스템·부팅·복습 순서](docs/learning/00-overview.md)
-- 01 [첫 사용자 프로그램 크로스 빌드](docs/learning/01-cross-compile.md)
-- 02 [모듈 코드·Makefile·빌드·로드·해제](docs/learning/02-kernel-module.md)
-- 03 [문자 디바이스 코드·데이터 왕복·ioctl](docs/learning/03-char-device.md)
-- 05 [Device Tree·platform 드라이버](docs/learning/05-platform-device.md)
-- 06 [MPU6050 I2C·IRQ·FIFO(4·6·8단계)](docs/learning/06-mpu6050.md)
-- 07 [커널 소스·설정·빌드·백업·설치·부팅·복구](docs/learning/07-kernel-build.md)
-- 09 [MPU6050 IIO 채널·scale·IRQ 버퍼·mainline 비교](docs/learning/09-iio-direct.md)
-- 11 [U-Boot 경유 커스텀 커널 부팅](docs/learning/11-uboot-boot.md)
-- 12 [Yocto 최소 이미지·meta-bsp-study 레이어·Wi-Fi](docs/learning/12-yocto-minimal.md)
-- 13 [카메라 IMX219 센서·CSI 수신 드라이버](docs/learning/13-camera.md)
-- 14 [I2S 마이크 INMP441·ASoC](docs/learning/14-mic.md)
-- 15 [PCA9685 PWM·업스트림과 직접 작성 provider 비교](docs/learning/15-pca9685.md)
-- 16 [초음파 HC-SR04·IIO srf04](docs/learning/16-ultrasonic.md)
-- 18 [Yocto 6.6 이미지 장치 통합·devcheck](docs/learning/18-integration.md)
-
-실습 코드는 Codex, 계획·리뷰·문서는 Claude Code가 작성하고, 모든 수정은 사용자 승인 후 진행한다. 보드 배포·실행·실측과 커밋은 사용자가 한다.
-
-## 시작
-1. 이 저장소와 같은 상위 폴더의 `VEDA`, `VEDA_Final_Project`를 참고한다. 기존 clone이 있으면 그 위치를 사용한다.
-2. `AGENTS.md`(공통), `CLAUDE.md`(Claude Code)를 읽고, `docs/roadmap.md`(완료 상태)와 `docs/worklog.md`(다음 작업·열린 브랜치)를 확인한다. 진행 중인 작업은 해당 브랜치의 작업 노트 `상태:` 줄을 본다.
-3. 보드와 개발 PC의 실제 환경은 `docs/bringup.md`에서 관리한다.
-4. 작업 노트 단위로 진행한다.
-
+```text
+hardware   MPU6050   IMX219    INMP441   PCA9685   HC-SR04   PWM
+DT         overlay*  overlay*  overlay*  overlay   overlay*  overlay
+kernel     IIO*      V4L2*     ASoC*     PWM       IIO       PWM
+user       iio:dev   video0    pcmC*c    pwmchip   sysfs     pwmchip
 ```
-[사용자·Claude] PM 대화로 계획 확정 (plan) → docs/tasks/NN-주제.md 작업 노트
-[Claude]        코드 구현이 필요하면 docs/tasks/NN-주제.codex.md 지시서
-[Codex]         지시서 읽기 → 구현 계획 승인 → 구현·WSL 빌드 → 구현 보고
-[Claude]        리뷰 (review) → 수정 지시 또는 통과
-[사용자]        노트 진행 순서대로 보드 실행 → 대표 출력을 노트 '결과'에
-[Claude]        마무리 (wrap-up) → 브랜치에서 학습 문서 작성·갱신 → 추천 커밋 메시지·머지 후 반영 블록
-[사용자]        커밋·머지
-[Claude]        머지 후 main에서 worklog·roadmap 갱신 (Docs: NN 상태 반영)
+`*` 직접 작성. 상세 지도는 [00-overview](docs/learning/00-overview.md).
+
+## 무엇을 했나
+- **IMU:** threaded IRQ + 센서 FIFO를 쓰는 misc 드라이버를 직접 작성한 뒤 IIO 드라이버(trigger·buffer·timestamp)로 다시 작성, mainline `inv_mpu6050`과 비교
+- **카메라:** 고정 모드 IMX219 센서 드라이버 `imx219_study`를 직접 작성해 unicam·libcamera와 연결, libcamera 없이 쓰는 V4L2 캡처 앱
+- **마이크:** INMP441 ASoC 코덱 드라이버·overlay와 alsa-lib 캡처 앱
+- **PCA9685·초음파·모터 PWM:** 업스트림 드라이버를 DT로 연결. PCA9685는 비교용 provider를 직접 작성, 초음파는 config fragment로 드라이버를 켜고 overlay 작성, 모터 PWM은 I2S와 겹치지 않게 GPIO12/13으로 옮김
+- **부팅·이미지:** 커널 크로스 빌드·설치·복구, U-Boot 경유 부팅, `meta-bsp-study` 레이어로 6개 장치 자동 적재, 6.6/6.18 compat 헤더
+- **검증:** 확인 앱 `devcheck`로 6.18 카드와 Yocto 6.6 카드 모두 6개 PASS
+
+## 기술 스택
+Linux 6.18.59 / 6.6.63 · U-Boot v2026.10(수동) / 2024.01(Yocto) · Yocto scarthgap + meta-raspberrypi + meta-openembedded · Device Tree overlay · IIO · V4L2·media controller · ASoC · PWM · WSL2 크로스 빌드
+
+## Quick Start (Yocto 이미지)
+이 저장소는 `~/bspworkspace/bsp-study`, Yocto 소스는 `~/yocto`에 둔다. 레이어 템플릿(`bblayers.conf.sample`)이 이 상대 위치를 기준으로 한다.
+
+```bash
+# [WSL] ~/yocto — 소스와 Wi-Fi 값(저장소 밖, WIFI_SSID·WIFI_PSK 두 줄)
+mkdir -p ~/yocto && cd ~/yocto
+git clone -b scarthgap https://git.yoctoproject.org/poky
+git clone -b scarthgap https://github.com/agherzan/meta-raspberrypi
+git clone -b scarthgap https://git.openembedded.org/meta-openembedded
+( umask 077; touch wifi-secret.conf )
+# [WSL, tmux] 빌드 셸 — Windows PATH를 빼고, 템플릿으로 build/conf를 만든다
+tmux new -A -s yocto
+export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd:)
+TEMPLATECONF=$HOME/bspworkspace/bsp-study/yocto/meta-bsp-study/conf/templates/bsp-study \
+  source poky/oe-init-build-env build
+bitbake bsp-study-image
+# tmp/deploy/images/raspberrypi4-64/*.wic.bz2 → bzcat → Raspberry Pi Imager "Use custom" → SD 카드
+# [Yocto] 부팅 후 (노트북에서 ssh root@<IP>)
+devcheck all
 ```
 
-NN은 roadmap 단계 번호다. skill(`plan`·`review`·`wrap-up`)은 대화로 요청해도 적용된다. 브랜치·커밋 규칙은 [AGENTS.md 커밋·브랜치](AGENTS.md#커밋브랜치)에 있다.
+RAM 16GB PC는 첫 빌드 전에 `build/conf/local.conf`에 `BB_NUMBER_THREADS = "3"`, `PARALLEL_MAKE = "-j 3"`을 더한다. 자세한 절차는 [components/yocto](docs/components/yocto.md), 직접 빌드 커널(64GB 카드) 경로는 [components/kernel](docs/components/kernel.md).
 
-참고 레포를 이 저장소 내부에 넣거나 함께 커밋하지 않는다. 커널 소스도 별도 관리한다.
+## 배운 점 · 대표 트러블슈팅
+- **커널 교체 후 화면 없음 → `overlay_map.dtb` 누락 → overlay는 `dtbs_install`로 묶어 배포한다** ([kernel](docs/components/kernel.md#6-트러블슈팅))
+- **실행 중 `dtoverlay`로 붙인 mainline IMU에 buffer가 없음 → `interrupt-parent` 미해결로 IRQ 없이 probe → IRQ가 필요한 overlay는 부팅 때 적용한다** ([imu](docs/components/imu.md#6-트러블슈팅))
+- **Yocto 증분 빌드에서 `do_package` pseudo abort → 레시피 `clean`이 부른 Kbuild clean이 `${WORKDIR}` 아래 패키지 파일까지 지움 → 레시피 Makefile의 `clean`은 현재 폴더만 지운다** ([yocto](docs/components/yocto.md#6-트러블슈팅))
+- **같은 1.5ms인데 PCA9685 레지스터가 카드마다 1카운트 다름 → 6.6은 올림, 6.18은 버림 → 커널 버전이 바뀌면 업스트림 드라이버 동작도 바뀐다** ([pwm](docs/components/pwm.md#6-트러블슈팅))
 
 ## 문서
-- [공통 에이전트 지침](AGENTS.md) · [Claude Code 지침](CLAUDE.md) · [문서 규칙](.claude/rules/docs.md)
-- [작업 노트](docs/tasks/) · [학습 문서 템플릿](docs/learning/_template.md)
-- [학습 순서와 완료 기준](docs/roadmap.md)
-- [환경·배선·참고 자료](docs/bringup.md)
-- [다음 작업과 열린 브랜치](docs/worklog.md)
+- [전체 지도](docs/learning/00-overview.md): 장치·서브시스템·부팅 흐름, 복습 순서
+- [컴포넌트 문서](docs/components/README.md): 장치·커널·U-Boot·Yocto별 구성, 정상 확인, 수정 위치, 장애 조치
+- [학습 문서](docs/learning/): 단계별로 왜·어떻게 만들었나
+- [환경·배선](docs/bringup.md) · [장치 사양](docs/hardware.md) · [학습 순서](docs/roadmap.md)
+- 참고 저장소(비교 기준): [VEDA](https://github.com/naktaa/VEDA)(교육 자료·수업 코드), [VEDA_Final_Project](https://github.com/naktaa/VEDA_Final_Project)(기존 사용자 공간 구현)
 
-## 참고 저장소
-- https://github.com/naktaa/VEDA — 교육 자료와 수업 코드
-- https://github.com/naktaa/VEDA_Final_Project — 기존 IMU 수집 방식과 센서 사용 사례
-
-필요한 구현과 검증 도구를 단계별로 추가한다.
+## 한계
+- `imx219_study`는 고정 모드 1개(3280×2464, 최대 21.19fps)이고, 레지스터 초기값은 mainline `imx219`에서 가져왔다.
+- `mpu6050_iio`는 센서 FIFO 없이 IRQ마다 한 샘플을 읽고, 100Hz·±2g·±250°/s로 고정했다.
+- `srf04`는 sysfs를 읽을 때마다 한 번 측정하므로 수집 주기는 사용자 공간이 정한다.
