@@ -6,7 +6,7 @@
 - **기능:** scarthgap(5.0) poky + meta-raspberrypi 위에 `meta-bsp-study` 레이어를 얹어 `bsp-study-image`를 만든다. core-image-minimal + dropbear SSH(비밀번호 없는 root) + Wi-Fi 자동 연결(firmware·`brcmfmac` 모듈·`wpa_supplicant`·wlan0 대기 스크립트)
 - **직접 작성 / 가져다 쓴 것:** `meta-bsp-study` 레이어(`layer.conf`, 템플릿, 이미지 레시피, Wi-Fi 레시피·스크립트, `interfaces`)는 직접 작성했다. poky scarthgap, meta-raspberrypi(`linux-raspberrypi` 6.6.63, firmware, `rpi-config`), core-image-minimal은 가져다 썼다.
 - **결과:** 새 32GB 카드에서 랜선 없이 Wi-Fi로 부팅해 노트북에서 `ssh root@<IP>` 접속, 재부팅 후 자동 연결을 보드에서 확인했다. 커널 `6.6.63-v8`, Raspberry Pi 4 Model B Rev 1.5, Poky 5.0.21. 첫 빌드 127분(병렬도 3), Wi-Fi 추가 재빌드 13분
-- **범위:** U-Boot·센서·Bluetooth·systemd는 넣지 않았다. 커널은 meta-raspberrypi 기본 `linux-raspberrypi` 6.6.63을 그대로 쓴다(기존 카드는 6.18.59). 64GB 카드 원복은 확인하지 않았다
+- **범위:** U-Boot·센서·Bluetooth·systemd는 넣지 않았다(센서는 18, U-Boot는 18-2에서 추가). 커널은 meta-raspberrypi 기본 `linux-raspberrypi` 6.6.63을 그대로 쓴다(기존 카드는 6.18.59). 64GB 카드 원복은 확인하지 않았다
 - **관련 파일:** [layer.conf](../../yocto/meta-bsp-study/conf/layer.conf), [local.conf.sample](../../yocto/meta-bsp-study/conf/templates/bsp-study/local.conf.sample), [bblayers.conf.sample](../../yocto/meta-bsp-study/conf/templates/bsp-study/bblayers.conf.sample), [bsp-study-image.bb](../../yocto/meta-bsp-study/recipes-core/images/bsp-study-image.bb), [interfaces](../../yocto/meta-bsp-study/recipes-core/init-ifupdown/files/interfaces), [bsp-study-wifi](../../yocto/meta-bsp-study/recipes-connectivity/bsp-study-wifi/files/bsp-study-wifi), 진행 기록 [12 작업 노트](../tasks/12-yocto-minimal.md)·[Codex 지시서](../tasks/12-yocto-minimal.codex.md). poky·meta-raspberrypi·빌드 디렉터리는 저장소 밖 `~/yocto`
 
 ## 2. 구조

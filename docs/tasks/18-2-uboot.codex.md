@@ -268,6 +268,7 @@ git status --short
 - 이름: driver `imx219-study`(L550), compatible `nakta,imx219-study`(L543), subdev 이름 `imx219`(L467)라 노트 6단계 기대값과 맞는다.
 - 빌드·checkpatch: 6.6 직접·레시피 Makefile 빌드 `W=1` 경고 0, dtbo에 `brcm,media-controller` 포함. `imx219_study.c` 0/0. `imx219_compat.h`의 경고 2건(`LINUX_VERSION_CODE`)은 `mpu6050_compat.h`와 같은 표기라 허용한다. 역변환 `unit_address_vs_reg` 1건은 `__local_fixups__` 노드 경고라 무시한다.
 - 남은 확인: 노트북 6.18 재빌드(노트 3단계), bitbake 결과(4단계), 6.6 libcamera 0.4.0 인식과 media controller 모드(6단계).
+- 남은 확인 결과(2026-11-16): 모두 확인했다(노트 '결과'). 6.18 재빌드 경고 0. 6.18에서 이 속성 없이 MC 모드였던 것은 `bcm2835-unicam.c` L3425의 match data(1) 때문이다(L3303).
 
 ### C. Makefile `clean` — 1차 통과 판단 철회, 재작업 (2026-11-16)
 - 아래 1차 리뷰의 확인에는 하위 폴더가 없어서 Kbuild clean이 `image/`·`package/`까지 지우는 것을 놓쳤다. 2차 빌드가 `do_package` pseudo abort로 실패했다(원인은 지시 C 요구사항 1).

@@ -1,6 +1,6 @@
 # 18-2 통합 Yocto 이미지에 U-Boot와 직접 작성 카메라 드라이버 넣기
 
-상태: 계획 · 브랜치: `feat/uboot-yocto` · Codex 지시서: [18-2-uboot.codex.md](18-2-uboot.codex.md)
+상태: 완료 · 브랜치: `feat/uboot-yocto` · Codex 지시서: [18-2-uboot.codex.md](18-2-uboot.codex.md)
 진행 장소: 데스크톱 WSL(빌드·카드 쓰기) ↔ 노트북(32GB Yocto 카드 확인)
 
 ## 목표
@@ -212,15 +212,15 @@ grep -E 'mpu6050|pca9685|inmp441|srf04|pwm|imx219' after/dt.dts | head
 노트 결과, 11 학습 문서 보완(U-Boot), 18·13 학습 문서 보완(카메라 교체), 12·00 서술 갱신, main의 worklog·roadmap 링크 순서로 진행한다. 11 문서의 "DT를 바꾸지 않는다"는 6단계 diff 결과에 맞춰 고친다.
 
 ## 완료 기준
-- [ ] Codex A 리뷰 통과(파일 3개, saveenv 없는 `boot.scr`)
-- [ ] Codex B 리뷰 통과: 6.6 빌드 경고 0, 노트북 6.18 재빌드 경고 0(동작 변경 없음)
-- [ ] U-Boot 경유 판정: `/proc/device-tree/chosen/u-boot,version` = `2024.01`. 4단계에서 해당 코드가 없으면 HDMI `U-Boot 2024.01` 배너와 부트 파티션 `kernel8.img`의 `strings` 결과로 바꿔 판정
-- [ ] `/proc/cmdline`과 부트 파티션 `cmdline.txt`가 U-Boot 전과 같음. `config.txt`는 카메라 overlay 한 줄(`imx219` → `imx219-study`)만 다름
-- [ ] DT diff에서 장치 overlay 노드 유지(`imx219@10`은 compatible 변경만), U-Boot가 바꾼 노드를 목록으로 정리
-- [ ] `devcheck all` 6개 PASS(18단계와 같음)
-- [ ] 부트 파티션에 `uboot.env` 없음
-- [ ] `imx219_study` 자동 적재, mainline `imx219` 미적재, `config.txt`에 `dtoverlay=imx219-study`만
-- [ ] libcamera 0.4.0이 `imx219`로 인식, HDMI 미리보기와 `rpicam-still`이 바른 방향·정상 색
+- [x] Codex A 리뷰 통과(파일 3개, saveenv 없는 `boot.scr`)
+- [x] Codex B 리뷰 통과: 6.6 빌드 경고 0, 노트북 6.18 재빌드 경고 0(동작 변경 없음)
+- [x] U-Boot 경유 판정: `/proc/device-tree/chosen/u-boot,version` = `2024.01`. 4단계에서 해당 코드가 없으면 HDMI `U-Boot 2024.01` 배너와 부트 파티션 `kernel8.img`의 `strings` 결과로 바꿔 판정
+- [x] `/proc/cmdline`과 부트 파티션 `cmdline.txt`가 U-Boot 전과 같음. `config.txt`는 카메라 overlay 한 줄(`imx219` → `imx219-study`)만 다름
+- [x] DT diff에서 장치 overlay 노드 유지(`imx219@10`은 compatible 변경만), U-Boot가 바꾼 노드를 목록으로 정리
+- [x] `devcheck all` 6개 PASS(18단계와 같음)
+- [x] 부트 파티션에 `uboot.env` 없음
+- [x] `imx219_study` 자동 적재, mainline `imx219` 미적재, `config.txt`에 `dtoverlay=imx219-study`만
+- [x] libcamera 0.4.0이 `imx219`로 인식, HDMI 미리보기와 `rpicam-still`이 바른 방향·정상 색
 
 ## 결과
 대표 출력 몇 줄과 판단만 적는다.
@@ -242,5 +242,20 @@ grep -E 'mpu6050|pca9685|inmp441|srf04|pwm|imx219' after/dt.dts | head
   - `u-boot,version`: `boot/fdt_support.c` L324 `fdt_chosen()`에 있고 `boot/image-fdt.c` L618에서 부팅 직전에 호출 → 완료 기준 판정 방법 그대로
   - `.config`: `BOOTSTD=y`, `BOOTSTD_DEFAULTS=y`, `BOOTCOMMAND="bootflow scan"`, `BOOTDELAY=2`, `ENV_IS_IN_FAT=y`(`uboot.env`), `VIDEO_BCM2835=y`, `SYS_BOOTM_LEN=0x1000000`. `DISTRO_DEFAULTS` 줄 없음. 주소는 `board/raspberrypi/rpi/rpi.env`(`kernel_addr_r=0x00080000`, `scriptaddr=0x02400000`, `fdt_addr_r=0x02600000`, `ramdisk_addr_r=0x02700000`). 11단계 v2026.10과 같은 구조(`rpi.env`·`bootflow scan`)
   - 카메라: `config.txt` L257 `dtoverlay=imx219-study`만(단독 `imx219` 없음, 장치 overlay 6줄 L252~257), deploy에 `imx219-study.dtbo`와 stock `imx219.dtbo`, rootfs에 `updates/imx219_study.ko.xz`와 mainline `imx219.ko.xz`가 함께 있음, `modules.alias`에 `nakta,imx219-study` → `imx219_study`. 6.6 `.config` `CONFIG_V4L2_CCI=m`·`CONFIG_V4L2_CCI_I2C=m`
-  - 확인 필요(보드): `SYS_BOOTM_LEN` 16MB보다 큰 `Image`(약 27MB)를 `booti`가 문제없이 올리는지. 2024.01 `boot/image.c` L459~466은 비압축 이미지가 제자리일 때 크기 검사 없이 지나감
-- 미검증:
+  - 확인 필요(보드): `SYS_BOOTM_LEN` 16MB보다 큰 `Image`(약 27MB)를 `booti`가 문제없이 올리는지. 2024.01 `boot/image.c` L459~466은 비압축 이미지가 제자리일 때 크기 검사 없이 지나감 → 6단계에서 정상 부팅(해소)
+- 3 노트북 6.18 재빌드(Claude가 노트북에서 실행, `make -C examples/camera_sensor W=1`): `CC [M] imx219_study.o` → `LD [M] imx219_study.ko`, 경고 0
+  - 6.18에서 overlay에 `brcm,media-controller`가 없어도 MC 모드였던 이유(읽기 확인): `bcm2835-unicam.c` L3425 `brcm,bcm2835-unicam`의 match data가 1이라 L3303에서 `mc_api = true`. 6.6은 DT 속성으로만 켬(Codex 리뷰 B)
+- 6 U-Boot 경유(노트북, HDMI 연결): `u-boot,version` = `2024.01`, `strings kernel8.img` → `U-Boot 2024.01 (Jan 08 2024 - 15:37:48 +0000)`, `uboot.env` 없음, `devcheck=0` 6개 PASS(imu 20 samples, cam `recognized; JPEG captured` 등)
+  - `cmdline-same`, `bootcmdline-same`
+  - `config.txt`: L251~252(`# Enable Sony RaspberryPi Camera(imx219)`, `dtoverlay=imx219`) 삭제, 장치 overlay 끝에 `dtoverlay=imx219-study` 추가. 바뀐 내용은 카메라 overlay 하나
+  - 부트 파티션: `Image` 27,400,704 B·`boot.scr` 372 B 추가, `kernel8.img` 27,400,704 → 621,144 B(U-Boot). `chosen`은 `u-boot,version`만 추가
+  - DT diff 45줄. 대부분 phandle 재번호이고 장치 overlay 노드(mpu6050·pca9685·inmp441·srf04·pwm)의 속성은 같음
+  - `imx219@10`: compatible `sony,imx219` → `nakta,imx219-study`, `ad5398@c`(vcm) 삭제, 노드 `phandle` 삭제(stock `imx219-overlay.dts` L91~101 `__overrides__`가 `<&cam_node>`를 참조해 생기던 것). rotation·reg·clocks·VANA-supply·endpoint 같음, `csi`의 `brcm,media-controller` 그대로
+  - U-Boot가 더한 것: `/chosen/u-boot,version = "2024.01"`, 루트 `framebuffer`(`simple-framebuffer`, `status = "disabled"`). `/memory`는 그대로. `framebuffer`는 `ft_board_setup()`이 DT에 simple-framebuffer가 없으면 추가(v2026.10 `board/raspberrypi/rpi/rpi.c` L655~658 읽기 확인, 2024.01 줄 번호는 확인 필요)
+  - HDMI: autoboot 문구로 보이는 화면 → 라즈베리파이 이미지 → 로그인. `U-Boot 2024.01` 배너 문자열은 읽지 못함 → 판정은 `u-boot,version`·`strings`로 함
+- 6 카메라: `lsmod` `imx219_study`·`v4l2_cci`(mainline `imx219` 없음), `10-0010` → `imx219-study`, dmesg `imx219-study 10-0010: chip ID: 0x0219`
+  - `--list-cameras`: `imx219 [3280x2464 10-bit RGGB]`, 모드 1개 `3280x2464 [21.19 fps]`
+  - `rpicam-hello -t 10000`: `Made DRM preview window`, 센서 `SBGGR10_1X10`·unicam `pBAA`, HDMI 영상 바른 방향·정상 색(사용자 확인). 경고는 `RPiSdn` legacy SDN tuning 1줄
+  - `rpicam-still`: `still.jpg` 2,540,588 B, 바른 방향·정상 색(Claude가 노트북에서 열어 확인)
+- 판정: 완료 기준 모두 충족
+- 미검증: 시리얼 콘솔의 U-Boot 로그와 HDMI 배너 문자열, U-Boot 프롬프트 입력, 백업·복구 절차 실행("빠른 원복"·"카메라만 되돌리기"·완전 원복은 준비만 함), Yocto 카드에서 직접 작성 드라이버로 640×480·20fps 연속 프레임 간격, 장시간 운용
