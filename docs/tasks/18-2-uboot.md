@@ -70,6 +70,7 @@ grep -c . out/uboot18/before/dt.dts; cat out/uboot18/before/cmdline.txt
 
 ```bash
 # [WSL] ~/yocto/build
+cd ~/yocto/build
 mkdir -p ~/yocto/backup
 cp -L tmp/deploy/images/raspberrypi4-64/bsp-study-image-raspberrypi4-64.rootfs-20261115034338.wic.bz2 ~/yocto/backup/
 ls -l ~/yocto/backup/
@@ -86,10 +87,25 @@ git pull && make -C examples/camera_sensor W=1
 확인: **[붙여 주세요]** 경고 없이 `LD [M] imx219_study.ko`.
 
 ### 4. [데스크톱 WSL, tmux yocto] 증분 빌드와 U-Boot 소스 확인
-18단계 7단계처럼 PATH를 정리하고 `source`한 창에서 실행한다.
+빌드 전에 Windows 설정 → 전원에서 절전 모드가 "안 함"인지 확인한다(절전에 들어가면 WSL도 멈춤. 화면 꺼짐은 상관없음).
 
 ```bash
-# [WSL] ~/yocto/build — 빌드 전 변수 확인
+# [데스크톱 Windows Terminal, WSL 창] — tmux 세션 열기(있으면 그 세션으로 들어감)
+tmux new -A -s yocto
+```
+
+```bash
+# [데스크톱 WSL, tmux yocto] — 새 세션·새 창(`Ctrl-b c`)·분할 창(`Ctrl-b %`)이면 매번 실행
+export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/mnt/' | paste -sd:)
+echo "$PATH" | tr ':' '\n' | grep -c '^/mnt/'    # 0
+cd ~/yocto && source poky/oe-init-build-env build
+```
+
+- 이 블록은 셸 단위 설정이라 주석만 붙여 넣으면 실행되지 않는다. 세 줄을 모두 실행한다.
+- 빌드 중 빠져나오기: `Ctrl-b`를 누르고 뗀 뒤 `d`(빌드는 계속됨). 다시 들어가기: `tmux attach -t yocto`. Windows Terminal의 WSL 창 하나는 빌드가 끝날 때까지 열어 둔다.
+
+```bash
+# [WSL, tmux yocto] ~/yocto/build — 빌드 전 변수 확인
 cd ~/bspworkspace/bsp-study && git pull && cd ~/yocto/build
 bitbake -e bsp-study-image | grep -E '^(RPI_USE_U_BOOT|KERNEL_IMAGETYPE|IMAGE_BOOT_FILES|RASPBERRYPI_CAMERA_V2)='
 bitbake -e virtual/kernel | grep -E '^RPI_KERNEL_DEVICETREE_OVERLAYS='
@@ -170,7 +186,7 @@ DTC=$(command -v dtc || echo out/kernel-rpi4/scripts/dtc/dtc)
 $DTC -I fs -O dts -o out/uboot18/after/dt.dts out/uboot18/after/dt 2>/dev/null
 cd out/uboot18
 diff before/cmdline.txt after/cmdline.txt && echo cmdline-same
-diff before/boot-config.txt after/boot-config.txt && echo config-same
+diff before/boot-config.txt after/boot-config.txt                 # imx219 → imx219-study 한 줄만
 diff before/boot-cmdline.txt after/boot-cmdline.txt && echo bootcmdline-same
 diff before/bootpart-ls.txt after/bootpart-ls.txt
 diff before/chosen-list.txt after/chosen-list.txt
@@ -182,11 +198,11 @@ grep -E 'mpu6050|pca9685|inmp441|srf04|pwm|imx219' after/dt.dts | head
 확인: **[붙여 주세요]** 아래 출력과 HDMI에서 본 내용을 붙여 주세요.
 - `u-boot,version` 값, `devcheck=0`과 6개 PASS
 - `uboot.env` 없음, `strings`에 `U-Boot 2024.01`
-- `cmdline-same`·`config-same`·`bootcmdline-same`, 부트 파티션 파일 목록 차이
+- `cmdline-same`·`bootcmdline-same`, `config.txt` diff(`dtoverlay=imx219` → `dtoverlay=imx219-study` 한 줄만 다름), 부트 파티션 파일 목록 차이(`kernel8.img` 크기 변화, `Image`·`boot.scr` 추가는 예상된 차이)
 - `chosen` 목록 차이, `dt.diff` 바뀐 줄 수와 앞 40줄, overlay 노드 grep
 - 카메라: `lsmod`에 `imx219_study`(mainline `imx219` 없음), `10-0010` 드라이버 `imx219-study`, dmesg `chip ID: 0x0219`, 카메라 목록 모드 1개, `Made DRM preview window`와 HDMI에 바른 방향·정상 색 영상, 센서 포맷 `SBGGR10_1X10`, `still.jpg`를 노트북에서 확인(`scp 'yocto:/tmp/after/still.jpg' out/uboot18/after/`)
 - 판정:
-  - overlay 노드(`mpu6050`, `pca9685`, `inmp441`, `srf04`, `pwm`)는 diff에 없어야 한다. `imx219@10`은 compatible 변경(`sony,imx219` → `nakta,imx219-study`)과 vcm 노드 제거가 예상된 차이이고, 그 밖의 속성(reg·clocks·supply·endpoint·rotation)은 같아야 한다.
+  - overlay 노드(`mpu6050`, `pca9685`, `inmp441`, `srf04`, `pwm`)는 diff에 없어야 한다. `imx219@10`은 compatible 변경(`sony,imx219` → `nakta,imx219-study`)과 vcm 노드 제거가 예상된 차이이고(`csi@7e801000`의 `brcm,media-controller`는 stock overlay에도 있어 그대로여야 함), 그 밖의 속성(reg·clocks·supply·endpoint·rotation)은 같아야 한다.
   - U-Boot가 바꾼 노드(`/chosen`, `/memory` 등)를 정리한다.
   - `rng-seed`·`kaslr-seed`처럼 부팅마다 바뀌는 값은 U-Boot 탓으로 보지 않고 이름만 비교한다.
 
@@ -199,7 +215,7 @@ grep -E 'mpu6050|pca9685|inmp441|srf04|pwm|imx219' after/dt.dts | head
 - [ ] Codex A 리뷰 통과(파일 3개, saveenv 없는 `boot.scr`)
 - [ ] Codex B 리뷰 통과: 6.6 빌드 경고 0, 노트북 6.18 재빌드 경고 0(동작 변경 없음)
 - [ ] U-Boot 경유 판정: `/proc/device-tree/chosen/u-boot,version` = `2024.01`. 4단계에서 해당 코드가 없으면 HDMI `U-Boot 2024.01` 배너와 부트 파티션 `kernel8.img`의 `strings` 결과로 바꿔 판정
-- [ ] `/proc/cmdline`, 부트 파티션 `config.txt`·`cmdline.txt`가 U-Boot 전과 같음
+- [ ] `/proc/cmdline`과 부트 파티션 `cmdline.txt`가 U-Boot 전과 같음. `config.txt`는 카메라 overlay 한 줄(`imx219` → `imx219-study`)만 다름
 - [ ] DT diff에서 장치 overlay 노드 유지(`imx219@10`은 compatible 변경만), U-Boot가 바꾼 노드를 목록으로 정리
 - [ ] `devcheck all` 6개 PASS(18단계와 같음)
 - [ ] 부트 파티션에 `uboot.env` 없음
@@ -213,4 +229,18 @@ grep -E 'mpu6050|pca9685|inmp441|srf04|pwm|imx219' after/dt.dts | head
   - `/proc/cmdline`: firmware가 붙인 앞부분(`coherent_pool=1M 8250.nr_uarts=1 … vc_mem.mem_size=0x40000000`) + `cmdline.txt`(`dwc_otg.lpm_enable=0 console=serial0,115200 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait net.ifnames=0`, `serial0`은 `ttyS0`으로 바뀌어 보임)
   - `config.txt`: `dtparam=i2c1=on`·`i2c_arm=on`, `enable_uart=1`, `dtoverlay=vc4-kms-v3d`, `dtoverlay=imx219`(L252), 장치 overlay 5줄(L254~258). `camera_auto_detect` 줄 없음
   - 부트 파티션은 이미 `/boot`에 마운트되어 있어 `/mnt/boot` 재마운트가 `Device or resource busy` → 노트 명령을 `/proc/mounts`에서 찾은 경로로 고침
+- 2 백업: `~/yocto/backup/bsp-study-image-raspberrypi4-64.rootfs-20261115034338.wic.bz2` 100,105,479 B(원본과 같은 크기). 처음에 홈 디렉터리에서 실행해 상대 경로를 못 찾음 → 명령에 `cd ~/yocto/build` 추가
+- 4 빌드 전 변수: `RPI_USE_U_BOOT="1"`, `KERNEL_IMAGETYPE="Image"`, `IMAGE_BOOT_FILES` 끝에 `imx219-study.dtbo;overlays/imx219-study.dtbo`와 `Image u-boot.bin;kernel8.img boot.scr`, `RPI_KERNEL_DEVICETREE_OVERLAYS` 끝에 `overlays/imx219-study.dtbo`(기존 `overlays/imx219.dtbo`도 남음). `RASPBERRYPI_CAMERA_V2=` 줄은 출력 없음(변수 미설정)
+- 4 빌드 1차(39m15s): 커널(`do_compile_kernelmodules`·`do_deploy`)은 끝났지만, `mpu6050-iio`·`inmp441-codec`의 `do_configure`가 `make: *** No rule to make target 'clean'`으로 실패
+  - 원인: `base_do_configure`가 해시가 바뀐 레시피에서 `oe_runmake clean`을 먼저 실행하는데(poky `base.bbclass` L335~341), 레이어 Makefile에 `clean` 타깃이 없음. 18단계 첫 빌드 때는 이전 configure 기록이 없어 드러나지 않았음
+  - 조치: Codex 지시서 C(Makefile 3개에 `clean` 추가) → 리뷰 → `time bitbake bsp-study-image` 다시 실행(데스크톱 bitbake가 이 저장소의 레이어를 직접 읽으므로 pull 불필요)
+- 4 빌드 2차(3m2s): `mpu6050-iio`·`inmp441-codec`의 `do_package`가 pseudo `inode mismatch`·`path mismatch`로 abort(exit 134)
+  - 원인: `clean`이 부른 Kbuild 외부 모듈 clean이 `M=`(= `${WORKDIR}`) 하위 폴더까지 지워 `image/`·`package/`의 `.ko.xz`가 pseudo 밖에서 삭제됨
+  - 조치: `clean`을 현재 폴더만 지우는 `rm -f`로 바꿈(Codex 지시서 C 재작업), 세 레시피 `bitbake -c clean` 후 다시 빌드
+- 4 빌드 3차(3m32s): 모든 작업 성공. `…rootfs-20261116073604.wic.bz2` 100,482,971 B (확인 블록은 Claude가 데스크톱에서 읽기로 실행)
+  - U-Boot: `u-boot.bin` → `u-boot-raspberrypi4-64-2024.01-r0.bin`, 배너 `U-Boot 2024.01 (Jan 08 2024 …)`. `boot.scr` 3줄(`fdt addr ${fdt_addr} && fdt get value bootargs …`, `fatload mmc 0:1 ${kernel_addr_r} Image`, `booti ${kernel_addr_r} - ${fdt_addr}`)이고 `saveenv` 없음
+  - `u-boot,version`: `boot/fdt_support.c` L324 `fdt_chosen()`에 있고 `boot/image-fdt.c` L618에서 부팅 직전에 호출 → 완료 기준 판정 방법 그대로
+  - `.config`: `BOOTSTD=y`, `BOOTSTD_DEFAULTS=y`, `BOOTCOMMAND="bootflow scan"`, `BOOTDELAY=2`, `ENV_IS_IN_FAT=y`(`uboot.env`), `VIDEO_BCM2835=y`, `SYS_BOOTM_LEN=0x1000000`. `DISTRO_DEFAULTS` 줄 없음. 주소는 `board/raspberrypi/rpi/rpi.env`(`kernel_addr_r=0x00080000`, `scriptaddr=0x02400000`, `fdt_addr_r=0x02600000`, `ramdisk_addr_r=0x02700000`). 11단계 v2026.10과 같은 구조(`rpi.env`·`bootflow scan`)
+  - 카메라: `config.txt` L257 `dtoverlay=imx219-study`만(단독 `imx219` 없음, 장치 overlay 6줄 L252~257), deploy에 `imx219-study.dtbo`와 stock `imx219.dtbo`, rootfs에 `updates/imx219_study.ko.xz`와 mainline `imx219.ko.xz`가 함께 있음, `modules.alias`에 `nakta,imx219-study` → `imx219_study`. 6.6 `.config` `CONFIG_V4L2_CCI=m`·`CONFIG_V4L2_CCI_I2C=m`
+  - 확인 필요(보드): `SYS_BOOTM_LEN` 16MB보다 큰 `Image`(약 27MB)를 `booti`가 문제없이 올리는지. 2024.01 `boot/image.c` L459~466은 비압축 이미지가 제자리일 때 크기 검사 없이 지나감
 - 미검증:
