@@ -209,5 +209,8 @@ grep -E 'mpu6050|pca9685|inmp441|srf04|pwm|imx219' after/dt.dts | head
 ## 결과
 대표 출력 몇 줄과 판단만 적는다.
 
-- 
+- 1 기준값(U-Boot 전, mainline `imx219`, 18 Yocto 카드): `devcheck=0`, imu·pca·cam·mic·sonar·pwm 6개 PASS. `chosen`은 `bootargs`·`bootloader`·`kaslr-seed`·`log`·`name`·`os_prefix`·`overlay_prefix`·`phandle`·`rpi-boardrev-ext`·`rpi-serial64`·`stdout-path`이고 `u-boot,version` 없음. 부트 파티션 `kernel8.img` 27,400,704 B(커널 `Image`), `dt.dts` 2524줄
+  - `/proc/cmdline`: firmware가 붙인 앞부분(`coherent_pool=1M 8250.nr_uarts=1 … vc_mem.mem_size=0x40000000`) + `cmdline.txt`(`dwc_otg.lpm_enable=0 console=serial0,115200 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait net.ifnames=0`, `serial0`은 `ttyS0`으로 바뀌어 보임)
+  - `config.txt`: `dtparam=i2c1=on`·`i2c_arm=on`, `enable_uart=1`, `dtoverlay=vc4-kms-v3d`, `dtoverlay=imx219`(L252), 장치 overlay 5줄(L254~258). `camera_auto_detect` 줄 없음
+  - 부트 파티션은 이미 `/boot`에 마운트되어 있어 `/mnt/boot` 재마운트가 `Device or resource busy` → 노트 명령을 `/proc/mounts`에서 찾은 경로로 고침
 - 미검증:
