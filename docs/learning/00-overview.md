@@ -65,7 +65,7 @@ user space   /dev/iio:devN   /dev/video0       /dev/snd/pcmC*c   /sys/class/pwm 
 | 10 | 측정·디버깅·재현(진행: 60초 정지 기준선 확보, 회전 검증 남음) | [09 6장](09-iio-direct.md#6-트러블슈팅과-한계) |
 | 11 | U-Boot 경유 부팅, DT·bootargs 전달 확인 | [11](11-uboot-boot.md) |
 | 12 | 직접 만든 레이어로 Yocto 최소 이미지·Wi-Fi SSH | [12](12-yocto-minimal.md) |
-| 13 | IMX219 센서·unicam 연결, 노출·타임스탬프 경로, libcamera 없이 캡처 | [13](13-camera.md) |
+| 13 | IMX219 센서·unicam 연결, 노출·타임스탬프 경로, libcamera 없이 캡처, 고정 모드 센서 드라이버 직접 작성(13-3)·libcamera 연동(13-4) | [13](13-camera.md) |
 | 14 | INMP441 ASoC 연결, 코덱 드라이버, alsa-lib 캡처 앱 | [14](14-mic.md) |
 | 15 | PCA9685 업스트림 PWM 기준값과 직접 작성 provider 비교 | [15](15-pca9685.md) |
 | 16 | config fragment로 IIO `srf04` 켜기, 거리 값 확인 | [16](16-ultrasonic.md) |

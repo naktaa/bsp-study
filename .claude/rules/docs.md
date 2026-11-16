@@ -50,7 +50,7 @@ paths:
 - docs/learning/09-iio-direct.md: IIO 채널·버퍼·timestamp, mainline `inv_mpu6050` 비교
 - docs/learning/11-uboot-boot.md: U-Boot 빌드·부트 스크립트, DT·bootargs 전달
 - docs/learning/12-yocto-minimal.md: Yocto 레이어·템플릿·MACHINE·이미지 레시피, 최소 이미지 빌드·카드 부팅·Wi-Fi
-- docs/learning/13-camera.md: IMX219 센서·unicam 드라이버, 노출·타임스탬프 경로, libcamera 없이 subdev 컨트롤·V4L2 캡처(13-2), DT 속성·전원 순서
+- docs/learning/13-camera.md: IMX219 센서·unicam 드라이버, 노출·타임스탬프 경로, libcamera 없이 subdev 컨트롤·V4L2 캡처(13-2), DT 속성·전원 순서, 고정 모드 센서 드라이버 직접 작성(13-3)·libcamera 연동(13-4)
 - docs/learning/14-mic.md: INMP441 I2S 마이크, ASoC CPU DAI·코덱·machine과 overlay
 - docs/learning/15-pca9685.md: PCA9685 PWM, 업스트림 `pwm-pca9685`와 직접 작성 provider 비교
 - docs/learning/16-ultrasonic.md: HC-SR04 초음파, 업스트림 IIO `srf04`·overlay, 거리 값 확인
